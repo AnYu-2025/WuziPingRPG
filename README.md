@@ -1,5 +1,9 @@
 # 伍子平 · 星火远征
 
+[下载 Android APK v0.4.0](dist/WuziPing-Emberbound-0.4.0-debug.apk) · [下载仓库源码 ZIP](https://github.com/ohGGBob/WuziPingRPG/archive/refs/heads/main.zip)
+
+仓库包含源码、角色与场景素材、构建脚本、验证记录和 APK。签名私钥、构建缓存、本地玩家存档及重复源码压缩包不纳入 Git。私有仓库的下载链接需要有访问权限。
+
 版本 **0.4.0：角落里的朋友**。离线单机、2D 俯视角像素动作 RPG，主角伍子平，从中山大学梦境据点出发，沿血管穿越五处器官/部位副本。病毒与异常增殖细胞使用独立敌人造型。器官地图、药品和战斗均为虚构游戏设定。
 
 ## 安装与开始
