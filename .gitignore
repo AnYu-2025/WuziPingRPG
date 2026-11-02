@@ -1,0 +1,20 @@
+.gradle/
+build/
+app/build/
+local.properties
+*.keystore
+*.jks
+
+# Local player profiles, caches, and tooling state
+*.bin
+__pycache__/
+*.pyc
+.idea/
+*.iml
+.vscode/
+.env
+.env.*
+
+# Generated source archives are reproducible, not repository inputs
+dist/*-source.zip
+*.idsig

@@ -1,0 +1,15 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'cn.wuziping.ember'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'cn.wuziping.ember'
+        minSdk 23
+        targetSdk 34
+        versionCode 4
+        versionName '0.4.0'
+    }
+    sourceSets { main.java.srcDirs += '../core/src/main/java' }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
+    buildTypes { release { minifyEnabled false } }
+}

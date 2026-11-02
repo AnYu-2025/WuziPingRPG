@@ -1,0 +1,35 @@
+PASS Diagonal movement is normalized
+PASS World bounds constrain movement
+PASS Solid tree collision blocks movement
+PASS Melee damages a nearby enemy
+PASS Skill finishes enemy and increments kills
+PASS Defeated enemies drop loot
+PASS Damage grants a real invulnerability window
+PASS Dash starts cooldown and invulnerability
+PASS Potion consumes stock and restores half max HP
+PASS Large XP reward queues every earned upgrade
+PASS Upgrade choices are distinct
+PASS Exactly one upgrade is consumed
+PASS Game resumes after all pending upgrades
+PASS Pause freezes movement and game time
+PASS Clearing a wave starts a supply intermission
+PASS Intermission advances to boss wave
+PASS Final wave clear ends in victory
+PASS Finish rewards cannot be granted twice
+PASS Lethal damage finalizes a run
+PASS Restored game starts at a safe title screen
+PASS Pending choice survives process restart
+PASS Snapshot preserves combat, resources and entities
+PASS Truncated or foreign saves are rejected
+PASS Independent touch pointers support moving while attacking
+PASS Releasing joystick does not release attack
+PASS Attack ends on its own pointer release
+PASS Pausing clears held inputs
+PASS New run asks before replacing an active save
+PASS Cancel preserves active journey
+PASS Boss telegraphed strike resolves into damage
+PASS Moving outside boss telegraph avoids damage
+PASS Chasing enemy steers around a blocking tree
+PASS 1000-second simulation soak survives progression, death and replay
+ALL 33 CHECKS PASSED
+Rendered 7 shared-layout screenshots to D:\大学生软件创新大赛\WuziPingRPG\artifacts\screenshots

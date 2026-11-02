@@ -1,0 +1,84 @@
+PASS Diagonal movement is normalized
+PASS World bounds constrain movement
+PASS Solid tree collision blocks movement
+PASS Melee damages a nearby enemy
+PASS Skill finishes enemy and increments kills
+PASS Defeated enemies drop loot
+PASS Damage grants a real invulnerability window
+PASS Dash starts cooldown and invulnerability
+PASS Potion consumes stock and restores half max HP
+PASS Large XP reward queues every earned upgrade
+PASS Upgrade choices are distinct
+PASS Exactly one upgrade is consumed
+PASS Game resumes after all pending upgrades
+PASS Pause freezes movement and game time
+PASS Clearing a wave starts a supply intermission
+PASS Intermission advances to boss wave
+PASS Final wave clear ends in victory
+PASS Finish rewards cannot be granted twice
+PASS Lethal damage finalizes a run
+PASS Restored game starts at a safe title screen
+PASS Pending choice survives process restart
+PASS Snapshot preserves combat, resources and entities
+PASS Truncated or foreign saves are rejected
+PASS Independent touch pointers support moving while attacking
+PASS Releasing joystick does not release attack
+PASS Attack ends on its own pointer release
+PASS Pausing clears held inputs
+PASS New run asks before replacing an active save
+PASS Cancel preserves active journey
+PASS Boss telegraphed strike resolves into damage
+PASS Moving outside boss telegraph avoids damage
+PASS Chasing enemy steers around a blocking tree
+PASS 1000-second simulation soak survives progression, death and replay
+ALL 33 CHECKS PASSED
+PASS New journey begins with Chinese opening in town
+PASS Opening and town do not spawn combat or advance forest time
+PASS Completed typewriter line advances to next story page
+PASS NPC conversation requires physical proximity
+PASS Opening NPC dialogue does not prematurely accept quest
+PASS Declining quest has no reward or progression side effects
+PASS Accepting quest grants its reward once
+PASS Repeated mayor conversations cannot farm quest reward
+PASS Northern gate remains locked until ranger preparation
+PASS Ranger advances quest and supplies one potion
+PASS Ranger supply cannot be repeated
+PASS Town is a safe area with no combat actions
+PASS Plaza fountain has a real collision footprint
+PASS Town buildings have collision footprints
+PASS Town collision map provides a walkable route to 沈砚
+PASS Town collision map provides a walkable route to 阿岚
+PASS Town collision map provides a walkable route to 陆铸
+PASS Town collision map provides a walkable route to 苏禾
+PASS Town collision map provides a walkable route to 知夏
+PASS Town collision map provides a walkable route to 阿满
+PASS Northern gate is reachable from the arrival plaza
+PASS Prepared journey enters forest with main quest active
+PASS Returning to town freezes and preserves forest encounter
+PASS Reentering forest restores player position and wave progress
+PASS Blacksmith service charges gold and improves attack
+PASS Blacksmith cannot charge or apply upgrade twice
+PASS Apothecary purchase updates stock and wallet
+PASS Full potion bag does not consume gold
+PASS Supply quest rejects incomplete requirements
+PASS Supply quest grants completion reward
+PASS Supply quest reward is idempotent
+PASS Inn restores health after payment
+PASS Inn does not charge an already healthy traveller
+PASS Version two snapshot restores map, quests, services and wallet
+PASS Saved town journey resumes safely
+PASS Boss victory leaves a resumable return-to-town story
+PASS Story battle settlement cannot be duplicated
+PASS Returning starfire completes chapter and awards gold
+PASS Main quest completion reward cannot be repeated
+PASS Completed chapter survives app restart
+PASS Story defeat retains the journey
+PASS Defeat snapshot resumes with town recovery and reset current wave
+PASS Restart during dialogue does not autoaccept quest
+PASS E key opens a nearby NPC dialogue
+PASS Escape closes dialogue without accepting its choices
+PASS L key opens quest journal
+PASS Journal returns to exploration rather than main menu
+PASS Version one combat save migrates to forest with town access
+ALL 48 STORY CHECKS PASSED
+Rendered 12 shared-layout screenshots to D:\大学生软件创新大赛\WuziPingRPG\artifacts\screenshots-v0.2

@@ -1,0 +1,19 @@
+{
+  "version": "0.3.0",
+  "apk": "WuziPing-Emberbound-0.3.0-debug.apk",
+  "sha256": "478092fb426aad78a99bcad58e274f7328ea17d553e303fe7a296fa685e43255",
+  "bytes": 677905,
+  "zip_crc": "PASS",
+  "new_assets": [
+    "body_tiles.png",
+    "body_enemies.png",
+    "body_atlas.png",
+    "town.png",
+    "npcs.png"
+  ],
+  "uncompressed_audio": 13,
+  "logic_checks": 158,
+  "signature_schemes": "v1/v2/v3 verified; certificate matches 0.2.0",
+  "android_device_tested": false,
+  "screenshots": "23 shared-renderer desktop fixtures"
+}

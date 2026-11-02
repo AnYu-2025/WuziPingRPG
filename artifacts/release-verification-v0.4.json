@@ -1,0 +1,13 @@
+{
+  "version": "0.4.0",
+  "apk_sha256": "bbe5ea573bb3bdbd38408e53d44e7c751a0d26bd7e99097c2bb1a3b28d7dc839",
+  "apk_bytes": 690257,
+  "zip_crc": "PASS",
+  "sprite": "RGBA 256x64, four nonempty transparent frames; matches APK",
+  "logic_checks": 197,
+  "certificate": "matches 0.3.0",
+  "older_save_migration": "versions 1,2,3 checked",
+  "android_device_tested": false,
+  "visual_preview_count": 29,
+  "image_generation": "built-in image_gen using user reference; source and prompt preserved"
+}
