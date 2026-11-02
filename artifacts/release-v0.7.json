@@ -1,0 +1,38 @@
+{
+  "version": "0.7.0",
+  "device_tested": false,
+  "checks": 354,
+  "screenshots": 49,
+  "apks": [
+    {
+      "file": "WuziPing-Emberbound-0.7.0-debug.apk",
+      "package": "cn.wuziping.ember",
+      "sha256": "3ef997e9dc10ba900d70cec9441e0379d9751b9a1895464c3077fbc3dc3a6fbd",
+      "bytes": 731343,
+      "dex_sha256": "d44ed336a3c2314baf1a271dc6d33069561b3b7ddb04758f800489b24c2d4cad",
+      "assets_verified": 27,
+      "certificate_sha256": "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca",
+      "certificate_matches_local_0_5": true,
+      "certificate_matches_external_0_6": false,
+      "entrypoint": "cn.wuziping.ember.MainActivity",
+      "zip_crc_valid": true,
+      "signature_v2_valid": true,
+      "alignment_valid": true
+    },
+    {
+      "file": "WuziPing-Emberbound-0.7.0-parallel-debug.apk",
+      "package": "cn.wuziping.ember.preview07",
+      "sha256": "54cb3d0c1c3199b4871fd6913156206d0010e870e82a0cab66b42552a3493ad2",
+      "bytes": 731342,
+      "dex_sha256": "d44ed336a3c2314baf1a271dc6d33069561b3b7ddb04758f800489b24c2d4cad",
+      "assets_verified": 27,
+      "certificate_sha256": "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca",
+      "certificate_matches_local_0_5": true,
+      "certificate_matches_external_0_6": false,
+      "entrypoint": "cn.wuziping.ember.MainActivity",
+      "zip_crc_valid": true,
+      "signature_v2_valid": true,
+      "alignment_valid": true
+    }
+  ]
+}

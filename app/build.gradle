@@ -6,8 +6,8 @@ android {
         applicationId 'cn.wuziping.ember'
         minSdk 23
         targetSdk 34
-        versionCode 6
-        versionName '0.6.0'
+        versionCode 7
+        versionName '0.7.0'
     }
     sourceSets { main.java.srcDirs += '../core/src/main/java' }
     compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }

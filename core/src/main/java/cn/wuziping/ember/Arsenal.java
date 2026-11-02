@@ -29,7 +29,7 @@ public final class Arsenal {
     private Game.Enemy aim(Game g){Game.Enemy best=null;float distance=REACH[selected];for(Game.Enemy e:g.enemies){float d=Game.dist(g.x,g.y,e.x,e.y);if(d<distance){distance=d;best=e;}}if(best!=null)g.facing=(float)Math.atan2(best.y-g.y,best.x-g.x);return best;}
     private void fire(Game g,float angle,float damage,int pierce){if(bolts.size()<128)bolts.add(new Bolt(g.x,g.y,angle,selected==2?240:185,damage,pierce,COLORS[selected]));}
     public void attack(Game g){
-        g.attackCd=delay(g);g.swing=selected==3||selected==4?0:.2f;aim(g);combo=(combo+1)%3;
+        g.attackCd=delay(g);g.swing=.2f;aim(g);combo=(combo+1)%3;
         if(selected==3||selected==4)g.vfx.burst(g.x,g.y,COLORS[selected],selected==4?10:6,34,.24f,3);
         else{g.vfx.arc(g.x,g.y,g.facing,selected==2?1.15f:selected==5?2.5f:1.85f,COLORS[selected],selected==5?9:12);if(selected==5)g.vfx.kick(2.8f);}
         if(selected==3){fire(g,g.facing,damage(g),1);return;}
@@ -41,7 +41,7 @@ public final class Arsenal {
         }
     }
     public void skill(Game g){
-        g.skillCd=Math.max(3,7-g.upgrades[4]*.35f);g.skillFlash=.48f;aim(g);g.vfx.ring(g.x,g.y,COLORS[selected],18,selected==5?96:74);g.vfx.kick(3.6f);
+        g.skillCd=Math.max(3,7-g.upgrades[4]*.35f);g.skillFlash=.48f;g.swing=.2f;aim(g);g.vfx.ring(g.x,g.y,COLORS[selected],18,selected==5?96:74);g.vfx.kick(3.6f);
         if(selected==2||selected==3){for(int j=-1;j<=1;j++)fire(g,g.facing+j*(selected==2?.10f:.30f),damage(g)*2.2f,selected==2?5:2);return;}
         float radius=selected==4?150:selected==5?110:85;
         if(selected==1||selected==5){shield=2.5f;g.invuln=Math.max(g.invuln,.5f);}

@@ -20,7 +20,8 @@ public final class Story {
         public boolean complete(){return visible()>=text().length();}
         public boolean last(){return page==pages.length-1;}
     }
-    void begin(Game g,int npc,String[] pages,String[] options,int[] actions){dialogue=new Dialogue(npc,pages,options,actions);g.mode=Game.DIALOGUE;g.swing=g.skillFlash=0;}
+    void begin(Game g,int npc,String[] pages,String[] options,int[] actions){String[] renamed=pages.clone();for(int k=0;k<renamed.length;k++){int split=renamed[k].indexOf('|');if(split>=0)renamed[k]=renamed[k].substring(0,split+1)+renamed[k].substring(split+1).replace(Game.HERO,g.heroName);}
+        dialogue=new Dialogue(npc,renamed,options,actions);g.mode=Game.DIALOGUE;g.swing=g.skillFlash=0;}
     public void tick(float dt){if(dialogue!=null)dialogue.age+=dt;}
     public void opening(Game g){
         begin(g,-1,new String[]{
@@ -41,6 +42,8 @@ public final class Story {
         return null;
     }
     public String interaction(Game g){
+        if(g.inMath())return g.math.interaction(g);
+        if(g.inTown()&&Game.dist(g.x,g.y,1140,620)<50)return "进入数学星庭";
         if(g.guest.near(g))return "交谈 · 奶龙";
         if(g.body.enabled)return g.body.interaction(g);
         if(g.inTown()){
@@ -51,6 +54,8 @@ public final class Story {
     }
     public void interact(Game g){
         if(g.mode!=Game.PLAY||!enabled)return;
+        if(g.inMath()){g.math.interact(g);return;}
+        if(g.inTown()&&Game.dist(g.x,g.y,1140,620)<50){g.math.enter(g);return;}
         if(g.guest.near(g)){g.guest.talk(g);return;}
         if(g.body.enabled){g.body.interact(g);return;}
         if(g.inTown()){
@@ -65,6 +70,7 @@ public final class Story {
     }
     public boolean talk(Game g,int id){
         if(id==TownGuest.NPC)return g.guest.talk(g);
+        if(id==4&&g.inTown()&&g.mode==Game.PLAY&&Game.dist(g.x,g.y,Town.NPCS[4].x,Town.NPCS[4].y)<43){begin(g,4,new String[]{"知夏|东庭新开了一道数学之门。那里的路会记住脚印，机关会回应不同的走法。","知夏|先观察，再试一试。你的发现会写进札记，那里不会提前写好走法。"},new String[]{"带我去东庭","我自己走过去"},new int[]{303,300});return true;}
         if(g.body.enabled)return g.body.talk(g,id);
         if(!g.inTown()||g.mode!=Game.PLAY||id<0||id>=Town.NPCS.length||Game.dist(g.x,g.y,Town.NPCS[id].x,Town.NPCS[id].y)>43)return false;
         switch(id){
@@ -115,6 +121,7 @@ public final class Story {
     public void choose(Game g,int index){
         Dialogue d=dialogue;if(d==null||g.mode!=Game.DIALOGUE||!d.last()||!d.complete()||index<0||index>=d.actions.length)return;
         int action=d.actions[index];dialogue=null;g.mode=Game.PLAY;
+        if(action>=300){if(action==303){g.x=1080;g.y=660;g.announce("东庭 · 数学之门在前方");}else g.math.action(g,action);return;}
         if(d.npc==TownGuest.NPC&&action>=200){g.guest.action(g,action);return;}
         if(g.body.enabled&&action>=100){g.body.action(g,action);return;}
         switch(action){
@@ -151,6 +158,7 @@ public final class Story {
         if(chapter==2)chapter=3;g.announce(battleWon?"迷雾已散 · 遗迹静候旅人":"进入迷雾森林 · 星火仍在前方");
     }
     public void enterTown(Game g){
+        if(g.inMath()){g.math.returnTown(g);return;}
         if(g.body.enabled){g.body.returnTown(g);return;}
         if(!enabled)return;
         if(area==FOREST){forestX=g.x;forestY=g.y;}

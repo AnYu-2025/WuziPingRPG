@@ -39,6 +39,7 @@ public final class Desktop extends JPanel implements cn.wuziping.ember.Painter {
     public void start(){new javax.swing.Timer(16,e->{
         long now=System.nanoTime();float dt=Math.min(.05f,(now-last)/1e9f);last=now;
         game.update(dt,controls.input);controls.pulsesConsumed();game.sounds.clear();if(game.mode!=Game.PLAY)controls.clear();
+        if(game.renamePending){game.renamePending=false;String name=JOptionPane.showInputDialog(this,"旅人的名字（最多 12 个字符）",game.heroName);if(name!=null){game.setHeroName(name);persist();}last=System.nanoTime();}
         if(controls.dirty){persist();controls.dirty=false;}repaint();
     }).start();}
     @Override public void paintComponent(Graphics graphics){super.paintComponent(graphics);g=(Graphics2D)graphics.create();render(getWidth(),getHeight(),(System.nanoTime()-start)/1e9f);g.dispose();}
@@ -61,6 +62,7 @@ public final class Desktop extends JPanel implements cn.wuziping.ember.Painter {
         int dx=(int)x,dy=(int)y,dw=(int)w,dh=(int)h;
         g.drawImage(images.get(n),flip?dx+dw:dx,dy,flip?dx:dx+dw,dy+dh,sx,sy,sx+sw,sy+sh,null);g.setComposite(old);
     }
+    @Override public void imageRotated(String n,int sx,int sy,int sw,int sh,float x,float y,float w,float h,float alpha,boolean flip,float degrees,float pivotX,float pivotY){java.awt.geom.AffineTransform old=g.getTransform();g.rotate(Math.toRadians(degrees),pivotX,pivotY);image(n,sx,sy,sw,sh,x,y,w,h,alpha,flip);g.setTransform(old);}
     public static void main(String[] args)throws Exception{
         if(args.length>0&&args[0].equals("--screenshots")){
             File dir=new File(args.length>1?args[1]:"artifacts/screenshots");dir.mkdirs();Game game=new Game();Desktop d=new Desktop(game);
@@ -123,9 +125,25 @@ public final class Desktop extends JPanel implements cn.wuziping.ember.Painter {
             game.vfx.burst(game.x+34,game.y-6,0xffffd37a,16,78,.7f,4);game.vfx.ring(game.x,game.y,0xffe07a45,16,64);game.vfx.nova=.4f;game.vfx.shake=5.5f;game.vfx.flash=.28f;
             game.popup(game.x+30,game.y-26,"86",0xffffd37a);game.popup(game.x-18,game.y-8,"24",0xfff9f2db);game.popup(game.x+4,game.y-16,"-12",0xffff8c7c);
             d.screenshot(new File(dir,"38-combat-fx.png"),9);
-            System.out.println("Rendered 38 shared-layout screenshots to "+dir.getAbsolutePath());return;
+            game.startDream();game.story.dialogue=null;game.mode=Game.PLAY;game.x=1090;game.y=650;game.banner=0;
+            d.screenshot(new File(dir,"39-expanded-campus.png"),8,2400,1080);
+            game.mode=MathJourney.MAP;d.screenshot(new File(dir,"40-theme-map.png"),8,2400,1080);
+            game.math.enter(game);game.x=925;game.y=560;game.math.circle=1;game.banner=0;
+            d.screenshot(new File(dir,"41-equidistance.png"),8,2400,1080);
+            game.math.level=1;game.math.solved=1;game.math.resetState();game.math.node=0;game.math.bridges=1;game.x=730;game.y=590;game.banner=0;
+            d.screenshot(new File(dir,"42-seven-bridges.png"),8,2400,1080);
+            game.math.level=2;game.math.solved=3;game.math.resetState();game.math.orientation=1;game.math.ribbon=2;game.x=970;game.y=690;
+            d.screenshot(new File(dir,"43-reversed-corridor.png"),8,2400,1080);
+            game.math.solved=7;game.mode=Game.JOURNAL;d.screenshot(new File(dir,"44-discovery-journal.png"),8,2400,1080);
+            game.setHeroName("星海旅人");game.title();d.screenshot(new File(dir,"45-custom-name.png"),8,1920,1080);
+            game.math.active=false;game.body.briefed=true;game.body.enter(game);game.body.transit=0;game.banner=0;game.enemies.clear();game.x=640;game.y=440;game.facing=0;game.swing=.19f;
+            d.screenshot(new File(dir,"46-sword-windup.png"),8,1920,1080);game.swing=.04f;
+            d.screenshot(new File(dir,"47-sword-follow-through.png"),8,1920,1080);
+            game.arsenal.selected=2;game.swing=.1f;d.screenshot(new File(dir,"48-spear-thrust.png"),8,1920,1080);
+            game.arsenal.selected=5;game.swing=.08f;d.screenshot(new File(dir,"49-hammer-swing.png"),8,1920,1080);
+            System.out.println("Rendered 49 shared-layout screenshots to "+dir.getAbsolutePath());return;
         }
         Game loaded=new Game();File save=new File(args.length>1&&args[0].equals("--profile")?args[1]:"desktop-journey.bin");if(save.exists())try(InputStream in=new FileInputStream(save)){loaded=Game.load(in);}catch(IOException ignored){}
-        final Desktop d=new Desktop(loaded);d.saveFile=save;SwingUtilities.invokeLater(()->{JFrame f=new JFrame("伍子平 · 星火远征 v0.6 — 桌面调试版");f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);f.setContentPane(d);f.pack();f.setLocationRelativeTo(null);f.setVisible(true);d.requestFocusInWindow();d.start();});
+        final Desktop d=new Desktop(loaded);d.saveFile=save;SwingUtilities.invokeLater(()->{JFrame f=new JFrame("伍子平 · 星火远征 v0.7 — 桌面调试版");f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);f.setContentPane(d);f.pack();f.setLocationRelativeTo(null);f.setVisible(true);d.requestFocusInWindow();d.start();});
     }
 }

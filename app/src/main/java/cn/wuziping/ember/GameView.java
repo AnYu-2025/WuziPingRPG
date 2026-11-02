@@ -34,6 +34,7 @@ public final class GameView extends View implements Painter {
     public void dispose(){audio.release();for(Bitmap b:images.values())b.recycle();}
     @Override protected void onDraw(Canvas c){
         super.onDraw(c);canvas=c;
+        if(game.renamePending){game.renamePending=false;post(()->((MainActivity)getContext()).requestRename());}
         long now=System.nanoTime();float dt=lastTime==0?0:Math.min(.1f,(now-lastTime)/1e9f);lastTime=now;
         if(!suspended){
             accumulator+=dt;int previous=game.mode;
@@ -61,7 +62,7 @@ public final class GameView extends View implements Painter {
     @Override public boolean performClick(){super.performClick();return true;}
     @Override public boolean onKeyDown(int code,KeyEvent e){String k=key(code);if(k==null)return super.onKeyDown(code,e);if(e.getRepeatCount()==0)controls.key(game,k,true);return true;}
     @Override public boolean onKeyUp(int code,KeyEvent e){String k=key(code);if(k==null)return super.onKeyUp(code,e);controls.key(game,k,false);return true;}
-    private String key(int code){switch(code){case KeyEvent.KEYCODE_W:return "W";case KeyEvent.KEYCODE_A:return "A";case KeyEvent.KEYCODE_S:return "S";case KeyEvent.KEYCODE_D:return "D";case KeyEvent.KEYCODE_J:return "J";case KeyEvent.KEYCODE_SPACE:return "SPACE";case KeyEvent.KEYCODE_K:return "K";case KeyEvent.KEYCODE_E:return "E";case KeyEvent.KEYCODE_L:return "L";case KeyEvent.KEYCODE_M:return "M";case KeyEvent.KEYCODE_B:return "B";case KeyEvent.KEYCODE_R:return "R";case KeyEvent.KEYCODE_Q:return "Q";case KeyEvent.KEYCODE_ENTER:return "ENTER";case KeyEvent.KEYCODE_SHIFT_LEFT:case KeyEvent.KEYCODE_SHIFT_RIGHT:return "SHIFT";case KeyEvent.KEYCODE_H:return "H";case KeyEvent.KEYCODE_ESCAPE:return "ESCAPE";case KeyEvent.KEYCODE_1:return "1";case KeyEvent.KEYCODE_2:return "2";case KeyEvent.KEYCODE_3:return "3";default:return null;}}
+    private String key(int code){switch(code){case KeyEvent.KEYCODE_W:return "W";case KeyEvent.KEYCODE_A:return "A";case KeyEvent.KEYCODE_S:return "S";case KeyEvent.KEYCODE_D:return "D";case KeyEvent.KEYCODE_J:return "J";case KeyEvent.KEYCODE_SPACE:return "SPACE";case KeyEvent.KEYCODE_K:return "K";case KeyEvent.KEYCODE_E:return "E";case KeyEvent.KEYCODE_L:return "L";case KeyEvent.KEYCODE_M:return "M";case KeyEvent.KEYCODE_N:return "N";case KeyEvent.KEYCODE_T:return "T";case KeyEvent.KEYCODE_B:return "B";case KeyEvent.KEYCODE_R:return "R";case KeyEvent.KEYCODE_Q:return "Q";case KeyEvent.KEYCODE_ENTER:return "ENTER";case KeyEvent.KEYCODE_SHIFT_LEFT:case KeyEvent.KEYCODE_SHIFT_RIGHT:return "SHIFT";case KeyEvent.KEYCODE_H:return "H";case KeyEvent.KEYCODE_ESCAPE:return "ESCAPE";case KeyEvent.KEYCODE_1:return "1";case KeyEvent.KEYCODE_2:return "2";case KeyEvent.KEYCODE_3:return "3";default:return null;}}
     @Override public void rect(float x,float y,float w,float h,int color){paint.setColor(color);paint.setAntiAlias(false);canvas.drawRect(x,y,x+w,y+h,paint);}
     @Override public void oval(float x,float y,float w,float h,int color){paint.setColor(color);paint.setAntiAlias(false);canvas.drawOval(x,y,x+w,y+h,paint);}
     @Override public void line(float x1,float y1,float x2,float y2,float width,int color){paint.setColor(color);paint.setStrokeWidth(width);paint.setAntiAlias(false);canvas.drawLine(x1,y1,x2,y2,paint);}
@@ -70,4 +71,5 @@ public final class GameView extends View implements Painter {
         source.set(sx,sy,sx+sw,sy+sh);target.set(x,y,x+w,y+h);paint.setAlpha((int)(alpha*255));paint.setFilterBitmap(false);paint.setAntiAlias(false);
         if(flip){canvas.save();canvas.scale(-1,1,x+w/2,y+h/2);}canvas.drawBitmap(images.get(name),source,target,paint);if(flip)canvas.restore();paint.setAlpha(255);
     }
+    @Override public void imageRotated(String name,int sx,int sy,int sw,int sh,float x,float y,float w,float h,float alpha,boolean flip,float degrees,float pivotX,float pivotY){canvas.save();canvas.rotate(degrees,pivotX,pivotY);image(name,sx,sy,sw,sh,x,y,w,h,alpha,flip);canvas.restore();}
 }

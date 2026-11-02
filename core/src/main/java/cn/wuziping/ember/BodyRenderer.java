@@ -65,6 +65,7 @@ public final class BodyRenderer {
         }
     }
     public static void atlas(Painter p,Game g,float x,float y,float w,float h,float clock,boolean labels){
+        float fitW=Math.min(w,h*160f/240),fitH=fitW*240f/160;x+=(w-fitW)/2;y+=(h-fitH)/2;w=fitW;h=fitH;
         p.image("body_atlas.png",0,0,160,240,x,y,w,h,1,false);
         float[] nx={80,96,80,66,80,80,105,80},ny={64,91,142,116,161,101,126,25};
         for(int j=0;j<7;j++){

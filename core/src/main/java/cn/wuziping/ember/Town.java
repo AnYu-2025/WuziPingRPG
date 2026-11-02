@@ -2,7 +2,7 @@ package cn.wuziping.ember;
 
 /** Authored town geometry shared by collision, rendering and navigation. */
 public final class Town {
-    public static final int WIDTH=960,HEIGHT=720;
+    public static final int WIDTH=1440,HEIGHT=1080;
     public static final float GATE_X=480,GATE_Y=112,FOREST_GATE_X=640,FOREST_GATE_Y=548;
     public static final class Npc {
         public final int id,sprite; public final float x,y; public final String name,role;
@@ -28,10 +28,11 @@ public final class Town {
         new House(3,"归途旅舍",709,498,146,122),
         new House(4,"旧日书屋",480,226,126,106),
         new House(5,"河畔人家",250,643,112,92),
-        new House(5,"风铃小屋",710,643,112,92)
+        new House(5,"风铃小屋",710,643,112,92),
+        new House(4,"星图学舍",1140,488,168,132),new House(5,"东庭花房",1150,890,148,116)
     };
     public static boolean blocked(float x,float y,float r){
-        if(x-r<72||x+r>888||y-r<92||y+r>660)return true;
+        if(x-r<72||x+r>WIDTH-72||y-r<92||y+r>HEIGHT-60)return true;
         for(House house:HOUSES)if(house.blocked(x,y,r))return true;
         return Game.dist(x,y,480,408)<r+23;
     }

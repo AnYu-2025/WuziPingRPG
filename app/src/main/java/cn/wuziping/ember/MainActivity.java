@@ -35,4 +35,8 @@ public final class MainActivity extends Activity {
         try{out=saveFile.startWrite();game.save(out);saveFile.finishWrite(out);}
         catch(IOException e){if(out!=null)saveFile.failWrite(out);android.util.Log.e("WuziPing","Save failed",e);}
     }
+    public void requestRename(){
+        final android.widget.EditText input=new android.widget.EditText(this);input.setSingleLine(true);input.setText(view.game.heroName);input.selectAll();
+        new android.app.AlertDialog.Builder(this).setTitle("旅人的名字").setMessage("最多 12 个字符，留空恢复为伍子平").setView(input).setPositiveButton("保存",(d,w)->{view.game.setHeroName(input.getText().toString());persist(view.game);view.invalidate();}).setNegativeButton("取消",null).show();
+    }
 }

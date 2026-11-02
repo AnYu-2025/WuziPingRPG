@@ -25,10 +25,14 @@ mapfile -d '' SOURCES < <(find "$ROOT/core/src/main/java" "$ROOT/app/src/main/ja
 "$JDK_ROOT/bin/java" -cp "$BUILD_TOOLS/lib/d8.jar" com.android.tools.r8.D8 --lib "$PLATFORM" --min-api 23 --output "$DEX" "$WORK/classes.jar"
 "$BUILD_TOOLS/aapt2" compile --dir "$ROOT/app/src/main/res" -o "$WORK/resources.zip"
 MANIFEST="$WORK/AndroidManifest.xml"
-sed 's/<manifest /<manifest package="cn.wuziping.ember" /' "$ROOT/app/src/main/AndroidManifest.xml" > "$MANIFEST"
+APP_ID="cn.wuziping.ember"
+SUFFIX="debug"
+if [[ "${PARALLEL_INSTALL:-0}" == 1 ]]; then APP_ID="cn.wuziping.ember.preview07"; SUFFIX="parallel-debug"; fi
+sed "s/<manifest /<manifest package=\"$APP_ID\" /" "$ROOT/app/src/main/AndroidManifest.xml" > "$MANIFEST"
+if [[ "${PARALLEL_INSTALL:-0}" == 1 ]]; then sed -i 's/伍子平 · 星火远征"/伍子平 · 星火远征 0.7试玩"/' "$MANIFEST"; fi
 UNSIGNED="$WORK/unsigned.apk"
 "$BUILD_TOOLS/aapt2" link -o "$UNSIGNED" --manifest "$MANIFEST" -I "$PLATFORM" -A "$ROOT/app/src/main/assets" -0 wav \
-  --min-sdk-version 23 --target-sdk-version 34 --version-code 6 --version-name 0.6.0 "$WORK/resources.zip"
+  --min-sdk-version 23 --target-sdk-version 34 --version-code 7 --version-name 0.7.0 "$WORK/resources.zip"
 "$JDK_ROOT/bin/jar" uf "$UNSIGNED" -C "$DEX" classes.dex
 ALIGNED="$WORK/aligned.apk"
 "$BUILD_TOOLS/zipalign" -f 4 "$UNSIGNED" "$ALIGNED"
@@ -38,11 +42,10 @@ if [[ ! -f "$KEYSTORE" ]]; then
     -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
     -dname "CN=WuziPing Development, O=Student Project, C=CN"
 fi
-APK="$DIST/WuziPing-Emberbound-0.6.0-debug.apk"
+APK="$DIST/WuziPing-Emberbound-0.7.0-$SUFFIX.apk"
 "$JDK_ROOT/bin/java" -jar "$BUILD_TOOLS/lib/apksigner.jar" sign --ks "$KEYSTORE" --ks-pass pass:android --key-pass pass:android --out "$APK" "$ALIGNED"
 "$JDK_ROOT/bin/java" -jar "$BUILD_TOOLS/lib/apksigner.jar" verify --verbose "$APK"
 "$BUILD_TOOLS/zipalign" -c 4 "$APK"
 "$BUILD_TOOLS/aapt" dump badging "$APK"
-HASH="$(sha256sum "$APK" | awk '{print $1}')"
-printf '%s  %s\n' "$HASH" "$(basename "$APK")" > "$DIST/SHA256SUMS.txt"
+(cd "$DIST"; for file in WuziPing-Emberbound-0.7.0-*.apk; do sha256sum "$file"; done) > "$DIST/SHA256SUMS.txt"
 echo "APK ready: $APK"

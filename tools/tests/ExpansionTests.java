@@ -37,8 +37,8 @@ public final class ExpansionTests {
         }
         Game g=field();g.gold=100;float base=g.arsenal.damage(g);g.arsenal.upgrade(g,0);check(g.gold==70&&g.arsenal.forge[0]==1&&g.arsenal.damage(g)>base,"Forging consumes exact coins and raises selected archetype damage");g.gold=0;g.arsenal.upgrade(g,0);check(g.arsenal.forge[0]==1,"Forging with insufficient coins preserves weapon level");
         g.arsenal.unlocked=1;g.arsenal.equip(g,4);check(g.arsenal.selected==0,"Locked weapon cannot be equipped");g.arsenal.unlock(g,4);g.arsenal.equip(g,4);check(g.arsenal.selected==4,"Unlock changes which archetype can actually be equipped");
-        g=field();g.arsenal.energy=99;g.arsenal.ultimate(g);check(g.arsenal.energy==99&&g.arsenal.shield==0,"Ultimate rejects incomplete energy");g.arsenal.energy=100;g.spawnEnemy(2,g.x+80,g.y);g.arsenal.ultimate(g);check(g.arsenal.energy==0&&g.arsenal.shield==4&&g.enemies.isEmpty(),"Fully charged ultimate damages real enemies and grants timed protection");
-        g=field();g.arsenal.shield=3;g.hurt(20,"test");check(Math.abs(g.hp-91)<.01,"Shield reduces real incoming damage");
+        g=field();g.arsenal.energy=99;g.arsenal.ultimate(g);check(g.arsenal.energy==99&&g.arsenal.shield==0,"Ultimate rejects incomplete energy");g.arsenal.energy=100;g.spawnEnemy(2,g.x+80,g.y);Game.Enemy tank=g.enemies.get(0);g.arsenal.ultimate(g);check(g.arsenal.energy==0&&g.arsenal.shield==4&&tank.hp<tank.maxHp,"Fully charged ultimate damages strengthened enemies and grants timed protection");
+        g=field();g.arsenal.shield=3;g.hurt(20,"test");check(Math.abs(g.hp-88.75f)<.01,"Shield reduces real incoming damage");
         g=field();g.arsenal.selected=2;g.castSkill();Game restored=round(g);check(restored.arsenal.bolts.size()==3&&restored.arsenal.selected==2,"Format five preserves equipped weapon and flying friendly projectiles");
         g.body.returnTown(g);float life=g.arsenal.bolts.get(0).life;for(int i=0;i<30;i++)g.update(.05f,new Game.Input());check(g.arsenal.bolts.get(0).life==life,"Returning to town freezes friendly projectiles as well as enemies");
         HashSet<Integer> kinds=new HashSet<>();

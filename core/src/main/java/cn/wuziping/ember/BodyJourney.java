@@ -26,7 +26,7 @@ public final class BodyJourney {
             "旁白|中山大学的夜里，伍子平因病发热，伏在桌边睡着了。醒来时，熟悉的校园浮在一片红色微光之中。",
             "伍子平|那些光，像流动的血液……我竟然在自己的身体里？",
             "沈砚|这是你的梦境。呼吸道、肺部、肠道和肝脏出现了敌人，深处还有异常增殖的细胞。沿血管前进，把它们逐一击退。",
-            "旁白|先找广场北侧的沈砚领取任务。右下角的全身图会记录病灶与净化进度；这是虚构的体内冒险。"
+            "旁白|先找广场北侧的沈砚领取任务。全身图记录净化进度。东庭数学之门也已开放，可从主题地图前往。"
         },new String[]{"踏入体内远征"},100);
     }
     public String objective(Game g){
@@ -52,7 +52,7 @@ public final class BodyJourney {
     public void interact(Game g){
         if(g.mode!=Game.PLAY)return;
         if(g.inTown()){
-            Town.Npc n=Town.nearest(g.x,g.y);if(n!=null){talk(g,n.id);return;}
+            Town.Npc n=Town.nearest(g.x,g.y);if(n!=null){g.story.talk(g,n.id);return;}
             if(Game.dist(g.x,g.y,Town.GATE_X,Town.GATE_Y)>=48){g.announce("靠近居民或北门血管入口");return;}
             if(!briefed){show(g,0,new String[]{"沈砚|先来广场找我。拿好补给，我们再开启血管通路。"},new String[]{"先领取任务"},100);return;}
             if(cured==ALL){show(g,0,new String[]{"沈砚|所有病灶都已净化，回来领取远征奖励吧。"},new String[]{"返回广场"},100);return;}
@@ -91,7 +91,7 @@ public final class BodyJourney {
         }
     }
     public void enter(Game g){
-        if(!briefed||cured==ALL)return;
+        if(!briefed||cured==ALL)return;g.math.active=false;
         if(cleared()&&organ<COUNT-1){next(g);return;}
         g.story.area=Story.FOREST;g.x=g.story.forestX;g.y=g.story.forestY;g.story.dialogue=null;
         g.mode=g.pendingUpgrades>0?Game.UPGRADE:Game.PLAY;g.invuln=1;transit=1.1f;g.announce("血管传送 · "+name());

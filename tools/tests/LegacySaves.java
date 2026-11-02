@@ -9,7 +9,9 @@ final class LegacySaves {
     static byte[] snapshot(Game g,int version)throws IOException{
         if(!g.arsenal.bolts.isEmpty())throw new IOException("Fixture requires no friendly projectiles");
         ByteArrayOutputStream current=new ByteArrayOutputStream();g.save(current);
-        int prefix=current.size()-BodyJourney.SAVE_BYTES-TownGuest.SAVE_BYTES-Arsenal.EMPTY_SAVE_BYTES-(version==1?25:0);
+        ByteArrayOutputStream extra=new ByteArrayOutputStream();DataOutputStream extras=new DataOutputStream(extra);g.math.write(extras);extras.writeUTF(g.heroName);extras.writeInt(g.effectsLevel);extras.flush();
+        if(version==5){byte[] bytes=Arrays.copyOf(current.toByteArray(),current.size()-extra.size());bytes[7]=5;return bytes;}
+        int prefix=current.size()-extra.size()-BodyJourney.SAVE_BYTES-TownGuest.SAVE_BYTES-Arsenal.EMPTY_SAVE_BYTES-(version==1?25:0);
         ByteArrayOutputStream out=new ByteArrayOutputStream();out.write(Arrays.copyOf(current.toByteArray(),prefix));DataOutputStream d=new DataOutputStream(out);
         if(version>=3){BodyJourney b=g.body;d.writeBoolean(b.enabled);d.writeBoolean(b.briefed);d.writeBoolean(b.ending);d.writeInt(b.organ);d.writeInt(b.cured);d.writeInt(b.weaponLevel);
             for(int i=0;i<5;i++)d.writeInt(b.kills[i]);for(int i=0;i<10;i++){d.writeInt(b.supply[i]);d.writeFloat(b.supplyX[i]);d.writeFloat(b.supplyY[i]);d.writeFloat(b.fall[i]);}}

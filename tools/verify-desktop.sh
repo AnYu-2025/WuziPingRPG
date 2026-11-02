@@ -9,7 +9,7 @@ if [[ -z "$JDK_ROOT" ]]; then
 fi
 CLASSES="$ROOT/build/desktop"
 DIST="$ROOT/dist"
-SCREENS="$ROOT/artifacts/screenshots-v0.6"
+SCREENS="$ROOT/artifacts/screenshots-v0.7"
 mkdir -p "$CLASSES" "$DIST" "$SCREENS"
 mapfile -d '' SOURCES < <(find "$ROOT/core/src/main/java" "$ROOT/tools/desktop" "$ROOT/tools/tests" -name '*.java' -print0)
 "$JDK_ROOT/bin/javac" -encoding UTF-8 --release 8 -d "$CLASSES" "${SOURCES[@]}"
@@ -20,6 +20,7 @@ mapfile -d '' SOURCES < <(find "$ROOT/core/src/main/java" "$ROOT/tools/desktop" 
   "$JDK_ROOT/bin/java" -cp "$CLASSES" cn.wuziping.ember.tests.BodyTests
   "$JDK_ROOT/bin/java" -cp "$CLASSES" cn.wuziping.ember.tests.GuestTests
   "$JDK_ROOT/bin/java" -cp "$CLASSES" cn.wuziping.ember.tests.ExpansionTests
+  "$JDK_ROOT/bin/java" -cp "$CLASSES" cn.wuziping.ember.tests.MathTests
   "$JDK_ROOT/bin/java" -Djava.awt.headless=true -cp "$CLASSES" cn.wuziping.ember.desktop.Desktop --screenshots "$SCREENS"
   "$JDK_ROOT/bin/jar" cfe "$DIST/WuziPing-desktop-preview.jar" cn.wuziping.ember.desktop.Desktop -C "$CLASSES" . -C "$ROOT/app/src/main/assets" .
 )
