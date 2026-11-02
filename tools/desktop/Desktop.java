@@ -16,13 +16,14 @@ public final class Desktop extends JPanel implements cn.wuziping.ember.Painter {
     private final Game game;
     private final Controls controls=new Controls();
     private final Scene scene=new Scene();
+    private final Viewport viewport=new Viewport();
     private Graphics2D g;
     private long last=System.nanoTime(),start=last;
     private float scale=1,ox,oy;
     private File saveFile=new File("desktop-journey.bin");
     public Desktop(Game state)throws Exception{
         game=state;
-        for(String n:new String[]{"tiles.png","actors.png","objects.png","icons.png","town.png","town_tiles.png","town_props.png","npcs.png","body_tiles.png","body_enemies.png","body_atlas.png","nailong.png"}){
+        for(String n:new String[]{"tiles.png","actors.png","objects.png","icons.png","town.png","town_tiles.png","town_props.png","npcs.png","body_tiles.png","body_enemies.png","body_atlas.png","nailong.png","bosses.png","weapons.png"}){
             InputStream in=Desktop.class.getResourceAsStream("/"+n);
             if(in==null)in=new FileInputStream("app/src/main/assets/"+n);
             try(InputStream stream=in){images.put(n,ImageIO.read(stream));}
@@ -41,8 +42,9 @@ public final class Desktop extends JPanel implements cn.wuziping.ember.Painter {
         if(controls.dirty){persist();controls.dirty=false;}repaint();
     }).start();}
     @Override public void paintComponent(Graphics graphics){super.paintComponent(graphics);g=(Graphics2D)graphics.create();render(getWidth(),getHeight(),(System.nanoTime()-start)/1e9f);g.dispose();}
-    private void render(int w,int h,float t){g.setColor(new Color(0xff091415,true));g.fillRect(0,0,w,h);scale=Math.min(w/960f,h/540f);ox=(w-960*scale)/2;oy=(h-540*scale)/2;g.translate(ox,oy);g.scale(scale,scale);g.clipRect(0,0,960,540);g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);scene.joyX=controls.input.mx;scene.joyY=controls.input.my;scene.draw(this,game,t);}
-    public void screenshot(File out,float time)throws IOException{BufferedImage im=new BufferedImage(1920,1080,BufferedImage.TYPE_INT_RGB);g=im.createGraphics();render(1920,1080,time);g.dispose();ImageIO.write(im,"png",out);}
+    private void render(int w,int h,float t){g.setColor(new Color(0xff091415,true));g.fillRect(0,0,w,h);viewport.set(w,h,0,0,0,0);scale=viewport.scale;ox=oy=0;scene.layout=viewport;controls.layout=viewport;g.translate(ox,oy);g.scale(scale,scale);g.clipRect(0,0,(int)Math.ceil(viewport.width),(int)Math.ceil(viewport.height));g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);scene.joyX=controls.input.mx;scene.joyY=controls.input.my;scene.draw(this,game,t);}
+    public void screenshot(File out,float time)throws IOException{screenshot(out,time,1920,1080);}
+    public void screenshot(File out,float time,int width,int height)throws IOException{BufferedImage im=new BufferedImage(width,height,BufferedImage.TYPE_INT_RGB);g=im.createGraphics();render(width,height,time);g.dispose();ImageIO.write(im,"png",out);}
     @Override public void rect(float x,float y,float w,float h,int c){g.setColor(new Color(c,true));g.fill(new java.awt.geom.Rectangle2D.Float(x,y,w,h));}
     @Override public void oval(float x,float y,float w,float h,int c){g.setColor(new Color(c,true));g.fill(new java.awt.geom.Ellipse2D.Float(x,y,w,h));}
     @Override public void line(float a,float b,float c,float d,float width,int color){g.setColor(new Color(color,true));g.setStroke(new BasicStroke(width));g.draw(new java.awt.geom.Line2D.Float(a,b,c,d));}
@@ -91,7 +93,7 @@ public final class Desktop extends JPanel implements cn.wuziping.ember.Painter {
             game.body.organ=4;game.wave=5;game.body.cured=15;game.enemies.clear();game.spawnEnemy(4,game.x+45,game.y-34);game.enemies.get(0).windup=.8f;game.enemies.get(0).bossAttack=true;game.enemies.get(0).targetX=game.x-20;game.enemies.get(0).targetY=game.y+15;
             d.screenshot(new File(dir,"19-cell-core.png"),10);
             game.lastCause="增殖核心的重击";game.mode=Game.DEAD;d.screenshot(new File(dir,"20-body-defeat.png"),10);
-            game.mode=Game.PLAY;game.body.cured=31;game.enemies.clear();game.body.supply[9]=3;game.body.weaponLevel=4;game.mode=Game.JOURNAL;d.screenshot(new File(dir,"21-body-rewards.png"),10);
+            game.mode=Game.PLAY;game.body.organ=7;game.wave=8;game.body.cured=255;game.enemies.clear();game.body.supply[9]=3;game.body.weaponLevel=4;game.mode=Game.JOURNAL;d.screenshot(new File(dir,"21-body-rewards.png"),10);
             game.mode=Game.VICTORY;d.screenshot(new File(dir,"22-body-victory.png"),10);
             game.body.returnTown(game);game.x=Town.NPCS[0].x;game.y=Town.NPCS[0].y+24;game.story.talk(game,0);game.story.dialogue.page=2;game.story.dialogue.revealed=true;d.screenshot(new File(dir,"23-ending-reward.png"),10);
             game.startDream();game.story.dialogue=null;game.mode=Game.PLAY;game.x=game.guest.x-29;game.y=game.guest.y-4;game.guest.tick(game,0);game.banner=0;
@@ -101,9 +103,18 @@ public final class Desktop extends JPanel implements cn.wuziping.ember.Painter {
             game.story.choose(game,0);game.story.dialogue.page=2;game.story.dialogue.revealed=true;d.screenshot(new File(dir,"27-nailong-reward.png"),5);
             game.story.choose(game,0);game.banner=0;d.screenshot(new File(dir,"28-nailong-friend.png"),5);
             game.mode=Game.JOURNAL;d.screenshot(new File(dir,"29-friend-journal.png"),5);
-            System.out.println("Rendered 29 shared-layout screenshots to "+dir.getAbsolutePath());return;
+            game.mode=Game.PLAY;game.body.briefed=true;game.body.cured=0;game.body.organ=0;game.wave=1;game.body.enter(game);game.invuln=0;game.banner=0;game.arsenal.unlocked=63;game.gold=220;
+            game.mode=Arsenal.MENU;d.screenshot(new File(dir,"30-armory.png"),8);
+            game.mode=Game.PLAY;game.arsenal.selected=3;game.arsenal.energy=100;game.spawnEnemy(4,game.x+75,game.y-35);game.arsenal.attack(game);d.screenshot(new File(dir,"31-wide-20x9.png"),8,2400,1080);
+            d.screenshot(new File(dir,"32-ultrawide.png"),8,3440,1440);
+            d.screenshot(new File(dir,"33-tablet-4x3.png"),8,1600,1200);
+            game.enemies.clear();game.arsenal.bolts.clear();game.body.organ=5;game.body.cured=31;game.wave=6;game.spawnEnemy(4,game.x+70,game.y-35);d.screenshot(new File(dir,"34-heart.png"),8,2400,1080);
+            game.body.organ=6;game.body.cured=63;game.wave=7;d.screenshot(new File(dir,"35-kidney.png"),8,2400,1080);
+            game.body.organ=7;game.body.cured=127;game.wave=8;d.screenshot(new File(dir,"36-brain-boss.png"),8,2400,1080);
+            game.mode=BodyJourney.MAP;d.screenshot(new File(dir,"37-eight-regions.png"),8,2400,1080);
+            System.out.println("Rendered 37 shared-layout screenshots to "+dir.getAbsolutePath());return;
         }
         Game loaded=new Game();File save=new File(args.length>1&&args[0].equals("--profile")?args[1]:"desktop-journey.bin");if(save.exists())try(InputStream in=new FileInputStream(save)){loaded=Game.load(in);}catch(IOException ignored){}
-        final Desktop d=new Desktop(loaded);d.saveFile=save;SwingUtilities.invokeLater(()->{JFrame f=new JFrame("伍子平 · 星火远征 v0.4 — 桌面调试版");f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);f.setContentPane(d);f.pack();f.setLocationRelativeTo(null);f.setVisible(true);d.requestFocusInWindow();d.start();});
+        final Desktop d=new Desktop(loaded);d.saveFile=save;SwingUtilities.invokeLater(()->{JFrame f=new JFrame("伍子平 · 星火远征 v0.5 — 桌面调试版");f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);f.setContentPane(d);f.pack();f.setLocationRelativeTo(null);f.setVisible(true);d.requestFocusInWindow();d.start();});
     }
 }

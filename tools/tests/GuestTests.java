@@ -69,7 +69,7 @@ public final class GuestTests {
         check(g.guest.stage==2&&g.maxHp==115,"Legacy death recovery retains the charm and friendship");
         g.startDream();check(g.guest.stage==0&&!g.guest.discovered&&g.maxHp==100,"Confirmed new journey resets optional encounter and its per-journey stats");close(g);
         // Exact older wire formats: newly added guest section is absent, not merely ignored.
-        g.body.briefed=true;g.body.enter(g);g.gold=79;g.body.supply[0]=3;ByteArrayOutputStream bytes=new ByteArrayOutputStream();g.save(bytes);byte[] v3=Arrays.copyOf(bytes.toByteArray(),bytes.size()-TownGuest.SAVE_BYTES);v3[7]=3;
+        g.body.briefed=true;g.body.enter(g);g.gold=79;g.body.supply[0]=3;ByteArrayOutputStream bytes=new ByteArrayOutputStream();g.save(bytes);byte[] v3=LegacySaves.snapshot(g,3);
         restored=Game.load(new ByteArrayInputStream(v3));check(restored.body.enabled&&restored.gold==79&&restored.body.supply[0]==3&&!restored.guest.discovered,"Exact v3 campaign migrates with original progress and fresh hidden guest");
         restored.body.returnTown(restored);nearby(restored);check(restored.story.talk(restored,6),"Migrated v3 save can meet the guest without restarting the journey");
         byte[] bad=Arrays.copyOf(bytes.toByteArray(),bytes.size()-1);boolean rejected=false;try{Game.load(new ByteArrayInputStream(bad));}catch(IOException ex){rejected=true;}check(rejected,"Truncated guest snapshot fails safely");

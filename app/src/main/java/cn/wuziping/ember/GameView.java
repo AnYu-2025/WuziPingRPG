@@ -11,6 +11,7 @@ public final class GameView extends View implements Painter {
     public final Game game;
     public final Controls controls=new Controls();
     private final Scene scene=new Scene();
+    private final Viewport viewport=new Viewport();
     private final Paint paint=new Paint();
     private final Rect source=new Rect();
     private final RectF target=new RectF();
@@ -23,7 +24,7 @@ public final class GameView extends View implements Painter {
     public GameView(Context context,Game state){
         super(context);game=state;setFocusable(true);setFocusableInTouchMode(true);requestFocus();
         paint.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
-        for(String name:new String[]{"tiles.png","actors.png","objects.png","icons.png","town.png","town_tiles.png","town_props.png","npcs.png","body_tiles.png","body_enemies.png","body_atlas.png","nailong.png"}){
+        for(String name:new String[]{"tiles.png","actors.png","objects.png","icons.png","town.png","town_tiles.png","town_props.png","npcs.png","body_tiles.png","body_enemies.png","body_atlas.png","nailong.png","bosses.png","weapons.png"}){
             try(InputStream s=context.getAssets().open(name)){BitmapFactory.Options opts=new BitmapFactory.Options();opts.inScaled=false;images.put(name,BitmapFactory.decodeStream(s,null,opts));}catch(IOException e){throw new IllegalStateException("Missing game asset: "+name,e);}
         }
         audio=new GameAudio(context);setContentDescription("伍子平星火远征，横屏二维像素动作游戏");
@@ -41,8 +42,10 @@ public final class GameView extends View implements Painter {
             while(!game.sounds.isEmpty())audio.effect(game.sounds.remove(),game.sound);
             audio.music(game.sound);
         }
-        scale=Math.min(getWidth()/960f,getHeight()/540f);ox=(getWidth()-960*scale)/2;oy=(getHeight()-540*scale)/2;
-        c.drawColor(Color.rgb(9,20,21));c.save();c.translate(ox,oy);c.scale(scale,scale);c.clipRect(0,0,960,540);
+        int il=0,it=0,ir=0,ib=0;
+        if(android.os.Build.VERSION.SDK_INT>=28){WindowInsets insets=getRootWindowInsets();if(insets!=null&&insets.getDisplayCutout()!=null){DisplayCutout cutout=insets.getDisplayCutout();il=cutout.getSafeInsetLeft();it=cutout.getSafeInsetTop();ir=cutout.getSafeInsetRight();ib=cutout.getSafeInsetBottom();}}
+        viewport.set(getWidth(),getHeight(),il,it,ir,ib);scale=viewport.scale;ox=oy=0;scene.layout=viewport;controls.layout=viewport;
+        c.drawColor(Color.rgb(9,20,21));c.save();c.translate(ox,oy);c.scale(scale,scale);c.clipRect(0,0,viewport.width,viewport.height);
         scene.joyX=controls.input.mx;scene.joyY=controls.input.my;scene.draw(this,game,(now-startTime)/1e9f);c.restore();
         if(!suspended)postInvalidateOnAnimation();
     }
@@ -58,7 +61,7 @@ public final class GameView extends View implements Painter {
     @Override public boolean performClick(){super.performClick();return true;}
     @Override public boolean onKeyDown(int code,KeyEvent e){String k=key(code);if(k==null)return super.onKeyDown(code,e);if(e.getRepeatCount()==0)controls.key(game,k,true);return true;}
     @Override public boolean onKeyUp(int code,KeyEvent e){String k=key(code);if(k==null)return super.onKeyUp(code,e);controls.key(game,k,false);return true;}
-    private String key(int code){switch(code){case KeyEvent.KEYCODE_W:return "W";case KeyEvent.KEYCODE_A:return "A";case KeyEvent.KEYCODE_S:return "S";case KeyEvent.KEYCODE_D:return "D";case KeyEvent.KEYCODE_J:return "J";case KeyEvent.KEYCODE_SPACE:return "SPACE";case KeyEvent.KEYCODE_K:return "K";case KeyEvent.KEYCODE_E:return "E";case KeyEvent.KEYCODE_L:return "L";case KeyEvent.KEYCODE_M:return "M";case KeyEvent.KEYCODE_ENTER:return "ENTER";case KeyEvent.KEYCODE_SHIFT_LEFT:case KeyEvent.KEYCODE_SHIFT_RIGHT:return "SHIFT";case KeyEvent.KEYCODE_H:return "H";case KeyEvent.KEYCODE_ESCAPE:return "ESCAPE";case KeyEvent.KEYCODE_1:return "1";case KeyEvent.KEYCODE_2:return "2";case KeyEvent.KEYCODE_3:return "3";default:return null;}}
+    private String key(int code){switch(code){case KeyEvent.KEYCODE_W:return "W";case KeyEvent.KEYCODE_A:return "A";case KeyEvent.KEYCODE_S:return "S";case KeyEvent.KEYCODE_D:return "D";case KeyEvent.KEYCODE_J:return "J";case KeyEvent.KEYCODE_SPACE:return "SPACE";case KeyEvent.KEYCODE_K:return "K";case KeyEvent.KEYCODE_E:return "E";case KeyEvent.KEYCODE_L:return "L";case KeyEvent.KEYCODE_M:return "M";case KeyEvent.KEYCODE_B:return "B";case KeyEvent.KEYCODE_R:return "R";case KeyEvent.KEYCODE_Q:return "Q";case KeyEvent.KEYCODE_ENTER:return "ENTER";case KeyEvent.KEYCODE_SHIFT_LEFT:case KeyEvent.KEYCODE_SHIFT_RIGHT:return "SHIFT";case KeyEvent.KEYCODE_H:return "H";case KeyEvent.KEYCODE_ESCAPE:return "ESCAPE";case KeyEvent.KEYCODE_1:return "1";case KeyEvent.KEYCODE_2:return "2";case KeyEvent.KEYCODE_3:return "3";default:return null;}}
     @Override public void rect(float x,float y,float w,float h,int color){paint.setColor(color);paint.setAntiAlias(false);canvas.drawRect(x,y,x+w,y+h,paint);}
     @Override public void oval(float x,float y,float w,float h,int color){paint.setColor(color);paint.setAntiAlias(false);canvas.drawOval(x,y,x+w,y+h,paint);}
     @Override public void line(float x1,float y1,float x2,float y2,float width,int color){paint.setColor(color);paint.setStrokeWidth(width);paint.setAntiAlias(false);canvas.drawLine(x1,y1,x2,y2,paint);}

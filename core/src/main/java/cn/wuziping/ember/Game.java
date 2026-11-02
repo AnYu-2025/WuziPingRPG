@@ -26,6 +26,7 @@ public final class Game {
     public Story story=new Story();
     public BodyJourney body=new BodyJourney();
     public TownGuest guest=new TownGuest();
+    public Arsenal arsenal=new Arsenal();
     private final BodyNavigation bodyNavigation=new BodyNavigation();
     private long rng=710221L;
     public static final String[] UPGRADE_NAMES={"淬火之刃","旅者体魄","疾风步履","连击心得","星火共鸣","拾光之环","破绽洞察","生命余烬"};
@@ -33,7 +34,7 @@ public final class Game {
     public static final String[] WAVE_NAMES={"苔原初遇","林间暗影","失落哨站","长夜将至","遗迹守卫"};
 
     public static final class Input {
-        public float mx,my; public boolean attack,skill,dash,potion;
+        public float mx,my; public boolean attack,skill,dash,potion,ultimate;
     }
     public static final class Enemy {
         public int type,id; public float x,y,hp,maxHp,cd=1,hit=0,windup=0,targetX,targetY,knockX,knockY;
@@ -63,7 +64,7 @@ public final class Game {
     public int waveTarget(){return body.enabled?BodyJourney.TARGETS[body.organ]:wave==5?7:5+wave*3;}
     public boolean hasSave(){return activeRun;}
     public void startRun(){
-        story=new Story();body=new BodyJourney();guest=new TownGuest();
+        story=new Story();body=new BodyJourney();guest=new TownGuest();arsenal=new Arsenal();
         mode=PLAY;activeRun=true;wave=level=1;xp=kills=gold=waveSpawned=waveKilled=pendingUpgrades=0;potions=3;
         x=640;y=510;hp=maxHp=100;attack=16;speed=65;attackDelay=.43f;facing=0;
         elapsed=attackCd=skillCd=dashCd=potionCd=invuln=swing=skillFlash=dashTime=intermission=0;
@@ -90,7 +91,7 @@ public final class Game {
         if(norm>1){mx/=norm;my/=norm;}
         if(norm>.1)facing=(float)Math.atan2(my,mx);
         if(inTown()){move(mx*speed*1.2f*dt,my*speed*1.2f*dt);guest.tick(this,dt);return;}
-        if(body.enabled)body.tick(this,dt);
+        if(body.enabled){body.tick(this,dt);arsenal.tick(this,dt);if(in.ultimate)arsenal.ultimate(this);}
         attackCd=Math.max(0,attackCd-dt);skillCd=Math.max(0,skillCd-dt);dashCd=Math.max(0,dashCd-dt);
         potionCd=Math.max(0,potionCd-dt);invuln=Math.max(0,invuln-dt);swing=Math.max(0,swing-dt);skillFlash=Math.max(0,skillFlash-dt);
         for(int i=effects.size()-1;i>=0;i--){Effect e=effects.get(i);e.time-=dt;e.y-=dt*8;if(e.time<=0)effects.remove(i);}
@@ -144,11 +145,12 @@ public final class Game {
         spawnEnemy(type,a,b);waveSpawned++;
     }
     public void spawnEnemy(int type,float a,float b){
-        float base=type==4?600:type==2?75:type==3?42:type==1?22:30;
+        float base=type==4?(inBody()?230+body.organ*45:600):type==2?75:type==3?42:type==1?22:30;
         enemies.add(new Enemy(type,kills+waveSpawned+enemies.size()+1,a,b,base*(1+(wave-1)*.13f)));
     }
     public void slash(){
         if(inTown())return;
+        if(inBody()){arsenal.attack(this);sound("slash");return;}
         attackCd=attackDelay;swing=.2f;sound("slash");
         Enemy nearest=null;float best=58;
         for(Enemy e:enemies){float d=dist(x,y,e.x,e.y);if(d<best){best=d;nearest=e;}}
@@ -161,6 +163,7 @@ public final class Game {
     }
     public void castSkill(){
         if(inTown())return;
+        if(inBody()){arsenal.skill(this);sound("skill");return;}
         skillCd=Math.max(4,8-upgrades[4]*.35f);skillFlash=.48f;sound("skill");
         float radius=68+upgrades[4]*9;
         for(int i=enemies.size()-1;i>=0;i--){Enemy e=enemies.get(i);if(dist(x,y,e.x,e.y)<radius+e.radius())damageEnemy(e,attack*(2.5f+upgrades[4]*.35f),true);}
@@ -170,7 +173,7 @@ public final class Game {
         e.hp-=damage;e.hit=.15f;float d=Math.max(1,dist(x,y,e.x,e.y));e.knockX=(e.x-x)/d*70;e.knockY=(e.y-y)/d*70;
         popup(e.x,e.y-18,""+(int)damage,crit?0xffffd37a:0xfff9f2db);
         if(e.hp<=0){
-            enemies.remove(e);kills++;waveKilled++;gold+=e.type==4?100:e.type==2?5:2;
+            enemies.remove(e);kills++;if(e.id>=0)waveKilled++;if(inBody())arsenal.energy=Math.min(100,arsenal.energy+8);gold+=e.type==4?100:e.type==2?5:2;
             drops.add(new Drop(e.x,e.y,0,e.type==4?30:e.type==2?6:3));
             drops.add(new Drop(e.x+7,e.y,1,e.type==4?50:1));
             if(rand()<.1)drops.add(new Drop(e.x-7,e.y,2,12));
@@ -180,15 +183,16 @@ public final class Game {
     }
     public void hurt(float damage,String cause){
         if(invuln>0||mode!=PLAY||inTown())return;
-        hp=Math.max(0,hp-damage);invuln=.7f;popup(x,y-23,"-"+(int)damage,0xffff8c7c);sound("hurt");
+        if(inBody()&&arsenal.shield>0)damage*=.45f;hp=Math.max(0,hp-damage);invuln=.7f;popup(x,y-23,"-"+(int)damage,0xffff8c7c);sound("hurt");
         if(hp<=0){lastCause=cause;finish(false);}
     }
     private void updateEnemies(float dt){
         if(inBody())bodyNavigation.prepare(this);
-        for(Enemy e:enemies){
+        for(Enemy e:new ArrayList<Enemy>(enemies)){
             e.hit=Math.max(0,e.hit-dt);e.cd-=dt;
             float dx=x-e.x,dy=y-e.y,d=Math.max(.1f,dist(x,y,e.x,e.y));
-            if(e.type==4){
+            if(e.type==4&&inBody())Bosses.tick(this,e,dt);
+            else if(e.type==4){
                 if(e.windup>0){e.windup-=dt;if(e.windup<=0){
                     if(e.bossAttack){if(dist(x,y,e.targetX,e.targetY)<53)hurt(26,inBody()?"增殖核心的重击":"遗迹守卫的重击");}
                     else {for(int j=0;j<12;j++){double a=j*Math.PI/6;shots.add(new Shot(e.x,e.y,(float)Math.cos(a)*60,(float)Math.sin(a)*60,15));}}
@@ -215,7 +219,7 @@ public final class Game {
             }
             if(!blocked(nx,e.y,e.radius()*.6f))e.x=clamp(nx,15,WORLD_W-15);
             if(!blocked(e.x,ny,e.radius()*.6f))e.y=clamp(ny,15,WORLD_H-15);
-            if(dist(x,y,e.x,e.y)<e.radius()+7)hurt(e.type==4?22:e.type==2?16:8+wave,inBody()?BodyJourney.FOES[e.type]:e.type==4?"遗迹守卫":"迷雾中的魔物");
+            if(dist(x,y,e.x,e.y)<e.radius()+7)hurt(e.type==4?22:e.type==2?16:8+wave,inBody()?(e.type==4?Bosses.name(this):BodyJourney.FOES[e.type]):e.type==4?"遗迹守卫":"迷雾中的魔物");
             if(mode!=PLAY)return;
         }
     }
@@ -260,20 +264,20 @@ public final class Game {
 
     /** Versioned binary snapshot: no framework dependencies, no Java object deserialization. */
     public void save(OutputStream stream)throws IOException{
-        DataOutputStream o=new DataOutputStream(stream);o.writeInt(0x575A5052);o.writeInt(4);
+        DataOutputStream o=new DataOutputStream(stream);o.writeInt(0x575A5052);o.writeInt(5);
         o.writeInt(totalRuns);o.writeInt(bestWave);o.writeInt(lifetimeKills);o.writeInt(bank);o.writeBoolean(sound);o.writeBoolean(autoAttack);o.writeBoolean(activeRun);
-        if(!activeRun){story.write(o);body.write(o);guest.write(o);o.flush();return;}
+        if(!activeRun){story.write(o);body.write(o);guest.write(o);arsenal.write(o);o.flush();return;}
         int[] ints={wave,level,xp,kills,gold,potions,waveSpawned,waveKilled,pendingUpgrades};for(int n:ints)o.writeInt(n);
         float[] fs={x,y,hp,maxHp,attack,speed,attackDelay,attackCd,skillCd,dashCd,potionCd,invuln,elapsed,facing,spawnTimer,intermission};for(float f:fs)o.writeFloat(f);
         o.writeLong(rng);for(int n:upgrades)o.writeInt(n);for(int n:choices)o.writeInt(n);
         o.writeInt(enemies.size());for(Enemy e:enemies){o.writeInt(e.type);o.writeInt(e.id);float[] ef={e.x,e.y,e.hp,e.maxHp,e.cd,e.hit,e.windup,e.targetX,e.targetY,e.knockX,e.knockY};for(float f:ef)o.writeFloat(f);o.writeBoolean(e.bossAttack);}
         o.writeInt(drops.size());for(Drop p:drops){o.writeFloat(p.x);o.writeFloat(p.y);o.writeInt(p.type);o.writeInt(p.value);}
-        o.writeInt(shots.size());for(Shot p:shots){o.writeFloat(p.x);o.writeFloat(p.y);o.writeFloat(p.vx);o.writeFloat(p.vy);o.writeFloat(p.life);o.writeInt(p.damage);}story.write(o);body.write(o);guest.write(o);o.flush();
+        o.writeInt(shots.size());for(Shot p:shots){o.writeFloat(p.x);o.writeFloat(p.y);o.writeFloat(p.vx);o.writeFloat(p.vy);o.writeFloat(p.life);o.writeInt(p.damage);}story.write(o);body.write(o);guest.write(o);arsenal.write(o);o.flush();
     }
     public static Game load(InputStream stream)throws IOException{
-        DataInputStream i=new DataInputStream(stream);if(i.readInt()!=0x575A5052)throw new IOException("Unsupported save");int version=i.readInt();if(version<1||version>4)throw new IOException("Unsupported save version");Game g=new Game();
-        g.totalRuns=bounded(i.readInt(),0,1000000);g.bestWave=bounded(i.readInt(),0,5);g.lifetimeKills=bounded(i.readInt(),0,100000000);g.bank=bounded(i.readInt(),0,100000000);g.sound=i.readBoolean();g.autoAttack=i.readBoolean();g.activeRun=i.readBoolean();if(!g.activeRun){if(version>=2)g.story=Story.read(i);if(version>=3)g.body=BodyJourney.read(i);if(version>=4)g.guest=TownGuest.read(i);return g;}
-        g.wave=bounded(i.readInt(),1,5);g.level=bounded(i.readInt(),1,10000);g.xp=bounded(i.readInt(),0,1000000);g.kills=bounded(i.readInt(),0,100000);g.gold=bounded(i.readInt(),0,10000000);g.potions=bounded(i.readInt(),0,100);g.waveSpawned=bounded(i.readInt(),0,100);g.waveKilled=bounded(i.readInt(),0,100);g.pendingUpgrades=bounded(i.readInt(),0,100);
+        DataInputStream i=new DataInputStream(stream);if(i.readInt()!=0x575A5052)throw new IOException("Unsupported save");int version=i.readInt();if(version<1||version>5)throw new IOException("Unsupported save version");Game g=new Game();
+        g.totalRuns=bounded(i.readInt(),0,1000000);g.bestWave=bounded(i.readInt(),0,8);g.lifetimeKills=bounded(i.readInt(),0,100000000);g.bank=bounded(i.readInt(),0,100000000);g.sound=i.readBoolean();g.autoAttack=i.readBoolean();g.activeRun=i.readBoolean();if(!g.activeRun){if(version>=2)g.story=Story.read(i);if(version>=3)g.body=BodyJourney.read(i,version>=5?8:5);if(version>=4)g.guest=TownGuest.read(i);if(version>=5)g.arsenal=Arsenal.read(i);return g;}
+        g.wave=bounded(i.readInt(),1,8);g.level=bounded(i.readInt(),1,10000);g.xp=bounded(i.readInt(),0,1000000);g.kills=bounded(i.readInt(),0,100000);g.gold=bounded(i.readInt(),0,10000000);g.potions=bounded(i.readInt(),0,100);g.waveSpawned=bounded(i.readInt(),0,100);g.waveKilled=bounded(i.readInt(),0,100);g.pendingUpgrades=bounded(i.readInt(),0,100);
         float[] f=new float[16];for(int n=0;n<f.length;n++){f[n]=i.readFloat();if(Float.isNaN(f[n])||Float.isInfinite(f[n]))throw new IOException("Nonfinite save");}
         g.x=clamp(f[0],18,WORLD_W-18);g.y=clamp(f[1],18,WORLD_H-18);g.hp=f[2];g.maxHp=f[3];g.attack=f[4];g.speed=f[5];g.attackDelay=f[6];g.attackCd=f[7];g.skillCd=f[8];g.dashCd=f[9];g.potionCd=f[10];g.invuln=f[11];g.elapsed=f[12];g.facing=f[13];g.spawnTimer=f[14];g.intermission=f[15];
         if(g.maxHp<1||g.hp<=0||g.hp>g.maxHp||g.attack<1||g.speed<1||g.attackDelay<=0)throw new IOException("Invalid player stats");
@@ -282,8 +286,10 @@ public final class Game {
         for(int n=bounded(i.readInt(),0,4096);n>0;n--)g.drops.add(new Drop(i.readFloat(),i.readFloat(),bounded(i.readInt(),0,2),bounded(i.readInt(),1,10000)));
         for(int n=bounded(i.readInt(),0,4096);n>0;n--){Shot s=new Shot(i.readFloat(),i.readFloat(),i.readFloat(),i.readFloat(),0);s.life=i.readFloat();s.damage=i.readInt();g.shots.add(s);}
         if(version>=2)g.story=Story.read(i);else{g.story.enabled=true;g.story.area=Story.FOREST;g.story.chapter=3;g.story.forestX=g.x;g.story.forestY=g.y;}
-        if(version>=3){g.body=BodyJourney.read(i);if(g.body.enabled&&(!g.story.enabled||g.wave!=g.body.organ+1))throw new IOException("Mismatched body state");}
+        if(version>=3){g.body=BodyJourney.read(i,version>=5?8:5);if(g.body.enabled&&(!g.story.enabled||g.wave!=g.body.organ+1))throw new IOException("Mismatched body state");}
         if(version>=4)g.guest=TownGuest.read(i);
+        if(version>=5)g.arsenal=Arsenal.read(i);
+        else if(g.body.enabled){g.arsenal.unlocked=(1<<Math.min(6,g.body.organ+2))-1;if(g.body.cured==31){g.story.battleWon=false;g.body.ending=false;}}
         if(g.inTown()){g.x=clamp(g.x,78,Town.WIDTH-78);g.y=clamp(g.y,98,Town.HEIGHT-66);}
         g.mode=TITLE;return g;
     }

@@ -3,12 +3,18 @@ package cn.wuziping.ember;
 /** Pointer/keyboard input shared by the Android app and desktop test harness. */
 public final class Controls {
     public final Game.Input input=new Game.Input();
+    public Viewport layout=new Viewport();
     private int movePointer=-1,attackPointer=-1,helpReturn=Game.TITLE,journalReturn=Game.TITLE,mapReturn=Game.PLAY;
     private boolean left,right,up,down,keyAttack;
     public boolean dirty=false;
-    public void clear(){movePointer=attackPointer=-1;left=right=up=down=keyAttack=false;input.mx=input.my=0;input.attack=input.skill=input.dash=input.potion=false;}
+    public void clear(){movePointer=attackPointer=-1;left=right=up=down=keyAttack=false;input.mx=input.my=0;input.attack=input.skill=input.dash=input.potion=input.ultimate=false;}
     public void down(Game g,int pointer,float x,float y){
         dirty=true;
+        if(g.mode!=Game.PLAY){x-=layout.centerX;y-=layout.centerY;}
+        if(g.mode==Arsenal.MENU){
+            if(box(x,y,340,444,280,40)){g.mode=Game.PLAY;clear();return;}
+            for(int i=0;i<6;i++){float a=120+(i%3)*240,b=146+(i/3)*132;if(box(x,y,a+10,b+76,96,31))g.arsenal.equip(g,i);else if(box(x,y,a+116,b+76,96,31))g.arsenal.upgrade(g,i);}return;
+        }
         if(g.mode==Game.DIALOGUE){
             Story.Dialogue d=g.story.dialogue;if(d==null){g.mode=Game.PLAY;return;}
             if(d.complete()&&d.last()){
@@ -38,44 +44,50 @@ public final class Controls {
         }
         if(g.mode==Game.DEAD||g.mode==Game.VICTORY){if(box(x,y,310,350,340,46)){if(g.story.enabled){if(g.story.defeated)g.story.recover(g);else g.story.enterTown(g);}else g.startRun();clear();}else if(box(x,y,310,410,340,36))g.title();return;}
         if(g.mode!=Game.PLAY)return;
-        if(g.body.enabled&&box(x,y,813,226,127,g.inTown()?37:174)){mapReturn=Game.PLAY;g.mode=BodyJourney.MAP;clear();return;}
-        if(box(x,y,902,19,38,31)){g.pause();clear();return;}
-        if(box(x,y,746,19,54,31)||box(x,y,18,107,286,83)){journalReturn=Game.PLAY;g.mode=Game.JOURNAL;clear();return;}
-        if(box(x,y,811,19,78,31)){g.autoAttack=!g.autoAttack;return;}
-        if(x<350&&y>300&&movePointer==-1){movePointer=pointer;move(g,pointer,x,y);}
-        else if(g.inTown()&&circle(x,y,847,429,57)){g.story.interact(g);clear();}
+        float rx=x-layout.right,ty=y-layout.top,by=y-layout.bottom,cx=x-layout.centerX,cy=y-layout.centerY;
+        if(g.body.enabled&&box(x-layout.left,ty,213,229,54,31)){g.mode=Arsenal.MENU;clear();return;}
+        if(g.body.enabled&&box(rx,ty,813,226,127,g.inTown()?37:174)){mapReturn=Game.PLAY;g.mode=BodyJourney.MAP;clear();return;}
+        if(box(rx,ty,902,19,38,31)){g.pause();clear();return;}
+        if(box(rx,ty,746,19,54,31)||box(x-layout.left,ty,18,107,286,83)){journalReturn=Game.PLAY;g.mode=Game.JOURNAL;clear();return;}
+        if(box(rx,ty,811,19,78,31)){g.autoAttack=!g.autoAttack;return;}
+        if(x-layout.left<350&&by>300&&movePointer==-1){movePointer=pointer;move(g,pointer,x,y);}
+        else if(g.inTown()&&circle(rx,by,847,429,57)){g.story.interact(g);clear();}
         else if(g.inTown()){
-            float camX=Game.clamp(g.x-240,0,Town.WIDTH-480),camY=Game.clamp(g.y-135,0,Town.HEIGHT-270);
+            float camX=Game.clamp(g.x-layout.width/4,0,Math.max(0,Town.WIDTH-layout.width/2)),camY=Game.clamp(g.y-layout.height/4,0,Math.max(0,Town.HEIGHT-layout.height/2));
             if(circle(x,y,(g.guest.x-camX)*2,(g.guest.y-camY)*2-26,32)){if(g.guest.near(g))g.story.talk(g,TownGuest.NPC);clear();return;}
             for(Town.Npc n:Town.NPCS)if(circle(x,y,(n.x-camX)*2,(n.y-camY)*2-18,30)){if(!g.story.talk(g,n.id))g.announce("再靠近"+n.name+"一些，就可以交谈。");clear();break;}
         }
-        else if(g.story.enabled&&box(x,y,g.inBody()?348:371,281,g.inBody()?264:218,34)&&!g.story.interaction(g).isEmpty()){g.story.interact(g);clear();}
+        else if(g.story.enabled&&box(cx,cy,g.inBody()?348:371,281,g.inBody()?264:218,34)&&!g.story.interaction(g).isEmpty()){g.story.interact(g);clear();}
         else if(g.inBody()){
-            if(circle(x,y,857,465,43)){attackPointer=pointer;input.attack=true;}
-            else if(circle(x,y,764,465,35))input.skill=true;
-            else if(circle(x,y,755,370,29))input.dash=true;
-            else if(circle(x,y,679,410,29))input.potion=true;
+            if(circle(rx,by,645,330,29)){input.ultimate=true;return;}
+            if(circle(rx,by,857,465,43)){attackPointer=pointer;input.attack=true;}
+            else if(circle(rx,by,764,465,35))input.skill=true;
+            else if(circle(rx,by,755,370,29))input.dash=true;
+            else if(circle(rx,by,679,410,29))input.potion=true;
         }
-        else if(circle(x,y,857,433,52)){attackPointer=pointer;input.attack=true;}
-        else if(circle(x,y,761,441,42))input.skill=true;
-        else if(circle(x,y,851,334,37))input.dash=true;
-        else if(circle(x,y,746,347,32))input.potion=true;
+        else if(circle(rx,by,857,433,52)){attackPointer=pointer;input.attack=true;}
+        else if(circle(rx,by,761,441,42))input.skill=true;
+        else if(circle(rx,by,851,334,37))input.dash=true;
+        else if(circle(rx,by,746,347,32))input.potion=true;
     }
     public void move(Game g,int pointer,float x,float y){
         if(g.mode!=Game.PLAY)return;
-        if(pointer==movePointer){float dx=(x-92)/54,dy=(y-435)/54,n=(float)Math.sqrt(dx*dx+dy*dy);if(n>.12){input.mx=dx/Math.max(1,n);input.my=dy/Math.max(1,n);}else input.mx=input.my=0;}
+        if(pointer==movePointer){float dx=(x-layout.left-92)/54,dy=(y-layout.bottom-435)/54,n=(float)Math.sqrt(dx*dx+dy*dy);if(n>.12){input.mx=dx/Math.max(1,n);input.my=dy/Math.max(1,n);}else input.mx=input.my=0;}
     }
     public void up(int pointer){if(pointer==movePointer){movePointer=-1;input.mx=input.my=0;}if(pointer==attackPointer){attackPointer=-1;input.attack=keyAttack;}}
-    public void pulsesConsumed(){input.skill=input.dash=input.potion=false;}
+    public void pulsesConsumed(){input.skill=input.dash=input.potion=input.ultimate=false;}
     public void back(Game g){
         dirty=true;clear();
-        if(g.mode==Game.PLAY)g.pause();else if(g.mode==Game.PAUSE)g.resume();else if(g.mode==Game.HELP)g.mode=helpReturn;else if(g.mode==Game.JOURNAL)g.mode=journalReturn;else if(g.mode==BodyJourney.MAP)g.mode=mapReturn;else if(g.mode==8)g.title();else if(g.mode==Game.DIALOGUE){g.story.dialogue=null;g.mode=Game.PLAY;}
+        if(g.mode==Game.PLAY)g.pause();else if(g.mode==Game.PAUSE)g.resume();else if(g.mode==Game.HELP)g.mode=helpReturn;else if(g.mode==Game.JOURNAL)g.mode=journalReturn;else if(g.mode==BodyJourney.MAP)g.mode=mapReturn;else if(g.mode==Arsenal.MENU)g.mode=Game.PLAY;else if(g.mode==8)g.title();else if(g.mode==Game.DIALOGUE){g.story.dialogue=null;g.mode=Game.PLAY;}
     }
     public void key(Game g,String key,boolean pressed){
         if("ESCAPE".equals(key)){if(pressed)back(g);return;}
         if(g.mode==Game.DIALOGUE&&pressed){dirty=true;Story.Dialogue d=g.story.dialogue;if(d!=null){if("1".equals(key))g.story.choose(g,0);else if("2".equals(key))g.story.choose(g,1);else if("E".equals(key)||"ENTER".equals(key)||"SPACE".equals(key)){if(d.complete()&&d.last())g.story.choose(g,0);else g.story.advance(g);}}clear();return;}
         if(g.mode==Game.UPGRADE&&pressed){if("1".equals(key))g.choose(0);if("2".equals(key))g.choose(1);if("3".equals(key))g.choose(2);clear();return;}
         if(g.mode!=Game.PLAY)return;
+        if(pressed&&"B".equals(key)&&g.body.enabled){g.mode=Arsenal.MENU;dirty=true;clear();return;}
+        if(pressed&&"Q".equals(key)&&g.body.enabled){for(int i=1;i<=6;i++){int next=(g.arsenal.selected+i)%6;if(g.arsenal.owned(next)){g.arsenal.equip(g,next);break;}}dirty=true;return;}
+        if(pressed&&"R".equals(key))input.ultimate=true;
         if(pressed&&"M".equals(key)&&g.body.enabled){mapReturn=Game.PLAY;g.mode=BodyJourney.MAP;dirty=true;clear();return;}
         if(pressed&&"E".equals(key)){g.story.interact(g);dirty=true;clear();return;}
         if(pressed&&"L".equals(key)){journalReturn=Game.PLAY;g.mode=Game.JOURNAL;dirty=true;clear();return;}

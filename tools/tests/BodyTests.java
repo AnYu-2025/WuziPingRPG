@@ -30,7 +30,7 @@ public final class BodyTests {
         accept(g);check(g.body.briefed&&g.gold==20&&g.potions==4,"Briefing grants starting supplies once");
         g.story.talk(g,0);close(g);check(g.gold==20&&g.potions==4,"Repeated briefings cannot farm supplies");
         g.body.enter(g);check(g.inBody()&&g.wave==1&&g.body.transit>0,"Blood vessel enters first organ and starts transit visual");
-        for(int i=0;i<5;i++)geometry(i);
+        for(int i=0;i<8;i++)geometry(i);
         g=field();g.body.organ=2;g.wave=3;g.body.cured=3;g.x=400;g.y=340;g.spawnEnemy(0,400,260);Game.Enemy seeker=g.enemies.get(0);
         for(int tick=0;tick<1800;tick++){g.invuln=99;g.update(.05f,new Game.Input());}
         check(Game.dist(g.x,g.y,seeker.x,seeker.y)<30,"Virus finds a real route around a long intestinal fold");
@@ -56,30 +56,30 @@ public final class BodyTests {
         g=field();g.body.supply[0]=3;g.body.kills[0]=4;g.invuln=0;g.hurt(10000,"test");g.body.recover(g);check(g.body.supply[0]==3&&g.body.kills[0]==4,"Death retry preserves claimed airdrops and lifetime organ milestones");
         // Play the real spawn/update loop across all five organs, including actual boss spawn.
         g=field();int totalReward=0;
-        for(int region=0;region<5;region++){
+        for(int region=0;region<8;region++){
             g.spawnTimer=.01f;int guard=0;boolean sawBoss=false,sawWrongFoe=false;
             while(!g.body.cleared()&&guard++<5000){
                 if(g.mode==Game.UPGRADE){g.choose(0);continue;}
                 g.invuln=99;g.update(.05f,new Game.Input());
-                for(Game.Enemy enemy:new ArrayList<Game.Enemy>(g.enemies)){if(enemy.type==4)sawBoss=true;if(region<3&&enemy.type>2||region>=3&&enemy.type<3)sawWrongFoe=true;g.damageEnemy(enemy,100000,false);}
+                for(Game.Enemy enemy:new ArrayList<Game.Enemy>(g.enemies)){if(enemy.type==4)sawBoss=true;if(enemy.type!=4&&((region==3||region==4||region==7)?enemy.type!=3:enemy.type>2))sawWrongFoe=true;g.damageEnemy(enemy,100000,false);}
             }
             check(g.body.cleared()&&g.waveKilled==BodyJourney.TARGETS[region],"Actual organ "+region+" encounter reaches its defeat target and clears");
-            check(!sawWrongFoe&&(region!=4||sawBoss),"Organ "+region+" spawns its correct virus or abnormal-cell family");
+            check(!sawWrongFoe&&sawBoss,"Organ "+region+" spawns its correct virus or abnormal-cell family");
             totalReward+=BodyJourney.REWARDS[region];int gold=g.gold;float cap=g.maxHp;g.body.clear(g);check(g.gold==gold&&g.maxHp==cap,"Organ "+region+" cannot repeat first-clear rewards");
             loaded=round(g);loaded.resume();check(loaded.body.cured==g.body.cured&&loaded.body.organ==region,"Organ "+region+" completion and reward ownership survive restart");
-            if(region<4){
+            if(region<7){
                 g.x=640;g.y=548;g.story.interact(g);check(g.mode==Game.DIALOGUE,"Vessel offers explicit onward travel after clear "+region);dialog(g,0);
                 while(g.mode==Game.UPGRADE)g.choose(0);
                 check(g.body.organ==region+1&&g.wave==region+2&&g.waveSpawned==0&&g.inBody(),"Vessel advances to next organ without skipping or keeping old enemies");
             }
         }
-        check(g.body.cured==31&&g.mode==Game.VICTORY&&g.maxHp>=150&&totalReward==330,"All organ clears reach final victory and award 330 region coins plus vitality");
+        check(g.body.cured==255&&g.mode==Game.VICTORY&&g.maxHp>=180&&totalReward==785,"All organ clears reach final victory and award 785 region coins plus vitality");
         g.body.returnTown(g);g.x=Town.NPCS[0].x;g.y=Town.NPCS[0].y+24;g.story.talk(g,0);int gold=g.gold;atk=g.attack;dialog(g,0);close(g);
-        check(g.body.ending&&g.gold==gold+150&&g.attack==atk+12&&g.body.weaponLevel==5,"Final report awards 150 coins and named ending weapon");
-        g.story.talk(g,0);close(g);check(g.gold==gold+150&&g.attack==atk+12,"Ending report cannot duplicate its currency or weapon");
-        loaded=round(g);loaded.resume();check(loaded.body.ending&&loaded.inTown()&&loaded.body.cured==31,"Completed dream remains safely resumable in campus");
+        check(g.body.ending&&g.gold==gold+180&&g.attack==atk+12&&g.body.weaponLevel==5,"Final report awards 180 coins and named ending weapon");
+        g.story.talk(g,0);close(g);check(g.gold==gold+180&&g.attack==atk+12,"Ending report cannot duplicate its currency or weapon");
+        loaded=round(g);loaded.resume();check(loaded.body.ending&&loaded.inTown()&&loaded.body.cured==255,"Completed dream remains safely resumable in campus");
         // Produce an exact v2 payload by stripping the new fixed-size body section.
-        Game old=new Game();old.startAdventure();close(old);old.gold=77;ByteArrayOutputStream bytes=new ByteArrayOutputStream();old.save(bytes);byte[] v2=Arrays.copyOf(bytes.toByteArray(),bytes.size()-BodyJourney.SAVE_BYTES-TownGuest.SAVE_BYTES);v2[7]=2;
+        Game old=new Game();old.startAdventure();close(old);old.gold=77;ByteArrayOutputStream bytes=new ByteArrayOutputStream();old.save(bytes);byte[] v2=LegacySaves.snapshot(old,2);
         loaded=Game.load(new ByteArrayInputStream(v2));check(!loaded.body.enabled&&loaded.inTown()&&loaded.gold==77,"Exact version two snapshot migrates without rewriting its legacy campaign");
         byte[] broken=Arrays.copyOf(bytes.toByteArray(),bytes.size()-3);boolean rejected=false;try{Game.load(new ByteArrayInputStream(broken));}catch(IOException ex){rejected=true;}check(rejected,"Truncated version three body state is rejected");
         ByteArrayOutputStream bodyBytes=new ByteArrayOutputStream();g.body.write(new DataOutputStream(bodyBytes));check(bodyBytes.size()==BodyJourney.SAVE_BYTES,"Documented body snapshot length matches actual wire format");

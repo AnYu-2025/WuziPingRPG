@@ -66,7 +66,7 @@ public final class StoryTests {
         Controls controls=new Controls();controls.key(restored,"E",true);check(restored.mode==Game.DIALOGUE,"E key opens a nearby NPC dialogue");controls.back(restored);check(restored.mode==Game.PLAY&&restored.story.chapter==0,"Escape closes dialogue without accepting its choices");
         controls.key(restored,"L",true);check(restored.mode==Game.JOURNAL,"L key opens quest journal");controls.back(restored);check(restored.mode==Game.PLAY,"Journal returns to exploration rather than main menu");
         // A real version-one wire-format snapshot: legacy body plus old version marker.
-        g=new Game();g.startRun();g.gold=37;g.wave=2;ByteArrayOutputStream stream=new ByteArrayOutputStream();g.save(stream);byte[] old=Arrays.copyOf(stream.toByteArray(),stream.size()-25-BodyJourney.SAVE_BYTES-TownGuest.SAVE_BYTES);old[7]=1;
+        g=new Game();g.startRun();g.gold=37;g.wave=2;ByteArrayOutputStream stream=new ByteArrayOutputStream();g.save(stream);byte[] old=LegacySaves.snapshot(g,1);
         restored=Game.load(new ByteArrayInputStream(old));check(restored.gold==37&&restored.wave==2&&restored.story.enabled&&restored.story.chapter==3,"Version one combat save migrates to forest with town access");
         System.out.println("ALL "+count+" STORY CHECKS PASSED");
     }

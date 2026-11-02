@@ -1,0 +1,23 @@
+{
+  "version": "0.5.0",
+  "sha256": "5b5d02f9e6192fe808ca0941265b8d35381dd05fc00481c630313262f6d5a84f",
+  "apk_bytes": 710864,
+  "zip_crc": "PASS",
+  "logic_checks": 290,
+  "regions": 8,
+  "weapon_archetypes": 6,
+  "boss_archetypes": 5,
+  "render_previews": 37,
+  "viewport_sizes": [
+    "1920x1080",
+    "2400x1080",
+    "2750x1236",
+    "3440x1440",
+    "1600x1200",
+    "1280x800"
+  ],
+  "safe_insets_checked": true,
+  "certificate": "matches v0.4.0",
+  "android_device_tested": false,
+  "repository_visibility": "public verified via GitHub API"
+}

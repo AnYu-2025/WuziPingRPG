@@ -5,8 +5,8 @@ import math, random
 
 out = Path(__file__).resolve().parents[1] / 'app/src/main/assets'
 rng = random.Random(20261102)
-palettes = [('#322e43','#453951','#735065','#b77b83'),('#283d48','#38565d','#4c7e85','#8dc6c2'),('#3d303f','#583e50','#936679','#cf9b9a'),('#3f293a','#603848','#92535e','#ce8580'),('#30243f','#493153','#825080','#cf8ca8')]
-tiles = Image.new('RGBA',(256,320));d=ImageDraw.Draw(tiles)
+palettes = [('#322e43','#453951','#735065','#b77b83'),('#283d48','#38565d','#4c7e85','#8dc6c2'),('#3d303f','#583e50','#936679','#cf9b9a'),('#3f293a','#603848','#92535e','#ce8580'),('#30243f','#493153','#825080','#cf8ca8'),('#402a38','#603744','#a96376','#e9a4a0'),('#263b42','#34545d','#648d95','#a6d0cf'),('#272940','#414661','#727eb2','#b7bde8')]
+tiles = Image.new('RGBA',(256,512));d=ImageDraw.Draw(tiles)
 for region, colors in enumerate(palettes):
     for tile in range(64):
         x=(tile%16)*16;y=region*64+(tile//16)*16
