@@ -4,7 +4,7 @@ if (-not $JdkRoot) { $JdkRoot = 'C:\Program Files\Microsoft\jdk-17.0.20.101-hots
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $classes = Join-Path $projectRoot 'build\desktop'
 $dist = Join-Path $projectRoot 'dist'
-$screens = Join-Path $projectRoot 'artifacts\screenshots-v0.5'
+$screens = Join-Path $projectRoot 'artifacts\screenshots-v0.6'
 New-Item -ItemType Directory -Force -Path $classes,$dist,$screens | Out-Null
 $sources = @((Get-ChildItem -LiteralPath (Join-Path $projectRoot 'core\src\main\java') -Filter '*.java' -Recurse).FullName) + @((Get-ChildItem -LiteralPath (Join-Path $projectRoot 'tools\desktop') -Filter '*.java' -Recurse).FullName) + @((Get-ChildItem -LiteralPath (Join-Path $projectRoot 'tools\tests') -Filter '*.java' -Recurse).FullName)
 & (Join-Path $JdkRoot 'bin\javac.exe') -encoding UTF-8 --release 8 -d $classes @sources

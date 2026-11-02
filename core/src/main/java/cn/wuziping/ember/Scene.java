@@ -6,7 +6,7 @@ import java.util.*;
 public final class Scene {
     public float W=960,H=540;
     public Viewport layout=new Viewport();
-    public static final int CREAM=0xfff2e7cc,GOLD=0xffe9c481,MUTED=0xffacbdb8,INK=0xff121e2a,PANEL=0xf51b2c36;
+    public static final int CREAM=0xfff6edd8,GOLD=0xffe8c27a,MUTED=0xffa9bbb6,INK=0xff0c141c,PANEL=0xf0101a22,EMBER=0xffe07a45;
     public float clock=0,camX=0,camY=0,joyX=0,joyY=0;
     private Painter p,root;private UiPainter ui;private Game g;
     public void draw(Painter painter,Game game,float seconds){
@@ -14,6 +14,7 @@ public final class Scene {
         boolean town=g.inTown()||((g.mode==Game.TITLE||g.mode==8)&&!g.activeRun);
         float cx=town&&!g.inTown()?480:g.x,cy=town&&!g.inTown()?416:g.y;
         camX=Game.clamp(cx-W/4,0,Math.max(0,(town?Town.WIDTH:Game.WORLD_W)-W/2));camY=Game.clamp(cy-H/4,0,Math.max(0,(town?Town.HEIGHT:Game.WORLD_H)-H/2));
+        float kick=g.vfx.shake;camX-=(float)Math.sin(seconds*48)*kick*.5f;camY-=(float)Math.cos(seconds*37)*kick*.32f;
         if(town)townWorld();else world();
         ui=new UiPainter(root);p=ui;anchor(0,0);
         if(g.mode==Game.TITLE){title();return;}
@@ -49,7 +50,10 @@ public final class Scene {
         ArrayList<DrawItem> items=new ArrayList<>();
         if(!g.inBody())for(Game.Obstacle o:g.obstacles)if(o.x>camX-40&&o.x<camX+W/2+40&&o.y>camY-20&&o.y<camY+H/2+50)items.add(new DrawItem(o.y,o));
         for(Game.Enemy e:g.enemies)items.add(new DrawItem(e.y,e));items.add(new DrawItem(g.y,g));
-        for(Game.Drop d:g.drops){int id=d.type==0?8:d.type==1?9:10;float bounce=(float)Math.sin(clock*4+d.x)*1.3f;icon(id,sx(d.x)-9,sy(d.y)-12+bounce,18);}
+        for(Game.Drop d:g.drops){int id=d.type==0?8:d.type==1?9:10;float bounce=(float)Math.sin(clock*4+d.x)*1.3f;
+            int glow=d.type==1?0x33e8c27a:d.type==2?0x3391e3a0:0x339fd7c8;p.oval(sx(d.x)-12,sy(d.y)-8,24,14,glow);
+            float orbit=(float)(clock*2.2+d.x);p.rect(sx(d.x)+(float)Math.cos(orbit)*11,sy(d.y)-16+(float)Math.sin(orbit)*5,2,2,0xccfff1c2);
+            icon(id,sx(d.x)-9,sy(d.y)-12+bounce,18);}
         Collections.sort(items,new Comparator<DrawItem>(){public int compare(DrawItem a,DrawItem b){return Float.compare(a.y,b.y);}});
         for(DrawItem item:items){
             if(item.object instanceof Game.Obstacle){Game.Obstacle o=(Game.Obstacle)item.object;int idx=o.kind==0?((int)o.x%3):3;
@@ -57,16 +61,20 @@ public final class Scene {
                 object(idx,o.x,o.y,idx==3?38:55,idx==3?38:55,opacity);
             }else if(item.object instanceof Game.Enemy)enemy((Game.Enemy)item.object);else hero();
         }
-        for(Game.Shot s:g.shots){p.oval(sx(s.x)-7,sy(s.y)-7,14,14,0x344c94a2);p.rect(sx(s.x)-3,sy(s.y)-3,6,6,0xffdab3dc);p.rect(sx(s.x)-1,sy(s.y)-2,3,3,0xffffe8c0);}
+        for(Game.Shot s:g.shots){p.line(sx(s.x-s.vx*.045f),sy(s.y-s.vy*.045f),sx(s.x),sy(s.y),3,0x66dab3dc);p.oval(sx(s.x)-7,sy(s.y)-7,14,14,0x444c94a2);p.rect(sx(s.x)-3,sy(s.y)-3,6,6,0xffdab3dc);p.rect(sx(s.x)-1,sy(s.y)-2,3,3,0xffffe8c0);}
         if(g.skillFlash>0){
-            float r=(1-g.skillFlash/.48f)*(68+g.upgrades[4]*9)*2;
-            for(int j=0;j<48;j++){double a=j*Math.PI/24;float xx=sx(g.x)+(float)Math.cos(a)*r,yy=sy(g.y)-14+(float)Math.sin(a)*r*.7f;p.rect(xx,yy,5,5,0xfff2c77c);}
+            float u=1-g.skillFlash/.48f,r=u*(68+g.upgrades[4]*9)*2,inner=r*.62f;
+            p.oval(sx(g.x)-r,sy(g.y)-14-r*.7f,r*2,r*1.4f,0x22f2c77c);
+            for(int j=0;j<40;j++){double a=j*Math.PI/20+clock;float xx=sx(g.x)+(float)Math.cos(a)*r,yy=sy(g.y)-14+(float)Math.sin(a)*r*.7f;p.rect(xx,yy,j%2==0?6:4,j%2==0?6:4,j%4==0?0xfffff5ca:0xfff2c77c);
+                p.rect(sx(g.x)+(float)Math.cos(a)*inner,sy(g.y)-14+(float)Math.sin(a)*inner*.7f,3,3,0x88e07a45);}
         }
-        if(g.swing>0){for(int j=0;j<17;j++){double a=g.facing-1.1+j*.13;float rr=45+(1-g.swing/.2f)*24;
-            p.rect(sx(g.x)+(float)Math.cos(a)*rr-2,sy(g.y)-15+(float)Math.sin(a)*rr-2,5,5,j%3==0?0xfffff5ca:0xffe0bb72);}}
-        for(Game.Effect e:g.effects){p.text(e.text,sx(e.x),sy(e.y),16,e.color,1);}
+        if(g.swing>0)slashTrail();
+        popups();
         if(g.inBody()){
-            for(Arsenal.Bolt b:g.arsenal.bolts){p.oval(sx(b.x)-6,sy(b.y)-6,12,12,0x555f9baa);p.rect(sx(b.x)-3,sy(b.y)-3,6,6,b.color);}
+            for(Arsenal.Bolt b:g.arsenal.bolts){
+                p.line(sx(b.x-b.vx*.07f),sy(b.y-b.vy*.07f),sx(b.x),sy(b.y),4,(0x66<<24)|(b.color&0xffffff));
+                p.oval(sx(b.x)-8,sy(b.y)-8,16,16,(0x44<<24)|(b.color&0xffffff));p.rect(sx(b.x)-3,sy(b.y)-3,6,6,b.color);p.rect(sx(b.x)-1,sy(b.y)-1,2,2,0xfffff6df);
+            }
             BodyRenderer.supplies(p,g,camX,camY,clock,W,H);
         }
         for(int i=0;i<17;i++){
@@ -76,6 +84,48 @@ public final class Scene {
         // Cinematic edge shading, without blurring any pixel art.
         p.rect(0,0,W,6,0x44101f20);p.rect(0,H-6,W,6,0x44101f20);
         p.rect(0,0,5,H,0x33101f20);p.rect(W-5,0,5,H,0x33101f20);
+        impactOverlay();
+    }
+    private void slashTrail(){
+        float reach=g.inBody()?Arsenal.REACH[g.arsenal.selected]:52;
+        int color=g.inBody()?Arsenal.COLORS[g.arsenal.selected]:0xffe0bb72;
+        int steps=g.inBody()&&g.arsenal.selected==2?8:g.inBody()&&g.arsenal.selected==5?10:16;
+        float spread=g.inBody()&&g.arsenal.selected==2?.7f:g.inBody()&&g.arsenal.selected==5?2.4f:1.9f;
+        float grow=1-g.swing/.2f;
+        for(int j=0;j<steps;j++){
+            double a=g.facing-spread*.5+j*(spread/Math.max(1,steps-1));
+            float rr=(reach*.35f+grow*reach*.55f)*(j%3==0?1.05f:.86f);
+            int c=j%3==0?0xfffff5ca:color;
+            p.rect(sx(g.x)+(float)Math.cos(a)*rr-2,sy(g.y)-15+(float)Math.sin(a)*rr*.82f-2,g.inBody()&&g.arsenal.selected==5?7:5,g.inBody()&&g.arsenal.selected==5?7:5,c);
+        }
+        if(g.inBody()&&g.arsenal.selected==5)p.oval(sx(g.x)-reach*.9f,sy(g.y)-reach*.4f,reach*1.8f,reach*.75f,(0x28<<24)|(color&0xffffff));
+    }
+    private void popups(){
+        for(Game.Effect e:g.effects){
+            float k=e.max<=0?1:Math.max(0,e.time/e.max);boolean crit=e.color==0xffffd37a;
+            float size=(crit?21:15)*(0.84f+.3f*k);int alpha=(int)Math.min(255,k*340);
+            float x=sx(e.x),y=sy(e.y);
+            p.text(e.text,x+1,y+1,size,(alpha<<24)|0x140c08,1);
+            p.text(e.text,x,y,size,(alpha<<24)|(e.color&0xffffff),1);
+            if(crit)p.rect(x-3,y-size-2,2,2, (alpha<<24)|0xe8c27a);
+        }
+    }
+    private void impactOverlay(){
+        for(Vfx.Mote m:g.vfx.motes){
+            float k=m.max<=0?0:Math.max(0,m.life/m.max);int alpha=(int)(Math.min(1,k)*255);int c=(alpha<<24)|(m.color&0xffffff);
+            float x=sx(m.x),y=sy(m.y),s=m.size*(.55f+.6f*k);
+            if(m.shape==1)p.oval(x,y,s+1,s+1,c);else if(m.shape==2)p.rect(x,y,s*2.1f,2,c);else p.rect(x,y,s,s,c);
+        }
+        if(g.vfx.nova>0){
+            float u=Math.max(0,1f-g.vfx.nova/.55f),r=34+u*220;
+            p.oval(sx(g.x)-r,sy(g.y)-12-r*.62f,r*2,r*1.24f,0x33fff1c8);
+            for(int j=0;j<28;j++){double a=j*Math.PI/14+clock*2;p.rect(sx(g.x)+(float)Math.cos(a)*r-2,sy(g.y)-10+(float)Math.sin(a)*r*.68f-2,5,5,j%2==0?0xfffff1c8:EMBER);}
+        }
+        if(g.vfx.flash>0){int a=(int)(Math.min(.5f,g.vfx.flash)*150);p.rect(0,0,W,H,(a<<24)|0xff4634);}
+        if(!g.inTown()&&g.mode==Game.PLAY&&g.hp>0&&g.hp<g.maxHp*.34f){
+            float pulse=.4f+.28f*(float)Math.sin(clock*7);int a=(int)(pulse*86);
+            p.rect(0,0,W,18,(a<<24)|0x9a2030);p.rect(0,H-18,W,18,(a<<24)|0x9a2030);p.rect(0,0,14,H,(a<<24)|0x9a2030);p.rect(W-14,0,14,H,(a<<24)|0x9a2030);
+        }
     }
     private static final class TownProp{int id;float x,y,size;TownProp(int i,float a,float b,float s){id=i;x=a;y=b;size=s;}}
     private void townWorld(){
@@ -115,7 +165,8 @@ public final class Scene {
         }
         worldTag(g.body.enabled?"北门 · 血管入口":"北门 · 迷雾森林",480,140,GOLD);
         if(g.body.enabled){float xx=sx(480),yy=sy(112);for(int i=0;i<8;i++)p.rect(xx-34+i*10,yy-17+(float)Math.sin(clock*3+i)*4,4,4,0xffe4a4a5);}
-        for(int j=0;j<14;j++){float xx=(j*79+(float)Math.sin(clock*.2+j)*12)%960,yy=(j*57+clock*2)%540;p.rect(xx,yy,2,2,0x66e3c18b);}
+        for(int j=0;j<14;j++){float xx=(j*79+(float)Math.sin(clock*.2+j)*12)%W,yy=(j*57+clock*2)%H;p.rect(xx,yy,2,2,0x66e3c18b);}
+        impactOverlay();
     }
     private void wall(float x,float y){p.rect(sx(x),sy(y),30,30,0xff3e5452);p.rect(sx(x),sy(y),30,5,0xff839081);p.rect(sx(x)+3,sy(y)+10,24,2,0xff5c7066);}
     private void townAsset(int id,float x,float y,float w,float h,float alpha){p.image("town.png",id%4*128,id/4*128,128,128,sx(x)-w,sy(y)-h*2,w*2,h*2,alpha,false);}
@@ -143,63 +194,90 @@ public final class Scene {
     private void object(int idx,float x,float y,float w,float h,float alpha){p.image("objects.png",idx%8*64,idx/8*64,64,64,sx(x)-w,sy(y)-h*1.75f,w*2,h*2,alpha,false);}
     private void hero(){
         float px=sx(g.x),py=sy(g.y);p.oval(px-14,py-5,28,10,0x6610201b);
-        int frame=(int)(clock*7)%4;int col=(Math.sin(g.facing)<-.5?4:0)+frame;
+        int frame=(int)(clock*7)%4;int col=(Math.sin(g.facing)<-.5?4:0)+frame;boolean flip=Math.cos(g.facing)<-.3;
         float alpha=g.invuln>0&&((int)(clock*15)%2==0)?.4f:1;
-        if(g.dashTime>0){p.oval(px-24,py-12,48,18,0x4484d1bc);}
-        p.image("actors.png",col*32,0,32,32,px-29,py-48,58,58,alpha,Math.cos(g.facing)<-.3);
-        if(g.inBody()){p.image("weapons.png",g.arsenal.selected*32,0,32,32,px+6,py-32,23,23,1,Math.cos(g.facing)<0);if(g.arsenal.shield>0){p.oval(px-31,py-60,62,67,0x336fbbd6);}}
-        if(g.mode==Game.PLAY){p.rect(px-28,py-64,56,15,0x99132221);p.text(Game.HERO,px,py-53,11,CREAM,1);}
+        for(int i=g.vfx.ga.length-1;i>=0;i--)if(g.vfx.ga[i]>0)p.image("actors.png",col*32,0,32,32,sx(g.vfx.gx[i])-29,sy(g.vfx.gy[i])-48,58,58,g.vfx.ga[i]*.38f,flip);
+        if(g.dashTime>0){p.oval(px-26,py-14,52,20,0x5584d1bc);p.oval(px-16,py-10,32,12,0x339fd8cc);}
+        p.image("actors.png",col*32,0,32,32,px-29,py-48,58,58,alpha,flip);
+        if(g.inBody()){
+            float ox=g.swing>0?(float)Math.cos(g.facing)*(1-g.swing/.2f)*16:0,oy=g.swing>0?(float)Math.sin(g.facing)*(1-g.swing/.2f)*10:0;
+            if(g.swing>0)p.image("weapons.png",g.arsenal.selected*32,0,32,32,px+6+ox,py-32+oy,23,23,.4f,Math.cos(g.facing)<0);
+            p.image("weapons.png",g.arsenal.selected*32,0,32,32,px+6,py-32,23,23,1,Math.cos(g.facing)<0);
+            if(g.arsenal.shield>0){p.oval(px-31,py-60,62,67,0x336fbbd6);for(int j=0;j<8;j++){double a=clock*3+j*Math.PI/4;p.rect(px+(float)Math.cos(a)*24,py-30+(float)Math.sin(a)*22,3,3,0xffc6eef2);}}
+            if(g.arsenal.combo>0)center(g.arsenal.combo==2?"连击 ×2":"连击",px,py-76,10,GOLD);
+        }
+        if(g.mode==Game.PLAY){p.rect(px-30,py-66,60,16,0xcc101820);p.rect(px-30,py-66,60,2,GOLD);p.text(Game.HERO,px,py-53,11,CREAM,1);}
     }
     private void enemy(Game.Enemy e){
         float px=sx(e.x),py=sy(e.y);if(px<-90||px>W+90||py<-50||py>H+100)return;
         int frame=(int)(clock*(e.type==1?10:5)+e.id)%4,col=frame,row=1;float size=52;
         if(e.type==1){col+=4;size=46;}else if(e.type==2){row=2;size=62;}else if(e.type==3){row=2;col+=4;size=52;}else if(e.type==4){row=3;size=100;}
-        if(e.windup>0){float xx=sx(e.targetX),yy=sy(e.targetY);if(e.bossAttack){p.oval(xx-106,yy-75,212,150,0x55d87153);for(int j=0;j<28;j++){double a=j*Math.PI/14;p.rect(xx+(float)Math.cos(a)*104,yy+(float)Math.sin(a)*74,5,5,0xffe9a169);}}else p.oval(px-65,py-55,130,100,0x55b988d0);}
+        if(e.windup>0){float xx=sx(e.targetX),yy=sy(e.targetY);if(e.bossAttack){p.oval(xx-106,yy-75,212,150,0x55d87153);p.line(xx-18,yy,xx+18,yy,2,0xfff0c9a2);p.line(xx,yy-12,xx,yy+12,2,0xfff0c9a2);for(int j=0;j<28;j++){double a=j*Math.PI/14;p.rect(xx+(float)Math.cos(a)*104,yy+(float)Math.sin(a)*74,5,5,0xffe9a169);}}else p.oval(px-65,py-55,130,100,0x55b988d0);}
         p.oval(px-size*.27f,py-4,size*.54f,10,0x6610201b);
         if(g.inBody()&&e.type==4)p.image("bosses.png",frame*64,Bosses.kind(g)*64,64,64,px-size/2,py-size*.81f,size,size,1,e.x>g.x);
         else p.image(g.inBody()?"body_enemies.png":"actors.png",g.inBody()?frame*32:col*32,g.inBody()?e.type*32:row*32,32,32,px-size/2,py-size*.81f,size,size,1,e.x>g.x);
-        if(e.hit>0)p.rect(px-4,py-size*.45f,8,8,0x99fff1bb);
-        if(e.hp<e.maxHp||e.type==4){float w=e.type==4?82:36;p.rect(px-w/2-1,py-size*.83f-8,w+2,6,0xff132320);p.rect(px-w/2,py-size*.83f-7,w*e.hp/e.maxHp,4,e.type==4?0xffd6aa67:0xffc97b65);}
+        if(e.hit>0){float a=e.hit/.15f;p.oval(px-size*.32f,py-size*.62f,size*.64f,size*.5f,((int)(a*150)<<24)|0xfff6e2);p.rect(px-4,py-size*.45f,8,8,0xccfff1bb);}
+        if(e.hp<e.maxHp||e.type==4){float w=e.type==4?82:36;p.rect(px-w/2-1,py-size*.83f-8,w+2,6,0xff132320);p.rect(px-w/2,py-size*.83f-7,w*e.hp/e.maxHp,4,e.type==4?0xffd6aa67:0xffc97b65);p.rect(px-w/2,py-size*.83f-7,w*e.hp/e.maxHp,1,0x66fff0d8);}
     }
     private void panel(float x,float y,float w,float h){
-        p.rect(x+4,y+5,w,h,0x77101b21);p.rect(x,y,w,h,0xff75857c);p.rect(x+1,y+1,w-2,h-2,0xff253b43);p.rect(x+3,y+3,w-6,h-6,PANEL);
-        p.rect(x+6,y+6,w-12,1,0xff425861);p.rect(x+6,y+h-7,w-12,1,0xff2d4149);
-        for(int k=0;k<4;k++){float a=x+(k%2==0?0:w-6),b=y+(k<2?0:h-6);p.rect(a,b,6,6,0xffc5ae7c);p.rect(a+2,b+2,2,2,0xffe5c98c);}
+        p.rect(x+3,y+4,w,h,0x66060c12);p.rect(x,y,w,h,0xffe6d2a2);p.rect(x+1,y+1,w-2,h-2,0xff6a4038);
+        p.rect(x+2,y+2,w-4,h-4,0xff24343e);p.rect(x+3,y+3,w-6,h-6,PANEL);
+        p.rect(x+4,y+4,w-8,2,0x33f0d7a2);p.rect(x+4,y+h-5,w-8,1,0x226a4038);
+        bracket(x+3,y+3,1,1);bracket(x+w-3,y+3,-1,1);bracket(x+3,y+h-3,1,-1);bracket(x+w-3,y+h-3,-1,-1);
+    }
+    private void bracket(float x,float y,int dx,int dy){
+        p.rect(x+(dx<0?-7:0),y+(dy<0?-2:0),7,2,GOLD);p.rect(x+(dx<0?-2:0),y+(dy<0?-7:0),2,7,GOLD);
     }
     private void border(float x,float y,float w,float h,int color){p.rect(x,y,w,2,color);p.rect(x,y+h-2,w,2,color);p.rect(x,y,2,h,color);p.rect(x+w-2,y,2,h,color);}
     private void icon(int idx,float x,float y,float size){p.image("icons.png",idx%8*32,idx/8*32,32,32,x,y,size,size,1,false);}
     private void label(String s,float x,float y,float size,int c){p.text(s,x,y,size,c,0);}
     private void center(String s,float x,float y,float size,int c){p.text(s,x,y,size,c,1);}
     private void button(String text,float x,float y,float w,float h,boolean primary){
-        p.rect(x+3,y+4,w,h,0x880b1818);p.rect(x,y,w,h,primary?GOLD:0xff536c58);p.rect(x+2,y+2,w-4,h-4,primary?0xffb88c50:0xff253b33);
-        p.rect(x+4,y+3,w-8,2,primary?0xfff4d79a:0xff729075);center(text,x+w/2,y+h/2+6,18,primary?0xff162b27:CREAM);
+        p.rect(x+2,y+3,w,h,0x88060c10);p.rect(x,y,w,h,primary?0xfff3d7a4:0xff6d8f86);
+        p.rect(x+2,y+2,w-4,h-4,primary?0xffc4924e:0xff1c3330);
+        p.rect(x+2,y+2,w-4,2,primary?0x66fff1c8:0x447aa894);p.rect(x+2,y+h-4,w-4,2,primary?0x44805a28:0x44081412);
+        if(primary){p.rect(x+10,y+h/2-3,6,6,0xfff6e4b4);p.rect(x+w-16,y+h/2-3,6,6,0xfff6e4b4);}
+        center(text,x+w/2,y+h/2+6,18,primary?0xff1c140c:CREAM);
     }
     private void title(){
-        root.rect(0,0,W,H,0x8a0a1919);p.rect(0,0,510,540,0xb5112422);
-        label("全新篇章 · 梦入体内",62,65,14,GOLD);label("星火远征",56,142,56,CREAM);
-        p.rect(62,162,42,3,GOLD);label("伍子平的体内冒险",62,197,20,0xffced5bc);
-        label("沿血管穿越器官，清除病灶，迎接梦醒。",62,233,15,MUTED);
+        root.rect(0,0,W,H,0xb0081014);root.rect(0,0,W,26,0x88060e12);root.rect(0,H-34,W,34,0x99060e12);
+        root.rect(0,0,28,H,0xf0081014);root.rect(W-28,0,28,H,0xf0081014);
+        for(int i=0;i<24;i++){
+            float xx=(float)((i*97+Math.sin(clock*.35+i)*30+W*8)%W);
+            float yy=(float)((H+40-(clock*(12+i%5)+i*37)%(H+40)));
+            root.rect(xx,yy,i%4==0?3:2,i%4==0?3:2,i%3==0?0x66e07a45:i%3==1?0x55e8c27a:0x44c45c6a);
+        }
+        panel(36,28,356,484);p.rect(52,86,2,150,EMBER);
+        label("全新篇章 · 梦入体内",68,72,14,GOLD);label("星火远征",62,142,54,CREAM);
+        p.rect(64,158,48,3,GOLD);p.rect(116,158,10,3,EMBER);
+        label("伍子平的体内冒险",62,192,20,0xffe7dcc8);
+        label("沿血管穿越器官，清除病灶，迎接梦醒。",62,226,15,MUTED);
         boolean save=g.activeRun;
         button(save?"继续旅程":"开启体内远征",62,273,278,53,true);
         button(save?"开启新的远征":"旅者手册",62,340,278,43,false);
-        label("档案",64,427,14,MUTED);label("最高区域  "+g.bestWave+" / 5",64,454,15,CREAM);label("累计击败  "+g.lifetimeKills,232,454,15,CREAM);
-        label("器官副本  ·  血管转运  ·  击败触发空投",62,508,12,MUTED);p.text("v0.5.0",914,508,12,MUTED,2);
-        panel(603,116,259,287);center("此行的旅者",733,148,13,GOLD);
-        p.oval(670,322,120,25,0x77111f1c);
-        int fr=(int)(clock*3)%4;p.image("actors.png",fr*32,0,32,32,654,174,160,160,1,false);
-        center("伍子平",733,358,26,CREAM);center("星火剑士  ·  中山大学的梦行者",733,384,12,MUTED);
-        icon(0,629,433,24);label("挥剑",658,452,14,CREAM);icon(1,718,433,24);label("星火",747,452,14,CREAM);icon(2,806,433,24);label("闪避",835,452,14,CREAM);
-        if(save)label("已有未完成的旅程，点击主按钮继续。",62,406,12,GOLD);
+        p.rect(62,416,330,55,0x55101820);p.rect(62,416,330,1,GOLD);p.rect(62,470,330,1,0x556a4038);
+        label("档案 · 点击打开札记",72,436,12,GOLD);
+        label("最高区域  "+g.bestWave+" / 5",72,458,14,CREAM);label("累计击败  "+g.lifetimeKills,228,458,14,CREAM);
+        label("器官副本  ·  血管转运  ·  击败触发空投",62,500,12,MUTED);p.text("v0.6.0",914,508,12,MUTED,2);
+        panel(588,92,292,356);center("此行的旅者",734,124,13,GOLD);p.rect(648,136,172,1,0x55e8c27a);
+        p.oval(646,292,176,30,0x33e07a45);p.oval(674,300,120,16,0x44101820);
+        int fr=(int)(clock*3)%4;p.image("actors.png",fr*32,0,32,32,654,150,160,160,1,false);
+        for(int j=0;j<6;j++){double a=clock*1.1+j*Math.PI/3;p.rect(734+(float)Math.cos(a)*78,246+(float)Math.sin(a)*34,3,3,j%2==0?GOLD:EMBER);}
+        center("伍子平",734,332,26,CREAM);center("星火剑士  ·  中山大学的梦行者",734,358,12,MUTED);
+        p.rect(648,376,172,1,0x336d8790);
+        icon(0,640,396,24);label("挥剑",668,415,14,CREAM);icon(1,730,396,24);label("星火",758,415,14,CREAM);icon(2,818,396,24);label("闪避",846,415,14,CREAM);
+        if(save)label("已有未完成的旅程，点击主按钮继续。",62,400,12,GOLD);
     }
     private void hud(){
         anchor(-1,-1);
-        panel(18,16,269,82);p.image("actors.png",0,0,32,32,22,25,37,37,1,false);label("伍子平",66,40,18,CREAM);label("等级 "+g.level,209,39,14,GOLD);
-        p.rect(66,49,202,12,0xff142723);p.rect(67,50,200*g.hp/g.maxHp,10,0xffc57b65);center((int)g.hp+" / "+(int)g.maxHp,167,59,10,0xfffff0d4);
-        p.rect(28,77,240,5,0xff142723);p.rect(28,77,240*(float)g.xp/g.requiredXp(),5,0xff7bbfa1);label("经验 "+g.xp+" / "+g.requiredXp(),29,93,9,MUTED);
-        anchor(0,-1);panel(325,16,310,56);center(g.inTown()?"中山大学 · "+(g.body.enabled?"梦境据点":"灯火长明"):g.inBody()?g.body.name()+" · 体内远征":"迷雾森林 · "+Game.WAVE_NAMES[g.wave-1],480,39,17,CREAM);center(g.inTown()?"安全区域  ·  可以交谈与补给":g.inBody()?BodyJourney.SUBTITLES[g.body.organ]+"  ·  "+time(g.elapsed):"第 "+g.wave+" / 5 波  ·  "+time(g.elapsed),480,59,11,MUTED);
+        panel(18,16,269,82);p.rect(22,22,3,66,0xffc45c6a);p.image("actors.png",0,0,32,32,28,25,37,37,1,false);label("伍子平",70,40,18,CREAM);label("等级 "+g.level,209,39,14,GOLD);
+        p.rect(70,49,190,12,0xff142028);p.rect(71,50,188*g.hp/Math.max(1,g.maxHp),10,g.hp<g.maxHp*.34f?0xffe07a45:0xffc45c6a);p.rect(71,50,188*g.hp/Math.max(1,g.maxHp),2,0x66ffd5cc);center((int)g.hp+" / "+(int)g.maxHp,165,59,10,0xfffff0d4);
+        label("经验 "+g.xp+" / "+g.requiredXp(),30,74,9,MUTED);
+        p.rect(28,78,240,5,0xff142028);p.rect(28,78,240*(float)g.xp/g.requiredXp(),5,0xff7ec8b0);p.rect(28,78,240*(float)g.xp/g.requiredXp(),1,0x88e8fff0);
+        anchor(0,-1);panel(325,16,310,56);p.rect(340,66,280,2,0x55e8c27a);center(g.inTown()?"中山大学 · "+(g.body.enabled?"梦境据点":"灯火长明"):g.inBody()?g.body.name()+" · 体内远征":"迷雾森林 · "+Game.WAVE_NAMES[g.wave-1],480,39,17,CREAM);center(g.inTown()?"安全区域  ·  可以交谈与补给":g.inBody()?BodyJourney.SUBTITLES[g.body.organ]+"  ·  "+time(g.elapsed):"第 "+g.wave+" / 5 波  ·  "+time(g.elapsed),480,59,11,MUTED);
         anchor(1,-1);icon(9,654,21,23);label(""+g.gold,683,40,16,GOLD);smallToggle("札记",746,19,54);
         smallToggle(g.autoAttack?"自动 开":"自动 关",811,19,78);smallToggle("Ⅱ",902,19,38);
-        anchor(-1,-1);panel(18,107,286,83);icon(11,29,118,24);label(g.body.enabled?(g.body.ending?"终章完成 · 梦醒时分":"梦入体内 · 净化 "+g.body.clearedCount()+" / 8"):g.story.enabled?g.story.chapterName():"当前委托",61,136,12,GOLD);
+        anchor(-1,-1);panel(18,107,286,83);p.rect(22,116,3,64,g.body.ending?0xff8ed0b7:GOLD);icon(11,32,118,24);label(g.body.enabled?(g.body.ending?"终章完成 · 梦醒时分":"梦入体内 · 净化 "+g.body.clearedCount()+" / 8"):g.story.enabled?g.story.chapterName():"当前委托",64,136,12,GOLD);
         wrapped(g.quest(),32,161,13,CREAM,254,18,2);label("点击查看任务与人物",32,182,10,MUTED);
         // Mini map deliberately omits any hidden off-screen collectible information.
         anchor(1,-1);panel(826,75,114,89);p.rect(834,83,98,73,g.inTown()?0xff3e5250:0xff203e31);
@@ -215,47 +293,62 @@ public final class Scene {
         p.rect(834+g.x/g.worldWidth()*98-2,83+g.y/g.worldHeight()*73-2,4,4,0xffb1ead3);
         if(g.story.enabled){float[] target=g.body.enabled?g.body.target(g):g.story.target();if(target!=null){p.rect(834+target[0]/g.worldWidth()*98-2,83+target[1]/g.worldHeight()*73-2,4,4,GOLD);navigation(target[0],target[1]);}}
         if(g.body.enabled){anchor(1,-1);bodyMini();anchor(-1,-1);
-            panel(18,219,260,65);p.image("weapons.png",g.arsenal.selected*32,0,32,32,24,228,34,34,1,false);label(g.arsenal.name(),65,243,14,GOLD);label(Arsenal.DESCS[g.arsenal.selected],32,273,10,MUTED);smallToggle("武库",213,229,54);
+            panel(18,219,260,65);p.rect(22,226,3,50,Arsenal.COLORS[g.arsenal.selected]);p.image("weapons.png",g.arsenal.selected*32,0,32,32,30,228,34,34,1,false);label(g.arsenal.name(),70,240,14,GOLD);
+            p.rect(70,250,128,4,0xff101820);p.rect(70,250,128*g.arsenal.energy/100f,4,g.arsenal.energy>=100?0xffffe7b0:0xffc5a6d9);label(Arsenal.DESCS[g.arsenal.selected],32,273,10,MUTED);smallToggle("武库",213,229,54);
         }
         anchor(0,-1);if(g.banner>0){panel(315,87,420,45);center(g.bannerText,525,115,13,GOLD);}
         Game.Enemy boss=null;if(!g.inTown())for(Game.Enemy e:g.enemies)if(e.type==4)boss=e;
         if(boss!=null){center(g.inBody()?Bosses.name(g)+(boss.hp<boss.maxHp*.45f?" · 狂暴":""):"遗迹守卫",480,181,13,GOLD);p.rect(337,190,286,7,0xff172824);p.rect(338,191,284*boss.hp/boss.maxHp,5,0xffd2ab69);}
     }
-    private void smallToggle(String s,float x,float y,float w){panel(x,y,w,31);center(s,x+w/2,y+21,12,CREAM);}
+    private void smallToggle(String s,float x,float y,float w){
+        p.rect(x+1,y+2,w,31,0x55060c10);p.rect(x,y,w,31,0xffc4a36a);p.rect(x+2,y+2,w-4,27,0xff16242c);
+        p.rect(x+2,y+2,w-4,2,0x44f0d7a2);center(s,x+w/2,y+21,12,CREAM);
+    }
     private void controls(){
         anchor(-1,1);
-        p.oval(30,373,124,124,0x55233732);p.oval(36,379,112,112,0x553e5c47);
-        p.oval(63+joyX*31,406+joyY*31,58,58,0x99718c6b);p.oval(69+joyX*31,412+joyY*31,46,46,0x998aa17c);
-        center("移动",92,522,12,MUTED);
+        p.oval(26,369,132,132,0x44060c10);p.oval(30,373,124,124,0xccd7b56a);p.oval(36,379,112,112,0xee121c26);
+        for(int j=0;j<8;j++){double a=j*Math.PI/4;p.rect(92+(float)Math.cos(a)*48-1,435+(float)Math.sin(a)*48-1,3,3,0x88e8c27a);}
+        float kx=63+joyX*31,ky=406+joyY*31;p.oval(kx-2,ky+2,62,62,0x66060c10);p.oval(kx,ky,58,58,0xddc4a36a);p.oval(kx+6,ky+6,46,46,0xee1c2c34);
+        p.rect(kx+27,ky+16,4,26,0x66e8c27a);p.rect(kx+16,ky+27,26,4,0x66e8c27a);
+        center("移动",92,508,12,MUTED);
         if(g.inTown()){
             anchor(1,1);String interaction=g.story.interaction(g);boolean ready=!interaction.isEmpty();
             p.oval(790,372,114,114,ready?0xffc4a572:0xff677c7d);p.oval(794,376,106,106,0xee233e46);icon(11,825,405,44);
             center(ready?interaction:"靠近人物交谈",847,511,13,ready?GOLD:MUTED);
-            anchor(0,1);center("与居民交谈，找到属于你的下一步。",467,515,12,MUTED);return;
+            anchor(0,1);center("与居民交谈，找到属于你的下一步。",467,508,12,MUTED);return;
         }
         anchor(1,1);if(g.inBody()){
+            if(g.arsenal.energy>=100){float pulse=4+(float)Math.sin(clock*5)*2;p.oval(645-24-pulse,330-24-pulse,(24+pulse)*2,(24+pulse)*2,0x44ffe7b0);}
+            meterRing(645,330,34,g.arsenal.energy/100f,0xffc5a6d9);
             roundButton(645,330,24,4,"爆发 "+(int)g.arsenal.energy+"%",0,1,0xffc5a6d9);
             roundButton(857,465,38,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
             roundButton(764,465,30,1,Arsenal.SKILLS[g.arsenal.selected],g.skillCd,7,0xffc17b51);
             roundButton(755,370,25,2,"闪避",g.dashCd,2.6f,0xff6d9b8d);
             roundButton(679,410,24,3,"药剂 ×"+g.potions,g.potionCd,3,0xffa87063);
-            anchor(0,1);label("长按挥剑 · 点击全身图查看血管路线",325,520,11,MUTED);
+            anchor(0,1);label("长按挥剑 · 点击全身图查看血管路线",325,508,11,MUTED);
             if(!g.story.interaction(g).isEmpty()){anchor(0,0);panel(348,281,264,34);center(g.story.interaction(g)+"  [E]",480,303,12,GOLD);}return;
         }
         roundButton(857,433,45,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
         roundButton(761,441,34,1,"星火斩",g.skillCd,8,0xffc17b51);
         roundButton(851,334,29,2,"闪避",g.dashCd,2.6f,0xff6d9b8d);
         roundButton(746,347,24,3,"药剂 ×"+g.potions,g.potionCd,3,0xffa87063);
-        anchor(0,1);label("长按普攻连续挥剑",362,520,11,0xffaec1a7);
+        anchor(0,1);label("长按普攻连续挥剑",362,508,11,0xffaec1a7);
         if(g.story.enabled&&!g.story.interaction(g).isEmpty()){anchor(0,0);panel(371,281,218,34);center(g.story.interaction(g)+"  [E]",480,303,13,GOLD);}
     }
     private void roundButton(float x,float y,float r,int ic,String s,float cd,float max,int c){
-        p.oval(x-r-2,y-r+2,r*2+4,r*2+4,0x88121d1b);p.oval(x-r,y-r,r*2,r*2,c);p.oval(x-r+3,y-r+3,r*2-6,r*2-6,0xdd233b32);
+        boolean ready=cd<=.1f;
+        if(ready){float pulse=2+(float)Math.sin(clock*4+(x+y)*.01f)*1.6f;p.oval(x-r-pulse,y-r-pulse,(r+pulse)*2,(r+pulse)*2,(0x33<<24)|(c&0xffffff));}
+        p.oval(x-r-1,y-r+3,r*2+2,r*2+2,0x66060c10);p.oval(x-r,y-r,r*2,r*2,0xffe6d2a4);p.oval(x-r+3,y-r+3,r*2-6,r*2-6,0xee152028);
+        p.oval(x-r+6,y-r+6,r*2-12,r*2-12,(0x55<<24)|(c&0xffffff));
         icon(ic,x-18,y-21,36);
-        if(cd>.1){p.oval(x-r+3,y-r+3,r*2-6,r*2-6,0xbb142522);center(String.format(java.util.Locale.ROOT,"%.1f",cd),x,y+6,18,CREAM);}
+        if(!ready){p.oval(x-r+3,y-r+3,r*2-6,r*2-6,0xcc101820);meterRing(x,y,r+5,1f-cd/Math.max(.01f,max),GOLD);center(String.format(java.util.Locale.ROOT,"%.1f",cd),x,y+6,18,CREAM);}
         center(s,x,y+r+20,12,CREAM);
     }
-    private void veil(){root.rect(0,0,W,H,0xbd0a1819);}
+    private void meterRing(float x,float y,float r,float frac,int color){
+        int ticks=10,lit=(int)(Game.clamp(frac,0,1)*ticks);
+        for(int i=0;i<ticks;i++){double a=-Math.PI/2+i*Math.PI*2/ticks;p.rect(x+(float)Math.cos(a)*r-1.5f,y+(float)Math.sin(a)*r-1.5f,3,3,i<lit?color:0x33ffffff);}
+    }
+    private void veil(){root.rect(0,0,W,H,g.mode==Game.DEAD?0xcc140e12:0xc00a1418);}
     private void upgrade(){
         veil();center("星火觉醒",480,105,35,CREAM);center("等级 "+g.level+" · 选择一项祝福",480,139,15,GOLD);
         for(int i=0;i<3;i++){
@@ -314,12 +407,16 @@ public final class Scene {
         veil();panel(88,42,784,466);label("旅者武库",119,91,28,CREAM);label("装备改变普攻与技能 · 击败守卫或拾取武器空投解锁",120,121,12,MUTED);p.text("金币 "+g.gold,827,91,15,GOLD,2);
         for(int i=0;i<6;i++){
             float x=120+(i%3)*240,y=146+(i/3)*132;boolean owned=g.arsenal.owned(i);panel(x,y,222,117);if(i==g.arsenal.selected)border(x,y,222,117,GOLD);
-            p.image("weapons.png",i*32,0,32,32,x+9,y+12,37,37,owned?1:.35f,false);label(Arsenal.NAMES[i]+(g.arsenal.forge[i]>0?" +"+g.arsenal.forge[i]:""),x+52,y+29,15,owned?CREAM:MUTED);
+            p.rect(x+5,y+6,4,105,owned?Arsenal.COLORS[i]:(0x44<<24)|(Arsenal.COLORS[i]&0xffffff));
+            if(i==g.arsenal.selected){float pulse=(float)Math.sin(clock*3)*1.2f;border(x-1-pulse,y-1-pulse,224+pulse*2,119+pulse*2,GOLD);}
+            p.image("weapons.png",i*32,0,32,32,x+14,y+12,37,37,owned?1:.35f,false);label(Arsenal.NAMES[i]+(g.arsenal.forge[i]>0?" +"+g.arsenal.forge[i]:""),x+56,y+29,15,owned?CREAM:MUTED);
             label(Arsenal.DESCS[i],x+12,y+63,11,MUTED);
             smallToggle(owned?(i==g.arsenal.selected?"已装备":"装备"):"通关/空投解锁",x+10,y+76,96);
             smallToggle(g.arsenal.forge[i]>=3?"强化已满":"强化 "+g.arsenal.cost(i),x+116,y+76,96);
         }
-        label("Q 快速轮换武器 · R 免疫爆发 · 爆发能量 "+(int)g.arsenal.energy+"%",120,419,12,MUTED);button("返回旅程",340,444,280,40,true);
+        label("Q 快速轮换武器 · R 免疫爆发 · 爆发能量 "+(int)g.arsenal.energy+"%",120,419,12,MUTED);
+        p.rect(560,400,250,5,0xff101820);p.rect(560,400,250*g.arsenal.energy/100f,5,g.arsenal.energy>=100?0xffffe7b0:0xffc5a6d9);
+        button("返回旅程",340,444,280,40,true);
     }
     private void bodyMini(){
         if(g.inTown()){panel(813,226,127,37);center("全身病灶 · 点击查看",876,250,10,GOLD);return;}
@@ -378,10 +475,10 @@ public final class Scene {
     }
     private void dialogue(){
         Story.Dialogue d=g.story.dialogue;if(d==null)return;
-        root.rect(0,0,W,H,0x35111e2a);panel(76,310,808,212);
-        p.rect(104,292,170,32,0xffb99a65);p.rect(106,294,166,28,0xff283c48);label(d.speaker(),120,315,17,GOLD);
+        root.rect(0,0,W,H,0x40101820);panel(76,310,808,212);
+        p.rect(104,290,186,34,0xffe6d2a2);p.rect(106,292,182,30,0xff1c2c36);p.rect(106,292,182,2,GOLD);label(d.speaker(),120,315,17,GOLD);
         label("故事对话",764,336,11,MUTED);p.text((d.page+1)+" / "+d.pages.length,855,336,11,MUTED,2);
-        p.rect(97,344,109,145,0xff3b5359);p.rect(100,347,103,139,0xff1c303b);p.rect(105,352,93,1,0xff6f8178);
+        p.rect(97,344,109,145,0xffe6d2a2);p.rect(100,347,103,139,0xff1c303b);p.rect(105,352,93,2,EMBER);
         if(d.speaker().equals(Game.HERO))p.image("actors.png",0,0,32,32,108,367,89,89,1,false);
         else if(d.npc==TownGuest.NPC)p.image("nailong.png",(g.guest.stage==2?3:0)*64,0,64,64,100,358,103,103,1,false);
         else if(d.npc>=0){int slot=d.npc*4;p.image("npcs.png",slot%8*32,slot/8*32,32,32,108,367,89,89,1,false);}

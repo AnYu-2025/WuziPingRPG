@@ -48,8 +48,13 @@ public final class Desktop extends JPanel implements cn.wuziping.ember.Painter {
     @Override public void rect(float x,float y,float w,float h,int c){g.setColor(new Color(c,true));g.fill(new java.awt.geom.Rectangle2D.Float(x,y,w,h));}
     @Override public void oval(float x,float y,float w,float h,int c){g.setColor(new Color(c,true));g.fill(new java.awt.geom.Ellipse2D.Float(x,y,w,h));}
     @Override public void line(float a,float b,float c,float d,float width,int color){g.setColor(new Color(color,true));g.setStroke(new BasicStroke(width));g.draw(new java.awt.geom.Line2D.Float(a,b,c,d));}
+    private Font uiFont(float size){
+        String[] names={"Microsoft YaHei","Noto Sans CJK SC","Noto Sans CJK JP","WenQuanYi Micro Hei","Droid Sans Fallback","SansSerif"};
+        for(String name:names){Font face=new Font(name,Font.PLAIN,1);if(face.canDisplay('伍')||"SansSerif".equals(name))return face.deriveFont(size);}
+        return new Font("SansSerif",Font.PLAIN,1).deriveFont(size);
+    }
     @Override public void text(String s,float x,float y,float size,int c,int align){
-        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,RenderingHints.VALUE_TEXT_ANTIALIAS_ON);g.setFont(new Font("Microsoft YaHei",Font.PLAIN,1).deriveFont(size));g.setColor(new Color(c,true));float width=g.getFontMetrics().stringWidth(s);g.drawString(s,x-(align==1?width/2:align==2?width:0),y);
+        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,RenderingHints.VALUE_TEXT_ANTIALIAS_ON);g.setFont(uiFont(size));g.setColor(new Color(c,true));float width=g.getFontMetrics().stringWidth(s);g.drawString(s,x-(align==1?width/2:align==2?width:0),y);
     }
     @Override public void image(String n,int sx,int sy,int sw,int sh,float x,float y,float w,float h,float alpha,boolean flip){
         Composite old=g.getComposite();g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,alpha));
@@ -63,7 +68,9 @@ public final class Desktop extends JPanel implements cn.wuziping.ember.Painter {
             game.startRun();game.wave=3;game.level=4;game.kills=19;game.gold=57;game.hp=76;game.xp=11;game.elapsed=126;game.banner=0;
             game.spawnEnemy(0,game.x+40,game.y+10);game.spawnEnemy(1,game.x-30,game.y-40);game.spawnEnemy(2,game.x+75,game.y-20);game.spawnEnemy(3,game.x-65,game.y+30);
             for(int j=0;j<12;j++)game.drops.add(new Game.Drop(game.x-55+j*10,game.y+35+j%3*4,j%4==0?1:0,3));
-            game.swing=.1f;d.screenshot(new File(dir,"02-battle.png"),8);
+            game.swing=.12f;game.skillFlash=.2f;game.vfx.burst(game.x+40,game.y+8,0xffffd37a,12,62,.7f,3.6f);game.vfx.kick(2.4f);
+            game.popup(game.x+42,game.y-8,"36",0xffffd37a);game.popup(game.x-28,game.y-4,"18",0xfff9f2db);
+            d.screenshot(new File(dir,"02-battle.png"),8);
             game.gainXp(100);d.screenshot(new File(dir,"03-upgrade.png"),8);
             game.mode=Game.PLAY;game.enemies.clear();game.wave=5;game.spawnEnemy(4,game.x+55,game.y-35);Game.Enemy boss=game.enemies.get(0);boss.hp=boss.maxHp*.66f;boss.windup=.65f;boss.bossAttack=true;boss.targetX=game.x-10;boss.targetY=game.y+25;
             d.screenshot(new File(dir,"04-boss.png"),10);
@@ -103,7 +110,7 @@ public final class Desktop extends JPanel implements cn.wuziping.ember.Painter {
             game.story.choose(game,0);game.story.dialogue.page=2;game.story.dialogue.revealed=true;d.screenshot(new File(dir,"27-nailong-reward.png"),5);
             game.story.choose(game,0);game.banner=0;d.screenshot(new File(dir,"28-nailong-friend.png"),5);
             game.mode=Game.JOURNAL;d.screenshot(new File(dir,"29-friend-journal.png"),5);
-            game.mode=Game.PLAY;game.body.briefed=true;game.body.cured=0;game.body.organ=0;game.wave=1;game.body.enter(game);game.invuln=0;game.banner=0;game.arsenal.unlocked=63;game.gold=220;
+            game.mode=Game.PLAY;game.body.briefed=true;game.body.cured=0;game.body.organ=0;game.wave=1;game.body.enter(game);game.body.transit=0;game.invuln=0;game.banner=0;game.arsenal.unlocked=63;game.gold=220;
             game.mode=Arsenal.MENU;d.screenshot(new File(dir,"30-armory.png"),8);
             game.mode=Game.PLAY;game.arsenal.selected=3;game.arsenal.energy=100;game.spawnEnemy(4,game.x+75,game.y-35);game.arsenal.attack(game);d.screenshot(new File(dir,"31-wide-20x9.png"),8,2400,1080);
             d.screenshot(new File(dir,"32-ultrawide.png"),8,3440,1440);
@@ -112,9 +119,13 @@ public final class Desktop extends JPanel implements cn.wuziping.ember.Painter {
             game.body.organ=6;game.body.cured=63;game.wave=7;d.screenshot(new File(dir,"35-kidney.png"),8,2400,1080);
             game.body.organ=7;game.body.cured=127;game.wave=8;d.screenshot(new File(dir,"36-brain-boss.png"),8,2400,1080);
             game.mode=BodyJourney.MAP;d.screenshot(new File(dir,"37-eight-regions.png"),8,2400,1080);
-            System.out.println("Rendered 37 shared-layout screenshots to "+dir.getAbsolutePath());return;
+            game.mode=Game.PLAY;game.banner=0;game.body.transit=0;game.hp=28;game.maxHp=120;game.attackCd=0;game.skillCd=0;game.swing=.16f;game.skillFlash=.34f;game.arsenal.selected=0;game.arsenal.shield=3.2f;game.arsenal.energy=100;
+            game.vfx.burst(game.x+34,game.y-6,0xffffd37a,16,78,.7f,4);game.vfx.ring(game.x,game.y,0xffe07a45,16,64);game.vfx.nova=.4f;game.vfx.shake=5.5f;game.vfx.flash=.28f;
+            game.popup(game.x+30,game.y-26,"86",0xffffd37a);game.popup(game.x-18,game.y-8,"24",0xfff9f2db);game.popup(game.x+4,game.y-16,"-12",0xffff8c7c);
+            d.screenshot(new File(dir,"38-combat-fx.png"),9);
+            System.out.println("Rendered 38 shared-layout screenshots to "+dir.getAbsolutePath());return;
         }
         Game loaded=new Game();File save=new File(args.length>1&&args[0].equals("--profile")?args[1]:"desktop-journey.bin");if(save.exists())try(InputStream in=new FileInputStream(save)){loaded=Game.load(in);}catch(IOException ignored){}
-        final Desktop d=new Desktop(loaded);d.saveFile=save;SwingUtilities.invokeLater(()->{JFrame f=new JFrame("伍子平 · 星火远征 v0.5 — 桌面调试版");f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);f.setContentPane(d);f.pack();f.setLocationRelativeTo(null);f.setVisible(true);d.requestFocusInWindow();d.start();});
+        final Desktop d=new Desktop(loaded);d.saveFile=save;SwingUtilities.invokeLater(()->{JFrame f=new JFrame("伍子平 · 星火远征 v0.6 — 桌面调试版");f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);f.setContentPane(d);f.pack();f.setLocationRelativeTo(null);f.setVisible(true);d.requestFocusInWindow();d.start();});
     }
 }

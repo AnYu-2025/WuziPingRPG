@@ -1,19 +1,21 @@
 # 伍子平 · 星火远征
 
-[下载 Android APK v0.5.0](dist/WuziPing-Emberbound-0.5.0-debug.apk) · [下载仓库源码 ZIP](https://github.com/ohGGBob/WuziPingRPG/archive/refs/heads/main.zip)
+[下载 Android APK v0.6.0](dist/WuziPing-Emberbound-0.6.0-debug.apk) · [下载仓库源码 ZIP](https://github.com/ohGGBob/WuziPingRPG/archive/refs/heads/main.zip)
 
 仓库包含源码、角色与场景素材、构建脚本、验证记录和 APK。签名私钥、构建缓存、本地玩家存档及重复源码压缩包不纳入 Git。GitHub 仓库已公开，可直接查看和下载。
 
-版本 **0.5.0：血流武库**。离线单机、2D 俯视角像素动作 RPG，主角伍子平，从中山大学梦境据点出发，沿血管穿越八处器官/部位副本。病毒与异常增殖细胞使用独立敌人造型。器官地图、药品和战斗均为虚构游戏设定。
+版本 **0.6.0：星火重绘**。离线单机、2D 俯视角像素动作 RPG，主角伍子平，从中山大学梦境据点出发，沿血管穿越八处器官/部位副本。病毒与异常增殖细胞使用独立敌人造型。器官地图、药品和战斗均为虚构游戏设定。
+
+0.6.0 在血流武库的规则上重做界面与战斗反馈，不改玩法数值、副本顺序和存档字段。主菜单、摇杆、战斗按钮、状态、任务、对话和武库改用同一套墨底金框、星火赤纹。命中与暴击会迸发粒子，受伤有红闪和短促屏幕震动，近战留有武器拖尾，射弹带尾迹并在命中时爆开，星火斩、武器技能和免疫爆发使用扩散环。伤害数字带描边，暴击更大；拾取、药剂、空投和血管流转也有光点。这些效果只留在当场对局，不写入存档。低生命时屏幕边缘变红，爆发能量显示在武库和按钮环上。
 
 ## 安装与开始
 
-- Android：`dist/WuziPing-Emberbound-0.5.0-debug.apk`，最低 Android 6.0 / API 23，横屏。
-- 版本号 5，包名 `cn.wuziping.ember` 和原开发签名保留。真机覆盖安装仍需验证。
+- Android：`dist/WuziPing-Emberbound-0.6.0-debug.apk`，最低 Android 6.0 / API 23，横屏。
+- 版本号 6，包名 `cn.wuziping.ember`。仓库内 APK 使用构建机调试密钥签名（`build/manual/debug.keystore`，别名 `androiddebugkey`），真机覆盖安装仍需用原开发密钥重签后验证。
 - 点击「开启体内远征」，阅读梦境剧情，靠近广场北侧沈砚接取任务，再走到北门血管入口出发。
 - **已有 0.1/0.2 存档会继续原森林剧情。要体验本次新篇章，请返回主界面，选择「开启新的远征」并确认。此操作会重置当前旅程。**
 - 0.3 旧存档可直接继续：回到中山大学即可寻找新增伙伴，无需新开旅程。0.1/0.2 的城镇剧情也支持本次隐藏相遇。
-- 源码与素材：`dist/WuziPingRPG-0.5.0-source.zip`。旧版 APK 和旧源码包保留在 dist。
+- 源码与素材：`dist/WuziPingRPG-0.6.0-source.zip`。旧版 APK 保留在 dist。
 - 桌面调试：`java -jar dist/WuziPing-desktop-preview.jar`，Java 8 以上。与 APK 共用逻辑和布局，桌面不播放 Android 音效。
 
 ## 横屏与窗口适配
@@ -104,7 +106,7 @@ Android 30 以上使用 WindowInsetsController 沉浸模式，旧版保留全屏
 
 本次共 **290 项逻辑检查**（战斗 33 + 城镇剧情 48 + 体内篇 101 + 隐藏伙伴 39 + 扩展 69）。包括八区贯通、全地图可达、五种 Boss 实际攻击、六武器命中、强化与能量、旧版已通关续接、六组分辨率和安全区输入坐标检查。保留 1000 秒旧战斗加速模拟与三分钟伙伴巡游检查。
 
-`artifacts/screenshots-v0.5/` 共 37 张共享 Java2D 渲染预览；30 为武库、31–33 为宽屏/平板、34–36 为新增区域，37 为八区域路线。它们是可复现演示状态，不是手机实拍。日志：`artifacts/verification-v0.5.log`、`artifacts/apk-build-v0.5.log`。
+`artifacts/screenshots-v0.6/` 共 38 张共享 Java2D 渲染预览；01 为主菜单，02 为战斗界面与伤害数字，09 为对话，30 为武库，31–33 为宽屏/平板，34–36 为新增区域，37 为八区域路线，38 为命中、拖尾、爆发与低生命警示。它们是可复现演示状态，不是手机实拍。日志：`artifacts/verification-v0.6.log`、`artifacts/apk-build-v0.6.log`。
 
 
 **尚未经过 Android 真机安装、覆盖升级、帧率、音频和实际多点触控测试。** 当前是可玩的离线原型，尚未加入 AI、知识测验、医学知识判分、器官重复挑战或联机。新横屏布局需要在用户手机上复核，桌面通过不等于所有厂商全屏模式都通过。
@@ -119,8 +121,10 @@ Android 30 以上使用 WindowInsetsController 沉浸模式，旧版保留全屏
 python .\tools\package-source.py
 ```
 
+Linux 上对应脚本为 `tools/verify-desktop.sh`、`tools/build-apk.sh`，步骤与上面的 PowerShell 相同。可用 `SDK_ROOT` / `JDK_ROOT` 指定工具目录。
+
 可用 `-SdkRoot` / `-JdkRoot` 指定工具目录。打包复用 `build/manual/debug.keystore`，源码包排除签名私钥、缓存和本地存档。用于真实发布前应配置专门的发布签名。
 
 新增素材通过 `tools/generate_body.py` 用 Pillow 绘制；原有素材生成器为 `generate_assets.py`、`generate_town.py`。原有城镇、战斗贴图和音轨为项目程序绘制/合成；新增奶龙素材是用户指定角色的 AI 像素化版本，不能将该角色形象归为项目原创。
 
-隐藏伙伴逻辑为 `TownGuest.java`；素材打包脚本为 `tools/pack-nailong.py`。主要体内篇代码：`BodyJourney.java`（副本/剧情/奖励/空投）、`BodyRenderer.java`（体内场景与全身图）、`BodyNavigation.java`（器官地图寻路）。历史设计见 `docs/DESIGN.md`，本版变更见 `docs/UPDATE_0.5.md`，体内篇记录见 `docs/UPDATE_0.3.md`。
+隐藏伙伴逻辑为 `TownGuest.java`；素材打包脚本为 `tools/pack-nailong.py`。主要体内篇代码：`BodyJourney.java`（副本/剧情/奖励/空投）、`BodyRenderer.java`（体内场景与全身图）、`BodyNavigation.java`（器官地图寻路）。战斗粒子、震屏和拖尾在 `Vfx.java`，不进入存档。历史设计见 `docs/DESIGN.md`，本版变更见 `docs/UPDATE_0.6.md`，武库记录见 `docs/UPDATE_0.5.md`。

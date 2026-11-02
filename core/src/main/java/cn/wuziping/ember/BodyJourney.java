@@ -135,10 +135,12 @@ public final class BodyJourney {
         if(i%2==0){g.potions=Math.min(5,g.potions+1);g.hp=Math.min(g.maxHp,g.hp+g.maxHp*.25f);g.announce("药品补给 · 药剂 +1 / 生命恢复 25%");}
         else{int rank=Math.min(4,organ+1);g.arsenal.unlock(g,Math.min(5,organ+1));g.attack+=4;weaponLevel=Math.max(weaponLevel,rank);g.announce("武器补给 · "+weapon()+" / 攻击 +4");}
         if(g.sounds.size()<32)g.sounds.add("pickup");
+        g.vfx.burst(supplyX[i],supplyY[i],i%2==0?0xff9ed4c8:0xffe8c27a,16,52,.5f,3.2f);g.vfx.kick(1.6f);
     }
     public void clear(Game g){
         if(cleared())return;cured|=1<<organ;g.gold+=REWARDS[organ];g.maxHp+=10;g.hp=g.maxHp;g.potions=Math.min(5,g.potions+1);
         g.arsenal.unlock(g,Math.min(5,organ+1));g.announce(name()+"通关 · "+REWARDS[organ]+" 金币 / 体魄 +10");
+        g.vfx.ring(g.x,g.y,0xffe8c27a,20,84);g.vfx.kick(3.5f);
         if(cured==ALL)g.finish(true);
     }
     public void settle(Game g,boolean won){

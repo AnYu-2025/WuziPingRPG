@@ -27,13 +27,13 @@ $unsigned = Join-Path $work 'unsigned.apk'
 $manualManifest = Join-Path $work 'AndroidManifest.xml'
 $manifestText = [IO.File]::ReadAllText((Join-Path $projectRoot 'app\src\main\AndroidManifest.xml')).Replace('<manifest ', '<manifest package="cn.wuziping.ember" ')
 [IO.File]::WriteAllText($manualManifest, $manifestText, [Text.UTF8Encoding]::new($false))
-Invoke-Checked (Join-Path $buildTools 'aapt2.exe') @('link','-o',$unsigned,'--manifest',$manualManifest,'-I',$platformJar,'-A',(Join-Path $projectRoot 'app\src\main\assets'),'-0','wav','--min-sdk-version','23','--target-sdk-version','34','--version-code','5','--version-name','0.5.0',$resources)
+Invoke-Checked (Join-Path $buildTools 'aapt2.exe') @('link','-o',$unsigned,'--manifest',$manualManifest,'-I',$platformJar,'-A',(Join-Path $projectRoot 'app\src\main\assets'),'-0','wav','--min-sdk-version','23','--target-sdk-version','34','--version-code','6','--version-name','0.6.0',$resources)
 Invoke-Checked $jar @('uf',$unsigned,'-C',$dex,'classes.dex')
 $aligned = Join-Path $work 'aligned.apk'
 Invoke-Checked (Join-Path $buildTools 'zipalign.exe') @('-f','4',$unsigned,$aligned)
 $keystore = Join-Path $work 'debug.keystore'
 if (-not (Test-Path -LiteralPath $keystore)) { Invoke-Checked $keytool @('-genkeypair','-keystore',$keystore,'-storetype','JKS','-storepass','android','-keypass','android','-alias','androiddebugkey','-keyalg','RSA','-keysize','2048','-validity','10000','-dname','CN=WuziPing Development, O=Student Project, C=CN') }
-$apk = Join-Path $output 'WuziPing-Emberbound-0.5.0-debug.apk'
+$apk = Join-Path $output 'WuziPing-Emberbound-0.6.0-debug.apk'
 Invoke-Checked $java @('-jar',(Join-Path $buildTools 'lib\apksigner.jar'),'sign','--ks',$keystore,'--ks-pass','pass:android','--key-pass','pass:android','--out',$apk,$aligned)
 Invoke-Checked $java @('-jar',(Join-Path $buildTools 'lib\apksigner.jar'),'verify','--verbose',$apk)
 Invoke-Checked (Join-Path $buildTools 'zipalign.exe') @('-c','4',$apk)

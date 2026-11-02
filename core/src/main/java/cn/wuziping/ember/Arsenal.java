@@ -30,6 +30,8 @@ public final class Arsenal {
     private void fire(Game g,float angle,float damage,int pierce){if(bolts.size()<128)bolts.add(new Bolt(g.x,g.y,angle,selected==2?240:185,damage,pierce,COLORS[selected]));}
     public void attack(Game g){
         g.attackCd=delay(g);g.swing=selected==3||selected==4?0:.2f;aim(g);combo=(combo+1)%3;
+        if(selected==3||selected==4)g.vfx.burst(g.x,g.y,COLORS[selected],selected==4?10:6,34,.24f,3);
+        else{g.vfx.arc(g.x,g.y,g.facing,selected==2?1.15f:selected==5?2.5f:1.85f,COLORS[selected],selected==5?9:12);if(selected==5)g.vfx.kick(2.8f);}
         if(selected==3){fire(g,g.facing,damage(g),1);return;}
         if(selected==4){for(int j=-1;j<=1;j++)fire(g,g.facing+j*.22f,damage(g),1);return;}
         float reach=REACH[selected],cone=selected==2?.78f:selected==5?-1:.0f;
@@ -39,7 +41,7 @@ public final class Arsenal {
         }
     }
     public void skill(Game g){
-        g.skillCd=Math.max(3,7-g.upgrades[4]*.35f);g.skillFlash=.48f;aim(g);
+        g.skillCd=Math.max(3,7-g.upgrades[4]*.35f);g.skillFlash=.48f;aim(g);g.vfx.ring(g.x,g.y,COLORS[selected],18,selected==5?96:74);g.vfx.kick(3.6f);
         if(selected==2||selected==3){for(int j=-1;j<=1;j++)fire(g,g.facing+j*(selected==2?.10f:.30f),damage(g)*2.2f,selected==2?5:2);return;}
         float radius=selected==4?150:selected==5?110:85;
         if(selected==1||selected==5){shield=2.5f;g.invuln=Math.max(g.invuln,.5f);}
@@ -48,6 +50,7 @@ public final class Arsenal {
     }
     public void ultimate(Game g){
         if(g.mode!=Game.PLAY||!g.inBody()||energy<100)return;energy=0;shield=4;g.invuln=1;g.skillFlash=.48f;
+        g.vfx.ring(g.x,g.y,0xfffff1c8,28,130);g.vfx.burst(g.x,g.y,0xffe07a45,22,96,.62f,4.6f);g.vfx.kick(8);g.vfx.nova=.55f;g.vfx.flash=Math.max(g.vfx.flash,.72f);
         for(Game.Enemy e:new ArrayList<Game.Enemy>(g.enemies))if(Game.dist(g.x,g.y,e.x,e.y)<190)g.damageEnemy(e,g.attack*5,true);
         energy=0;
         g.announce("免疫爆发 · 震荡清场 / 护盾四秒");
@@ -57,7 +60,7 @@ public final class Arsenal {
         for(int i=bolts.size()-1;i>=0;i--){Bolt b=bolts.get(i);b.life-=dt;b.x+=b.vx*dt;b.y+=b.vy*dt;
             if(g.blocked(b.x,b.y,2))b.life=0;
             if(b.life>0)for(Game.Enemy e:new ArrayList<Game.Enemy>(g.enemies))if(!b.hit.contains(e.id)&&Game.dist(b.x,b.y,e.x,e.y)<e.radius()+6){b.hit.add(e.id);g.damageEnemy(e,b.damage,false);if(--b.pierce<=0){b.life=0;break;}}
-            if(b.life<=0)bolts.remove(i);
+            if(b.life<=0){g.vfx.burst(b.x,b.y,b.color,6,44,.26f,2.4f);bolts.remove(i);}
         }
     }
     public void write(DataOutputStream o)throws IOException{

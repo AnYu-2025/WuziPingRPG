@@ -1,0 +1,34 @@
+Note: /workspace/app/src/main/java/cn/wuziping/ember/MainActivity.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Generating 2,048 bit RSA key pair and self-signed certificate (SHA256withRSA) with a validity of 10,000 days
+	for: CN=WuziPing Development, O=Student Project, C=CN
+
+Warning:
+The JKS keystore uses a proprietary format. It is recommended to migrate to PKCS12 which is an industry standard format using "keytool -importkeystore -srckeystore /workspace/build/manual/debug.keystore -destkeystore /workspace/build/manual/debug.keystore -deststoretype pkcs12".
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+package: name='cn.wuziping.ember' versionCode='6' versionName='0.6.0' platformBuildVersionName='14' platformBuildVersionCode='34' compileSdkVersion='34' compileSdkVersionCodename='14'
+sdkVersion:'23'
+targetSdkVersion:'34'
+application-label:'伍子平 · 星火远征'
+application-icon-160:'res/drawable/icon.png'
+application: label='伍子平 · 星火远征' icon='res/drawable/icon.png'
+launchable-activity: name='cn.wuziping.ember.MainActivity'  label='' icon=''
+feature-group: label=''
+  uses-gl-es: '0x20000'
+  uses-feature: name='android.hardware.faketouch'
+  uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'
+  uses-feature: name='android.hardware.screen.landscape'
+  uses-implied-feature: name='android.hardware.screen.landscape' reason='one or more activities have specified a landscape orientation'
+main
+supports-screens: 'small' 'normal' 'large' 'xlarge'
+supports-any-density: 'true'
+locales: '--_--'
+densities: '160'
+APK ready: /workspace/dist/WuziPing-Emberbound-0.6.0-debug.apk

@@ -1,1 +1,1 @@
-5b5d02f9e6192fe808ca0941265b8d35381dd05fc00481c630313262f6d5a84f  WuziPing-Emberbound-0.5.0-debug.apk
+4df974d99b8027f32e1c3b1525c579c594352a58d11593e27fe6e54bf559fec2  WuziPing-Emberbound-0.6.0-debug.apk

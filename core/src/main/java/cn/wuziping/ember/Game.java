@@ -27,6 +27,7 @@ public final class Game {
     public BodyJourney body=new BodyJourney();
     public TownGuest guest=new TownGuest();
     public Arsenal arsenal=new Arsenal();
+    public final Vfx vfx=new Vfx();
     private final BodyNavigation bodyNavigation=new BodyNavigation();
     private long rng=710221L;
     public static final String[] UPGRADE_NAMES={"淬火之刃","旅者体魄","疾风步履","连击心得","星火共鸣","拾光之环","破绽洞察","生命余烬"};
@@ -68,7 +69,7 @@ public final class Game {
         mode=PLAY;activeRun=true;wave=level=1;xp=kills=gold=waveSpawned=waveKilled=pendingUpgrades=0;potions=3;
         x=640;y=510;hp=maxHp=100;attack=16;speed=65;attackDelay=.43f;facing=0;
         elapsed=attackCd=skillCd=dashCd=potionCd=invuln=swing=skillFlash=dashTime=intermission=0;
-        spawnTimer=1.3f;Arrays.fill(upgrades,0);enemies.clear();drops.clear();shots.clear();effects.clear();sounds.clear();
+        spawnTimer=1.3f;Arrays.fill(upgrades,0);enemies.clear();drops.clear();shots.clear();effects.clear();sounds.clear();vfx.clear();
         rng=System.nanoTime()|1;totalRuns++;announce("第一波 · 苔原初遇");
     }
     public void startAdventure(){startRun();story.enabled=true;story.area=Story.TOWN;x=480;y=520;banner=0;story.opening(this);}
@@ -86,7 +87,7 @@ public final class Game {
         dt=clamp(dt,0,.05f);
         if(mode==DIALOGUE){story.tick(dt);return;}
         if(mode!=PLAY)return;
-        if(!inTown())elapsed+=dt;banner=Math.max(0,banner-dt);
+        if(!inTown())elapsed+=dt;banner=Math.max(0,banner-dt);vfx.tick(dt);
         float norm=(float)Math.sqrt(in.mx*in.mx+in.my*in.my), mx=in.mx,my=in.my;
         if(norm>1){mx/=norm;my/=norm;}
         if(norm>.1)facing=(float)Math.atan2(my,mx);
@@ -97,11 +98,11 @@ public final class Game {
         for(int i=effects.size()-1;i>=0;i--){Effect e=effects.get(i);e.time-=dt;e.y-=dt*8;if(e.time<=0)effects.remove(i);}
         if(in.dash && dashCd<=0){
             dashX=norm>.1?mx:(float)Math.cos(facing);dashY=norm>.1?my:(float)Math.sin(facing);
-            dashTime=.18f;dashCd=2.6f;invuln=.38f;sound("dash");
+            dashTime=.18f;dashCd=2.6f;invuln=.38f;sound("dash");vfx.burst(x,y,0xff9fd8cc,7,46,.26f,2.6f);
         }
-        if(dashTime>0){dashTime-=dt;move(dashX*240*dt,dashY*240*dt);}
+        if(dashTime>0){dashTime-=dt;move(dashX*240*dt,dashY*240*dt);vfx.trail(x,y);}
         else move(mx*speed*dt,my*speed*dt);
-        if(in.potion && potionCd<=0 && potions>0 && hp<maxHp){potions--;hp=Math.min(maxHp,hp+maxHp*.5f);potionCd=3;sound("heal");popup(x,y-20,"+生命",0xff91e3a0);}
+        if(in.potion && potionCd<=0 && potions>0 && hp<maxHp){potions--;hp=Math.min(maxHp,hp+maxHp*.5f);potionCd=3;sound("heal");popup(x,y-20,"+生命",0xff91e3a0);vfx.ring(x,y,0xff91e3a0,14,42);vfx.burst(x,y-8,0xffb6f0c4,8,28,.4f,3);}
         if((in.attack||autoAttack)&&attackCd<=0)slash();
         if(in.skill&&skillCd<=0)castSkill();
         if(mode!=PLAY)return;
@@ -155,6 +156,7 @@ public final class Game {
         Enemy nearest=null;float best=58;
         for(Enemy e:enemies){float d=dist(x,y,e.x,e.y);if(d<best){best=d;nearest=e;}}
         if(nearest!=null)facing=(float)Math.atan2(nearest.y-y,nearest.x-x);
+        vfx.arc(x,y,facing,2.15f,0xffe8c98a,11);vfx.kick(1.1f);
         for(int i=enemies.size()-1;i>=0;i--){
             Enemy e=enemies.get(i);float d=dist(x,y,e.x,e.y);
             float dot=d<.01f?1:((e.x-x)*(float)Math.cos(facing)+(e.y-y)*(float)Math.sin(facing))/d;
@@ -164,7 +166,7 @@ public final class Game {
     public void castSkill(){
         if(inTown())return;
         if(inBody()){arsenal.skill(this);sound("skill");return;}
-        skillCd=Math.max(4,8-upgrades[4]*.35f);skillFlash=.48f;sound("skill");
+        skillCd=Math.max(4,8-upgrades[4]*.35f);skillFlash=.48f;sound("skill");vfx.ring(x,y,0xfff2c77c,20,78);vfx.kick(3.2f);
         float radius=68+upgrades[4]*9;
         for(int i=enemies.size()-1;i>=0;i--){Enemy e=enemies.get(i);if(dist(x,y,e.x,e.y)<radius+e.radius())damageEnemy(e,attack*(2.5f+upgrades[4]*.35f),true);}
     }
@@ -172,6 +174,7 @@ public final class Game {
         if(e.hp<=0)return;
         e.hp-=damage;e.hit=.15f;float d=Math.max(1,dist(x,y,e.x,e.y));e.knockX=(e.x-x)/d*70;e.knockY=(e.y-y)/d*70;
         popup(e.x,e.y-18,""+(int)damage,crit?0xffffd37a:0xfff9f2db);
+        vfx.burst(e.x,e.y-6,crit?0xffffd37a:0xfff4e2c2,crit?14:7,crit?72:48,crit?.5f:.32f,crit?4.2f:2.8f);vfx.kick(crit?3.4f:1.35f);
         if(e.hp<=0){
             enemies.remove(e);kills++;if(e.id>=0)waveKilled++;if(inBody())arsenal.energy=Math.min(100,arsenal.energy+8);gold+=e.type==4?100:e.type==2?5:2;
             drops.add(new Drop(e.x,e.y,0,e.type==4?30:e.type==2?6:3));
@@ -184,6 +187,7 @@ public final class Game {
     public void hurt(float damage,String cause){
         if(invuln>0||mode!=PLAY||inTown())return;
         if(inBody()&&arsenal.shield>0)damage*=.45f;hp=Math.max(0,hp-damage);invuln=.7f;popup(x,y-23,"-"+(int)damage,0xffff8c7c);sound("hurt");
+        vfx.burst(x,y-8,0xffff6d62,12,68,.38f,3.2f);vfx.kick(5.4f);flashHurt();
         if(hp<=0){lastCause=cause;finish(false);}
     }
     private void updateEnemies(float dt){
@@ -233,7 +237,7 @@ public final class Game {
     private void collect(float dt){
         int earned=0;float range=32+upgrades[5]*16;
         for(int i=drops.size()-1;i>=0;i--){Drop p=drops.get(i);float d=dist(x,y,p.x,p.y);
-            if(d<12){if(p.type==0)earned+=p.value;else if(p.type==1)gold+=p.value;else{hp=Math.min(maxHp,hp+p.value);popup(x,y-18,"+"+p.value,0xff91e3a0);}drops.remove(i);sound("pickup");}
+            if(d<12){if(p.type==0)earned+=p.value;else if(p.type==1)gold+=p.value;else{hp=Math.min(maxHp,hp+p.value);popup(x,y-18,"+"+p.value,0xff91e3a0);}vfx.burst(p.x,p.y,p.type==1?0xffe8c27a:p.type==2?0xff91e3a0:0xff9fd7c8,8,36,.4f,2.6f);drops.remove(i);sound("pickup");}
             else if(d<range){p.x+=(x-p.x)/d*145*dt;p.y+=(y-p.y)/d*145*dt;}
         }
         if(earned>0)gainXp(earned);
@@ -260,6 +264,7 @@ public final class Game {
         activeRun=false;mode=won?VICTORY:DEAD;bestWave=Math.max(bestWave,wave);lifetimeKills+=kills;bank+=gold;sound(won?"level":"death");
     }
     public void popup(float a,float b,String t,int color){if(effects.size()<90)effects.add(new Effect(a,b,t,color,.8f));}
+    private void flashHurt(){vfx.flash=Math.max(vfx.flash,.58f);}
     public String quest(){if(body.enabled)return body.objective(this);if(story.enabled&&(inTown()||story.battleWon))return story.objective();return wave==5?"击败遗迹守卫，找回星火":"净化此地的魔物  "+waveKilled+" / "+waveTarget();}
 
     /** Versioned binary snapshot: no framework dependencies, no Java object deserialization. */

@@ -44,15 +44,25 @@ public final class BodyRenderer {
             float x=(g.body.supplyX[i]-cx)*2,y=(g.body.supplyY[i]-cy)*2;
             if(x<-100||x>width+100||y<-50||y>height+200)continue;
             int color=i%2==0?0xff9ed4c8:0xffe8c287;
-            for(int j=0;j<12;j++){double a=j*Math.PI/6;p.rect(x+(float)Math.cos(a)*26,y+(float)Math.sin(a)*15,4,3,color);}
             float flightHeight=state==1?g.body.fall[i]*42:3+(float)Math.sin(clock*3)*2;
             float by=y-flightHeight;
-            p.oval(x-14,y-4,28,8,0x77122230);p.rect(x-16,by-24,32,26,0xff243746);p.rect(x-14,by-22,28,22,color);p.rect(x-10,by-19,20,16,0xff53626c);
+            float pulse=26+(float)Math.sin(clock*4+i)*4;
+            for(int j=0;j<12;j++){double a=j*Math.PI/6+clock*(state==1?.4f:1.1f);p.rect(x+(float)Math.cos(a)*pulse,y+(float)Math.sin(a)*pulse*.55f,4,3,color);}
+            if(state==1)p.rect(x-2,by,4,Math.max(0,y-by),0x559e5c6a);
+            p.oval(x-18,y-6,36,12,0x55122230);p.rect(x-16,by-24,32,26,0xff243746);p.rect(x-14,by-22,28,22,color);p.rect(x-10,by-19,20,16,0xff53626c);
             if(i%2==0){p.rect(x-2,by-17,4,13,color);p.rect(x-6,by-13,12,4,color);}else{p.line(x-7,by-6,x+7,by-19,3,color);p.line(x-8,by-12,x-1,by-5,2,color);}
             if(state==1){p.line(x-14,by-22,x-29,by-62,1,0xffe9d7b8);p.line(x+14,by-22,x+29,by-62,1,0xffe9d7b8);p.oval(x-33,by-83,66,29,color);p.rect(x-32,by-67,64,7,0xff6e7f85);}
             else{p.rect(x-59,by-46,118,16,0xdd1b2c3b);p.text(i%2==0?"药品补给 · 靠近拾取":"武器补给 · 靠近拾取",x,by-34,10,color,1);}
         }
-        if(g.body.transit>0){float a=g.body.transit/1.1f;for(int i=0;i<14;i++){float x=(i*79+clock*240)%960;p.rect(x,0,2,height,((int)(a*55)<<24)|0xc78d9b);}p.rect(0,0,width,7,0xffc78d9b);p.rect(0,height-7,width,7,0xffc78d9b);}
+        if(g.body.transit>0){
+            float a=g.body.transit/1.1f;int wash=(int)(a*78);
+            p.rect(0,0,width,height,(wash<<24)|0x3a1420);
+            for(int i=0;i<18;i++){float x=(i*79+clock*240)%Math.max(1,width);p.rect(x,0,2,height,((int)(a*50)<<24)|0xc78d9b);}
+            p.rect(0,0,width,8,0xffc78d9b);p.rect(0,height-8,width,8,0xffc78d9b);
+            p.rect(width/2-132,height/2-24,264,46,((int)(Math.min(1,a*1.5f)*200)<<24)|0x101820);
+            p.rect(width/2-132,height/2-24,264,2,0xffe8c27a);p.rect(width/2-132,height/2+20,264,2,0xffe07a45);
+            p.text("血管流转",width/2,height/2+6,20,0xfff4ead2,1);
+        }
     }
     public static void atlas(Painter p,Game g,float x,float y,float w,float h,float clock,boolean labels){
         p.image("body_atlas.png",0,0,160,240,x,y,w,h,1,false);
