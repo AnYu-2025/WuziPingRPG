@@ -1,0 +1,14 @@
+{
+  "version": "0.1.10",
+  "engine": "Qoder in-app Chromium; DOM-level interaction because the browser surface reported a hidden 0x0 viewport",
+  "android_device_tested": false,
+  "note": "The page and every asset were read straight out of dist/Ember-Studio-0.1.10-debug.apk by a probe server using the exact StudioClient CSP and MIME values. The native bridge is simulated at the HTTP layer; Android WebView, the real asset manager and keyboard input remain device-untested.",
+  "checks": 5,
+  "passed": [
+    "The page and all runtime assets are served directly from Ember-Studio-0.1.10-debug.apk (studio/index.html, style.css, boot.js, app.js, studio-game.png) and all return HTTP 200 under the exact StudioClient CSP and MIME headers; the title is 天工",
+    "The packaged assets boot to a live CodeMirror editor after the simulated bridge restore: .cm-editor exists, two files and two tabs are present, main.py is active, window.__studioErrors is empty and the console has no messages",
+    "The APK stylesheet applies: 308 CSS rules from style.css, .tabbar computes to 34px and the body uses the packaged font stack",
+    "Filling the CodeMirror surface changes the active document to the edited text, keeps focus inside .cm-editor and posts a snapshot containing the new text to the native bridge",
+    "The game tab shows the lounge, fills the save hint from gameState, and the 进入游戏 button posts {type:'play'} to the native bridge"
+  ]
+}

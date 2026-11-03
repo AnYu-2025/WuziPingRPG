@@ -1,40 +1,43 @@
 {
-  "version": "0.1.2",
-  "version_code": 10,
+  "version": "0.1.12",
+  "version_code": 20,
   "python": "3.12.7",
   "pyodide": "0.27.7",
   "game_checks": 354,
   "studio_io_checks": 34,
   "browser_checks": 30,
+  "browser_interaction_checks": 23,
+  "browser_checks_source": "0.1.x full suite + 0.1.12 packaged-asset landing checks",
   "android_device_tested": false,
   "android_saf_tested": false,
   "android_upgrade_tested": false,
   "apks": [
     {
-      "file": "Ember-Studio-0.1.2-debug.apk",
+      "file": "Ember-Studio-0.1.12-debug.apk",
       "package": "cn.wuziping.ember",
-      "bytes": 15756451,
-      "sha256": "bf11833f2035fc577b4b31bc5a666311212c6f731e7fcb60376654b45dbcdbb0",
+      "bytes": 15871413,
+      "sha256": "2d63162aa1d32081d849866ba6be335e89ac56468df677056110b61ee8777972",
       "certificate_sha256": "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca",
       "upgrade_identity_matches": "WuziPing-Emberbound-0.7.0-debug.apk",
-      "asset_count_verified": 78,
-      "dex_sha256": "768bafb64baabec4f414524607fd0167501bf7ea95c3b6cd4e782c79d52da42a",
+      "asset_count_verified": 82,
+      "dex_sha256": "c6eabcdab0a64373b4136de30e219d10b15ea144a213cc60c8129b4f66714b83",
       "signature_v2_valid": true,
       "zip_crc_valid": true,
       "alignment_valid": true
     },
     {
-      "file": "Ember-Studio-0.1.2-parallel-debug.apk",
+      "file": "Ember-Studio-0.1.12-parallel-debug.apk",
       "package": "cn.wuziping.ember.preview07",
-      "bytes": 15756452,
-      "sha256": "696b4148a1450ad1962857a2d1ecadd865c33ade69d58eea577d4d27120f7073",
+      "bytes": 15871413,
+      "sha256": "125ac0aa43b501ccadcf129d801d053c5c375531930c75d795cd7d344cd77c0e",
       "certificate_sha256": "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca",
       "upgrade_identity_matches": "WuziPing-Emberbound-0.7.0-parallel-debug.apk",
-      "asset_count_verified": 78,
-      "dex_sha256": "768bafb64baabec4f414524607fd0167501bf7ea95c3b6cd4e782c79d52da42a",
+      "asset_count_verified": 82,
+      "dex_sha256": "c6eabcdab0a64373b4136de30e219d10b15ea144a213cc60c8129b4f66714b83",
       "signature_v2_valid": true,
       "zip_crc_valid": true,
       "alignment_valid": true
     }
-  ]
+  ],
+  "lecture_checks": 10
 }

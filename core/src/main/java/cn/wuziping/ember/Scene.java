@@ -48,15 +48,16 @@ public final class Scene {
         if(g.story.enabled){obj(5,Town.FOREST_GATE_X,Town.FOREST_GATE_Y,39,39);worldTag("中山大学入口",Town.FOREST_GATE_X,Town.FOREST_GATE_Y+6,0xffecd49c);}
         p.oval(sx(640)-45,sy(501)-40,90,75,0x10f6b755);
         }
-        ArrayList<DrawItem> items=new ArrayList<>();
-        if(!g.inBody())for(Game.Obstacle o:g.obstacles)if(o.x>camX-40&&o.x<camX+W/2+40&&o.y>camY-20&&o.y<camY+H/2+50)items.add(new DrawItem(o.y,o));
-        for(Game.Enemy e:g.enemies)items.add(new DrawItem(e.y,e));items.add(new DrawItem(g.y,g));
+        drawCount=0;
+        if(!g.inBody())for(Game.Obstacle o:g.obstacles)if(o.x>camX-40&&o.x<camX+W/2+40&&o.y>camY-20&&o.y<camY+H/2+50)addDraw(o.y,o);
+        for(Game.Enemy e:g.enemies)addDraw(e.y,e);addDraw(g.y,g);
         for(Game.Drop d:g.drops){int id=d.type==0?8:d.type==1?9:10;float bounce=(float)Math.sin(clock*4+d.x)*1.3f;
             int glow=d.type==1?0x33e8c27a:d.type==2?0x3391e3a0:0x339fd7c8;p.oval(sx(d.x)-12,sy(d.y)-8,24,14,glow);
             float orbit=(float)(clock*2.2+d.x);p.rect(sx(d.x)+(float)Math.cos(orbit)*11,sy(d.y)-16+(float)Math.sin(orbit)*5,2,2,0xccfff1c2);
             icon(id,sx(d.x)-9,sy(d.y)-12+bounce,18);}
-        Collections.sort(items,new Comparator<DrawItem>(){public int compare(DrawItem a,DrawItem b){return Float.compare(a.y,b.y);}});
-        for(DrawItem item:items){
+        sortDraw();
+        for(int di=0;di<drawCount;di++){
+            DrawItem item=drawPool[di];
             if(item.object instanceof Game.Obstacle){Game.Obstacle o=(Game.Obstacle)item.object;int idx=o.kind==0?((int)o.x%3):3;
                 float opacity=Game.dist(g.x,g.y,o.x,o.y-16)<27?.38f:1;
                 object(idx,o.x,o.y,idx==3?38:55,idx==3?38:55,opacity);
@@ -142,16 +143,16 @@ public final class Scene {
         for(int xx=64;xx<=Town.WIDTH-72;xx+=16){if(xx<422||xx>534)wall(xx,78);wall(xx,Town.HEIGHT-42);}
         for(int yy=94;yy<Town.HEIGHT-40;yy+=16){wall(58,yy);wall(Town.WIDTH-65,yy);}
         p.rect(sx(390),sy(343),360,2,0x556d8270);p.rect(sx(390),sy(479),360,2,0x556d8270);
-        ArrayList<DrawItem> items=new ArrayList<>();
-        for(Town.House h:Town.HOUSES)items.add(new DrawItem(h.y,h));
-        for(Town.Npc n:Town.NPCS)items.add(new DrawItem(n.y,n));
-        TownProp[] props={new TownProp(0,387,344,40),new TownProp(0,576,344,40),new TownProp(0,386,481,40),new TownProp(0,578,481,40),new TownProp(1,374,407,37),new TownProp(1,588,407,37),new TownProp(2,366,581,49),new TownProp(2,601,582,49),new TownProp(3,410,330,31),new TownProp(3,553,330,31),new TownProp(3,402,490,31),new TownProp(3,559,490,31),new TownProp(4,145,356,62),new TownProp(4,806,358,62),new TownProp(4,155,568,60),new TownProp(4,815,568,60),new TownProp(5,615,619,42),new TownProp(6,344,319,38),new TownProp(7,395,273,35),new TownProp(0,1060,590,40),new TownProp(0,1220,590,40),new TownProp(1,1040,708,37),new TownProp(1,1240,708,37),new TownProp(3,1020,622,31),new TownProp(3,1260,622,31),new TownProp(4,970,800,62),new TownProp(4,1320,800,62)};
-        for(TownProp prop:props)items.add(new DrawItem(prop.y,prop));
-        items.add(new DrawItem(408,"fountain"));items.add(new DrawItem(121,"gate"));
-        if(g.inTown())items.add(new DrawItem(g.y,g));
-        items.add(new DrawItem(g.guest.y,g.guest));
-        Collections.sort(items,new Comparator<DrawItem>(){public int compare(DrawItem a,DrawItem b){return Float.compare(a.y,b.y);}});
-        for(DrawItem item:items){
+        drawCount=0;
+        for(Town.House h:Town.HOUSES)addDraw(h.y,h);
+        for(Town.Npc n:Town.NPCS)addDraw(n.y,n);
+        for(TownProp prop:TOWN_PROPS)addDraw(prop.y,prop);
+        addDraw(408,"fountain");addDraw(121,"gate");
+        if(g.inTown())addDraw(g.y,g);
+        addDraw(g.guest.y,g.guest);
+        sortDraw();
+        for(int di=0;di<drawCount;di++){
+            DrawItem item=drawPool[di];
             if(item.object instanceof Town.House){
                 Town.House h=(Town.House)item.object;if(h.x+h.w/2<camX||h.x-h.w/2>camX+W/2||h.y<camY||h.y-h.h>camY+H/2)continue;
                 float alpha=g.inTown()&&Math.abs(g.x-h.x)<h.w*.45f&&g.y<h.y-10&&g.y>h.y-h.h?.55f:1;
@@ -185,6 +186,12 @@ public final class Scene {
         if(close){p.oval(xx-22,yy-6,44,13,0x4468cab7);p.rect(xx+29,yy-40,50,17,0xcc203640);center("可交谈",xx+54,yy-27,10,0xffbce1cf);}
     }
     private static final class DrawItem{float y;Object object;DrawItem(float a,Object b){y=a;object=b;}}
+    private static final Comparator<DrawItem> DRAW_ORDER=new Comparator<DrawItem>(){public int compare(DrawItem a,DrawItem b){return Float.compare(a.y,b.y);}};
+    private static final TownProp[] TOWN_PROPS={new TownProp(0,387,344,40),new TownProp(0,576,344,40),new TownProp(0,386,481,40),new TownProp(0,578,481,40),new TownProp(1,374,407,37),new TownProp(1,588,407,37),new TownProp(2,366,581,49),new TownProp(2,601,582,49),new TownProp(3,410,330,31),new TownProp(3,553,330,31),new TownProp(3,402,490,31),new TownProp(3,559,490,31),new TownProp(4,145,356,62),new TownProp(4,806,358,62),new TownProp(4,155,568,60),new TownProp(4,815,568,60),new TownProp(5,615,619,42),new TownProp(6,344,319,38),new TownProp(7,395,273,35),new TownProp(0,1060,590,40),new TownProp(0,1220,590,40),new TownProp(1,1040,708,37),new TownProp(1,1240,708,37),new TownProp(3,1020,622,31),new TownProp(3,1260,622,31),new TownProp(4,970,800,62),new TownProp(4,1320,800,62)};
+    private DrawItem[] drawPool=new DrawItem[80];private int drawCount;
+    /** Per-frame depth buffer: reuse objects instead of allocating a list and comparator every frame. */
+    private void addDraw(float y,Object object){if(drawCount==drawPool.length)drawPool=java.util.Arrays.copyOf(drawPool,drawPool.length*2);DrawItem item=drawPool[drawCount];if(item==null){item=new DrawItem(y,object);drawPool[drawCount]=item;}else{item.y=y;item.object=object;}drawCount++;}
+    private void sortDraw(){java.util.Arrays.sort(drawPool,0,drawCount,DRAW_ORDER);}
     private void guest(){
         TownGuest n=g.guest;float xx=sx(n.x),yy=sy(n.y);if(xx<-60||xx>W+60||yy<-80||yy>H+90)return;
         int frame=n.moving?1+(int)(n.walk*5)%2:n.stage==2?3:0;

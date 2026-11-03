@@ -1,0 +1,60 @@
+{
+  "version": "0.1.11",
+  "engine": "Headless Chrome (CDP) with a true 390×844 mobile viewport and deviceScaleFactor 2",
+  "android_device_tested": false,
+  "note": "The page and every asset were read straight out of dist/Ember-Studio-0.1.11-debug.apk by a probe server using the exact StudioClient CSP and MIME values. The native bridge is not present; the editor used its browser fallback. Android WebView, the real asset manager and keyboard input remain device-untested.",
+  "apk": "dist/Ember-Studio-0.1.11-debug.apk",
+  "checks": 21,
+  "passed": [
+    "/studio/index.html served from dist/Ember-Studio-0.1.11-debug.apk (9558 bytes, text/html; charset=utf-8) with the StudioClient CSP",
+    "/studio/style.css served from dist/Ember-Studio-0.1.11-debug.apk (23716 bytes, text/css; charset=utf-8) with the StudioClient CSP",
+    "/studio/boot.js served from dist/Ember-Studio-0.1.11-debug.apk (2840 bytes, text/javascript; charset=utf-8) with the StudioClient CSP",
+    "/studio/app.js served from dist/Ember-Studio-0.1.11-debug.apk (837275 bytes, text/javascript; charset=utf-8) with the StudioClient CSP",
+    "/studio-game.png served from dist/Ember-Studio-0.1.11-debug.apk (194001 bytes, image/png) with the StudioClient CSP",
+    "The packaged index.html contains the 天工 title and the landing slogan",
+    "Packaged assets boot to the landing page with the inline SVG logo",
+    "The landing shows the slogan and exactly three wheel options: Python, notepad and game",
+    "The wheel defaults to Python and the enter button unlocks after the workspace restore",
+    "The fresh font stack applies and 354 CSS rules load from the packaged stylesheet",
+    "Choosing 写 Python enters main.py with tabs, run button, terminal and quick keys visible",
+    "Typing into the Python editor updates the CodeMirror document",
+    "Menu → 切换模式 reopens the landing with a 返回 button and the current mode selected",
+    "Scrolling the wheel to 普通记事本 updates the highlight and the enter button label",
+    "Choosing 普通记事本 opens 笔记.txt in notepad mode and remembers the choice",
+    "Notepad mode hides tabs, run button, terminal, quick keys and line numbers",
+    "Typing in notepad mode updates the note document",
+    "Scrolling the wheel to 游戏 updates the highlight and the enter button label",
+    "Choosing 游戏 opens the existing lounge from the packaged studio-game.png",
+    "The landing fits 390×844, 375×667 and 360×640 without horizontal overflow",
+    "No console errors, uncaught exceptions or __studioErrors during the whole packaged-asset flow"
+  ],
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844,
+      "w": 390,
+      "h": 844,
+      "scroll": 390,
+      "overflow": false,
+      "landing": true
+    },
+    {
+      "width": 375,
+      "height": 667,
+      "w": 375,
+      "h": 667,
+      "scroll": 375,
+      "overflow": false,
+      "landing": true
+    },
+    {
+      "width": 360,
+      "height": 640,
+      "w": 360,
+      "h": 640,
+      "scroll": 360,
+      "overflow": false,
+      "landing": true
+    }
+  ]
+}

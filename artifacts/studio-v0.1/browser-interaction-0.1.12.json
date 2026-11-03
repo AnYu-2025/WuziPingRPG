@@ -1,0 +1,48 @@
+{
+  "version": "0.1.12",
+  "version_code": 20,
+  "source": "assets extracted from dist/Ember-Studio-0.1.12-debug.apk, served with AssetServer CSP and MIME",
+  "viewports": [
+    "390x844 DPR2",
+    "360x640 DPR2"
+  ],
+  "checks": 23,
+  "passed": [
+    "signed APK page loads and landing becomes ready",
+    "CSS/JS/runtime/image served from APK with AssetServer CSP",
+    "packaged stylesheet applies with refreshed design tokens",
+    "landing shows brand, slogan and three modes",
+    "all three selector rows are visible inside the card",
+    "landing typography and default selection",
+    "arrow keys move selection to game and update CTA accent",
+    "mouse wheel moves selection back",
+    "vertical swipe moves selection",
+    "tapping a mode updates the landing accent",
+    "Python mode opens editor, tabs and run controls",
+    "real text input reaches CodeMirror",
+    "offline Python runs and prints results in the floating terminal",
+    "terminal opens as a rounded panel above quick keys",
+    "menu opens and switches back to mode picker",
+    "notepad mode recolours the landing accent",
+    "notepad opens the note and hides coding controls",
+    "notepad uses warm paper surface and empty-state prompt",
+    "notepad typing updates the character counter",
+    "game mode opens the lounge with the packaged artwork",
+    "360x640 relaunch restores last mode and fits without overflow",
+    "360x640 editor has no horizontal overflow",
+    "no script errors during the whole pass"
+  ],
+  "failed": [],
+  "screenshots": [
+    "landing-0.1.12-390x844.png",
+    "landing-notepad-0.1.12.png",
+    "python-0.1.12.png",
+    "notepad-empty-0.1.12.png",
+    "notepad-0.1.12.png",
+    "game-0.1.12.png",
+    "menu-0.1.12.png",
+    "landing-0.1.12-360x640.png",
+    "python-0.1.12-360x640.png"
+  ],
+  "android_device_tested": false
+}

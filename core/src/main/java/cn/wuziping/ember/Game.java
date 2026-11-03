@@ -31,6 +31,7 @@ public final class Game {
     public String heroName=HERO;public boolean renamePending=false;public int effectsLevel=1;
     public final Vfx vfx=new Vfx();
     private final BodyNavigation bodyNavigation=new BodyNavigation();
+    private final ArrayList<Enemy> enemySnapshot=new ArrayList<>();
     private long rng=710221L;
     public static final String[] UPGRADE_NAMES={"淬火之刃","旅者体魄","疾风步履","连击心得","星火共鸣","拾光之环","破绽洞察","生命余烬"};
     public static final String[] UPGRADE_DESC={"攻击力 +5","生命上限 +25，并恢复 35","移动速度 +8%","普攻间隔缩短 10%","星火斩伤害与范围提高","经验拾取范围 +16","暴击概率 +8%","每次击败敌人恢复 2 点生命"};
@@ -198,7 +199,8 @@ public final class Game {
     }
     private void updateEnemies(float dt){
         if(inBody())bodyNavigation.prepare(this);
-        for(Enemy e:new ArrayList<Enemy>(enemies)){
+        enemySnapshot.clear();enemySnapshot.addAll(enemies);
+        for(Enemy e:enemySnapshot){
             e.hit=Math.max(0,e.hit-dt);e.cd-=dt;
             float dx=x-e.x,dy=y-e.y,d=Math.max(.1f,dist(x,y,e.x,e.y));
             if(e.type==4&&inBody())Bosses.tick(this,e,dt);

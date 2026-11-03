@@ -1,0 +1,20 @@
+{
+  "version": "0.1.9",
+  "engine": "Chromium via browser-use in-app browser; 665x705 phone layout",
+  "android_device_tested": false,
+  "note": "Focused checks after the 0.1.9 boot watchdog, transport fallback and diagnostics work. The native bridge is simulated at the HTTP layer; real Android WebView transport, renderer recovery and keyboard input remain unverified on a device.",
+  "checks": 11,
+  "passed": [
+    "Packaged page boots with boot.js before app.js under the exact StudioClient CSP/MIME; the simulated bridge restores a two-file workspace and one tab is created",
+    "Boot reports no page-level errors (window.__studioErrors empty) and all assets return HTTP 200: style.css, boot.js, app.js, bridge-sim.js, studio-game.png",
+    "Typing into CodeMirror updates the active file, marks it modified, keeps focus inside .cm-editor and posts a snapshot to the native bridge",
+    "Game tab hides the workbench, shows the lounge and fills the save hint from the native gameState message",
+    "Enter-game button posts {type:'play'} to the native bridge",
+    "boot.js forwards script errors to StudioBridge as {type:'jsError',kind:'script',detail:...}",
+    "A broken app.js shows the in-page '编辑器脚本没有完成加载。' message with the SyntaxError after 3s, and boot.js records the error in window.__studioErrors",
+    "The packaged inline fallback (CSP meta removed, style/boot/app inlined exactly as EditorActivity.loadPackagedPage does) boots, restores files and creates the editor with no external script requests",
+    "The Chrome 64 esbuild target still boots, restores and creates the editor under the native CSP",
+    "Phone layout at 665x705: 52px app bar, 38px tab bar, 538px editor surface and no horizontal overflow",
+    "Quick keys row renders at full 40px touch height with 53px row height"
+  ]
+}

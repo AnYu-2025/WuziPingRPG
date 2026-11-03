@@ -2,8 +2,8 @@ import {build} from 'esbuild';
 import {mkdir,copyFile,readdir,readFile,writeFile} from 'node:fs/promises';
 const out='../src/main/assets/studio';
 await mkdir(out,{recursive:true});
-await build({entryPoints:['src/app.js'],bundle:true,outfile:out+'/app.js',format:'iife',target:['chrome90'],minify:true,legalComments:'eof'});
-for(const file of ['index.html','style.css','python-worker.js','javascript-worker.js','worker-output.js'])await copyFile('src/'+file,out+'/'+file);
+await build({entryPoints:['src/app.js'],bundle:true,outfile:out+'/app.js',format:'iife',target:['chrome64'],minify:true,legalComments:'eof'});
+for(const file of ['index.html','boot.js','style.css','lecture.css','python-worker.js','javascript-worker.js','worker-output.js'])await copyFile('src/'+file,out+'/'+file);
 await mkdir(out+'/licenses',{recursive:true});
 const packages=[];
 for(const name of await readdir('node_modules')){if(name.startsWith('@'))for(const child of await readdir('node_modules/'+name))packages.push(name+'/'+child);else if(!name.startsWith('.'))packages.push(name);}
