@@ -1,0 +1,43 @@
+param([string]$SdkRoot='D:\AndroidTools\android-sdk',[string]$JdkRoot='C:\Program Files\Microsoft\jdk-17.0.20.101-hotspot',[switch]$ParallelInstall,[switch]$SkipWebBuild,[string]$SigningKey="")
+$ErrorActionPreference='Stop'
+$root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$work=Join-Path $root 'build/studio'
+$classes=Join-Path $work 'classes'
+$dex=Join-Path $work 'dex'
+$dist=Join-Path $root 'dist'
+$bt=Join-Path $SdkRoot 'build-tools/34.0.0'
+$java=Join-Path $JdkRoot 'bin/java.exe'
+$platform=Join-Path $SdkRoot 'platforms/android-34/android.jar'
+function Checked([string]$Exe,[string[]]$Arguments){& $Exe @Arguments;if($LASTEXITCODE -ne 0){throw "Failed: $Exe ($LASTEXITCODE)"}}
+New-Item -ItemType Directory -Force -Path $classes,$dex,$dist,$work | Out-Null
+if(-not $SkipWebBuild){Push-Location (Join-Path $root 'studio/web');try{Checked 'npm.cmd' @('run','build')}finally{Pop-Location}}
+foreach($name in @('pyodide.js','pyodide.asm.js','pyodide.asm.wasm','python_stdlib.zip','pyodide-lock.json')){if(-not (Test-Path -LiteralPath (Join-Path $root "studio/src/main/assets/studio/runtime/$name"))){throw "Missing offline Python asset: $name. Run tools/fetch-python-runtime.ps1 first."}}
+Copy-Item -LiteralPath (Join-Path $root 'artifacts/screenshots-v0.7/08-town.png') -Destination (Join-Path $root 'studio/src/main/assets/studio-game.png')
+$sources=@((Get-ChildItem -LiteralPath (Join-Path $root 'core/src/main/java'),(Join-Path $root 'app/src/main/java'),(Join-Path $root 'studio/src/main/java') -Filter '*.java' -Recurse).FullName)
+Checked (Join-Path $JdkRoot 'bin/javac.exe') (@('-encoding','UTF-8','--release','8','-classpath',$platform,'-d',$classes)+$sources)
+$bytecode=Join-Path $work 'classes.jar'
+Checked (Join-Path $JdkRoot 'bin/jar.exe') @('cf',$bytecode,'-C',$classes,'.')
+Checked $java @('-cp',(Join-Path $bt 'lib/d8.jar'),'com.android.tools.r8.D8','--lib',$platform,'--min-api','23','--output',$dex,$bytecode)
+$resources=Join-Path $work 'resources.zip'
+Checked (Join-Path $bt 'aapt2.exe') @('compile','--dir',(Join-Path $root 'studio/src/main/res'),'-o',$resources)
+$id=if($ParallelInstall){'cn.wuziping.ember.preview07'}else{'cn.wuziping.ember'}
+$text=[IO.File]::ReadAllText((Join-Path $root 'studio/src/main/AndroidManifest.xml')).Replace('<manifest ',"<manifest package=`"$id`" ")
+if($ParallelInstall){$text=$text.Replace('android:label="天工"','android:label="天工 · 试玩"')}
+$manifest=Join-Path $work 'AndroidManifest.xml'
+[IO.File]::WriteAllText($manifest,$text,[Text.UTF8Encoding]::new($false))
+$unsigned=Join-Path $work 'unsigned.apk'
+Checked (Join-Path $bt 'aapt2.exe') @('link','-o',$unsigned,'--manifest',$manifest,'-I',$platform,'-A',(Join-Path $root 'app/src/main/assets'),'-A',(Join-Path $root 'studio/src/main/assets'),'-0','wav','-0','wasm','-0','zip','-0','js','-0','mjs','--min-sdk-version','23','--target-sdk-version','34','--version-code','10','--version-name','0.1.2',$resources)
+Checked (Join-Path $JdkRoot 'bin/jar.exe') @('uf',$unsigned,'-C',$dex,'classes.dex')
+$aligned=Join-Path $work 'aligned.apk'
+Checked (Join-Path $bt 'zipalign.exe') @('-f','4',$unsigned,$aligned)
+$key=if($SigningKey){[IO.Path]::GetFullPath($SigningKey)}else{Join-Path $root 'build/manual/debug.keystore'}
+if(-not (Test-Path -LiteralPath $key)){throw 'Original development key is missing. Reuse your original signing key for an in-place upgrade.'}
+$name=if($ParallelInstall){'Ember-Studio-0.1.2-parallel-debug.apk'}else{'Ember-Studio-0.1.2-debug.apk'}
+$apk=Join-Path $dist $name
+Checked $java @('-jar',(Join-Path $bt 'lib/apksigner.jar'),'sign','--ks',$key,'--ks-pass','pass:android','--key-pass','pass:android','--out',$apk,$aligned)
+Checked $java @('-jar',(Join-Path $bt 'lib/apksigner.jar'),'verify','--verbose','--print-certs',$apk)
+Checked (Join-Path $bt 'zipalign.exe') @('-c','4',$apk)
+Checked (Join-Path $bt 'aapt.exe') @('dump','badging',$apk)
+$sums=@((Get-ChildItem -LiteralPath $dist -Filter 'Ember-Studio-0.1.2-*.apk'|Sort-Object Name)|ForEach-Object{"$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)"})
+[IO.File]::WriteAllText((Join-Path $dist 'STUDIO-SHA256SUMS.txt'),(($sums -join "`n")+"`n"),[Text.UTF8Encoding]::new($false))
+Write-Output "Studio APK ready: $apk"

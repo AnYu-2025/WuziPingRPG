@@ -1,0 +1,40 @@
+{
+  "version": "0.1.2",
+  "version_code": 10,
+  "python": "3.12.7",
+  "pyodide": "0.27.7",
+  "game_checks": 354,
+  "studio_io_checks": 34,
+  "browser_checks": 30,
+  "android_device_tested": false,
+  "android_saf_tested": false,
+  "android_upgrade_tested": false,
+  "apks": [
+    {
+      "file": "Ember-Studio-0.1.2-debug.apk",
+      "package": "cn.wuziping.ember",
+      "bytes": 15756451,
+      "sha256": "bf11833f2035fc577b4b31bc5a666311212c6f731e7fcb60376654b45dbcdbb0",
+      "certificate_sha256": "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca",
+      "upgrade_identity_matches": "WuziPing-Emberbound-0.7.0-debug.apk",
+      "asset_count_verified": 78,
+      "dex_sha256": "768bafb64baabec4f414524607fd0167501bf7ea95c3b6cd4e782c79d52da42a",
+      "signature_v2_valid": true,
+      "zip_crc_valid": true,
+      "alignment_valid": true
+    },
+    {
+      "file": "Ember-Studio-0.1.2-parallel-debug.apk",
+      "package": "cn.wuziping.ember.preview07",
+      "bytes": 15756452,
+      "sha256": "696b4148a1450ad1962857a2d1ecadd865c33ade69d58eea577d4d27120f7073",
+      "certificate_sha256": "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca",
+      "upgrade_identity_matches": "WuziPing-Emberbound-0.7.0-parallel-debug.apk",
+      "asset_count_verified": 78,
+      "dex_sha256": "768bafb64baabec4f414524607fd0167501bf7ea95c3b6cd4e782c79d52da42a",
+      "signature_v2_valid": true,
+      "zip_crc_valid": true,
+      "alignment_valid": true
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+Pyodide 0.27.7: https://github.com/pyodide/pyodide/tree/0.27.7
+CPython 3.12.7: https://github.com/python/cpython/tree/v3.12.7
+The bundled runtime files are unmodified upstream release artifacts.
+CodeMirror and its JavaScript dependencies: exact versions and source URLs are in studio/web/package-lock.json. License texts are copied by build.mjs.

@@ -1,5 +1,7 @@
 # 伍子平 · 星火远征
 
+手机编辑器新原型：[天工 0.1 使用与安装说明](studio/README.md)，包含离线 Python、代码编辑和保留进度的原游戏娱乐区。安装包为 `dist/Ember-Studio-0.1.2-debug.apk`，另有对应 0.7 试玩版的升级包；原游戏 0.7 安装包继续保留。
+
 [下载 Android APK v0.7.0](dist/WuziPing-Emberbound-0.7.0-debug.apk) · [下载仓库源码 ZIP](https://github.com/ohGGBob/WuziPingRPG/archive/refs/heads/main.zip)
 
 仓库包含源码、角色与场景素材、构建脚本、验证记录和 APK。签名私钥、构建缓存、本地玩家存档及重复源码压缩包不纳入 Git。GitHub 仓库已公开，可直接查看和下载。

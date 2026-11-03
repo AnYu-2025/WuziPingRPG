@@ -1,0 +1,2 @@
+bf11833f2035fc577b4b31bc5a666311212c6f731e7fcb60376654b45dbcdbb0  Ember-Studio-0.1.2-debug.apk
+696b4148a1450ad1962857a2d1ecadd865c33ade69d58eea577d4d27120f7073  Ember-Studio-0.1.2-parallel-debug.apk

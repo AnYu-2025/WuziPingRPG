@@ -1,0 +1,80 @@
+package cn.wuziping.studio;
+
+import android.app.*;
+import android.content.*;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.DocumentsContract;
+import android.provider.OpenableColumns;
+import android.util.AtomicFile;
+import android.webkit.*;
+import android.view.*;
+import android.widget.*;
+import org.json.*;
+import java.io.*;
+import java.util.*;
+import java.util.concurrent.*;
+import cn.wuziping.ember.Game;
+
+public final class EditorActivity extends Activity {
+    private WebView web;private AssetServer assets;private AtomicFile workspace,gameSave;
+    private final ExecutorService io=Executors.newSingleThreadExecutor();private JSONObject pendingExport;private boolean pickerOpen=false,workspaceReadOnly=false,restoreSent=false;
+    private static final int OPEN=30,FOLDER=31,EXPORT=32,GAME_OUT=33,GAME_IN=34;
+    private final Set<String> trustedUris=Collections.synchronizedSet(new HashSet<String>());
+    @Override public void onCreate(Bundle state){super.onCreate(state);getWindow().setStatusBarColor(0xff131b27);getWindow().setNavigationBarColor(0xff17202d);getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        workspace=new AtomicFile(new File(getFilesDir(),"studio-workspace-v1.json"));gameSave=new AtomicFile(new File(getFilesDir(),"journey-v1.bin"));trustedUris.addAll(getPreferences(0).getStringSet("trustedUris",new HashSet<String>()));
+        try{assets=new AssetServer(path->getAssets().open(path),false);}catch(IOException e){fatal("离线资源未能启动："+e.getMessage());return;}
+        try{web=new WebView(this);}catch(RuntimeException e){fatal("系统 WebView 不可用，编辑器无法打开。请在系统设置中启用或更新 Android System WebView 后重试。");return;}
+        web.setBackgroundColor(0xff111722);WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(false);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setDefaultTextEncodingName("UTF-8");settings.setMediaPlaybackRequiresUserGesture(true);settings.setSupportMultipleWindows(false);if(android.os.Build.VERSION.SDK_INT>=26)settings.setSafeBrowsingEnabled(false);
+        web.setWebChromeClient(new WebChromeClient());web.setWebViewClient(StudioClient.create(assets,new StudioClient.Hooks(){public void pageFinished(){requestRestore();}public void pageFailed(String description){if(!restoreSent)Toast.makeText(EditorActivity.this,"编辑器页面没有打开："+description,Toast.LENGTH_LONG).show();}}));
+        web.addJavascriptInterface(new Bridge(),"StudioBridge");setContentView(web);web.loadUrl(assets.base()+"studio/index.html");web.postDelayed(this::requestRestore,1500);
+    }
+    private void requestRestore(){if(restoreSent||web==null||isFinishing()||isDestroyed())return;web.evaluateJavascript("window.StudioBridge&&window.StudioBridge.postMessage("+JSONObject.quote("{\"type\":\"ready\"}")+")",null);}
+    private void fatal(String text){TextView view=new TextView(this);view.setText(text);view.setPadding(30,60,30,30);setContentView(view);}
+    private JSONObject message(String type){JSONObject o=new JSONObject();put(o,"type",type);return o;}
+    private static void put(JSONObject o,String k,Object v){try{o.put(k,v);}catch(JSONException e){throw new IllegalArgumentException(e);}}
+    private void event(JSONObject data){runOnUiThread(()->{if(web!=null&&!isFinishing()&&!isDestroyed()){String payload=data.toString().replace("\u2028","\\u2028").replace("\u2029","\\u2029");web.evaluateJavascript("window.StudioNative&&window.StudioNative.receive("+payload+")",null);}});}
+    private void notice(String text){JSONObject o=message("notice");put(o,"message",text);event(o);}
+    private void trust(Uri uri){synchronized(trustedUris){trustedUris.add(uri.toString());getPreferences(0).edit().putStringSet("trustedUris",new HashSet<>(trustedUris)).apply();}}
+    private void persistGrant(Uri uri,int flags){try{getContentResolver().takePersistableUriPermission(uri,flags&(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION));}catch(SecurityException ignored){/* Some providers grant access only for this session. */}}
+    public final class Bridge {
+        @JavascriptInterface public void postMessage(String raw){if(raw==null||raw.length()>32*1024*1024)return;runOnUiThread(()->{if(assets==null||web==null||!StudioClient.allowsBridge(assets,web.getUrl()))return;try{JSONObject m=new JSONObject(raw);handle(m);}catch(Exception e){notice("操作未完成："+e.getMessage());}});}
+    }
+    private void handle(JSONObject m)throws Exception{
+        String type=m.optString("type");
+        if(type.equals("ready")){if(restoreSent)return;restoreSent=true;io.execute(()->{JSONObject o=message("restore");try{if(workspace.getBaseFile().exists()||new File(workspace.getBaseFile().getPath()+".bak").exists()){try(InputStream in=workspace.openRead()){JSONObject data=new JSONObject(new String(TextFiles.read(in,32*1024*1024),"UTF-8"));if(data.optInt("version")!=1||data.optJSONArray("files")==null)throw new IOException("工作区格式错误");put(o,"data",data);}}else put(o,"data",JSONObject.NULL);}catch(Exception e){try{backup(workspace.getBaseFile(),"workspace-recovery-",".json");put(o,"error","旧工作区读取失败，已保留恢复副本。");}catch(IOException failed){workspaceReadOnly=true;put(o,"error","旧工作区读取失败，未覆盖原文件。请先另存重要内容。");}}event(o);});return;}
+        if(type.equals("snapshot")){JSONObject data=m.getJSONObject("data");int id=m.optInt("id");if(data.optInt("version")!=1||data.getJSONArray("files").length()>160)throw new IOException("工作区过大");io.execute(()->{JSONObject o=message("snapshotSaved");put(o,"id",id);try{if(workspaceReadOnly)throw new IOException("请先恢复旧工作区");byte[] bytes=data.toString().getBytes("UTF-8");if(bytes.length>32*1024*1024)throw new IOException("工作区超过保存上限，请另存大文件");atomic(workspace,bytes);put(o,"ok",true);}catch(Exception e){put(o,"ok",false);}event(o);});return;}
+        if(type.equals("open")){pick(OPEN,new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*").putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true));return;}
+        if(type.equals("folder")){pick(FOLDER,new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE));return;}
+        if(type.equals("export")){pendingExport=m;pick(EXPORT,new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("text/plain").putExtra(Intent.EXTRA_TITLE,new File(m.getString("path")).getName()));return;}
+        if(type.equals("save")){writeDocument(m,Uri.parse(m.getString("uri")),false);return;}
+        if(type.equals("play")){io.execute(()->runOnUiThread(()->startActivity(new Intent(this,cn.wuziping.ember.MainActivity.class).putExtra("editorHost",true))));return;}
+        if(type.equals("gameState")){JSONObject o=message("gameState");put(o,"exists",(gameSave.getBaseFile().exists()||new File(gameSave.getBaseFile().getPath()+".bak").exists()));event(o);return;}
+        if(type.equals("exportGame")){if(!(gameSave.getBaseFile().exists()||new File(gameSave.getBaseFile().getPath()+".bak").exists())){notice("先进入游戏创建一次存档。");return;}pick(GAME_OUT,new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/octet-stream").putExtra(Intent.EXTRA_TITLE,"星火远征-存档.wzpsave"));return;}
+        if(type.equals("importGame")){pick(GAME_IN,new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"));return;}
+        if(type.equals("preview")){final JSONObject preview=m;io.execute(()->{try{File file=new File(getCacheDir(),"studio-preview.json");atomic(new AtomicFile(file),preview.toString().getBytes("UTF-8"));runOnUiThread(()->startActivity(new Intent(this,PreviewActivity.class)));}catch(Exception e){notice("预览失败："+e.getMessage());}});}
+    }
+    private void pick(int request,Intent intent){if(pickerOpen){notice("请先完成当前文件选择。");return;}intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);try{pickerOpen=true;startActivityForResult(intent,request);}catch(ActivityNotFoundException e){pickerOpen=false;notice("未找到系统文件选择器。");}}
+    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);pickerOpen=false;if(result!=RESULT_OK||data==null){if(request==EXPORT&&pendingExport!=null){JSONObject o=message("saved");put(o,"id",pendingExport.optString("id"));put(o,"ok",false);put(o,"message","已取消导出，草稿仍保留。");event(o);pendingExport=null;}return;}
+        if(request==OPEN){final ArrayList<Uri> uris=new ArrayList<>();if(data.getClipData()!=null){ClipData clips=data.getClipData();for(int i=0;i<Math.min(160,clips.getItemCount());i++)uris.add(clips.getItemAt(i).getUri());}else if(data.getData()!=null)uris.add(data.getData());for(Uri uri:uris){persistGrant(uri,data.getFlags());trust(uri);}io.execute(()->importUris(uris));}
+        else if(request==FOLDER&&data.getData()!=null){Uri uri=data.getData();persistGrant(uri,data.getFlags());io.execute(()->importTree(uri));}
+        else if(request==EXPORT&&pendingExport!=null&&data.getData()!=null){Uri uri=data.getData();persistGrant(uri,data.getFlags());trust(uri);JSONObject payload=pendingExport;pendingExport=null;writeDocument(payload,uri,true);}
+        else if(request==GAME_OUT&&data.getData()!=null){Uri uri=data.getData();io.execute(()->{try(InputStream in=gameSave.openRead();OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException("文件无法写入");byte[] b=TextFiles.read(in,8*1024*1024);out.write(b);notice("游戏存档已导出，请妥善保留。");}catch(Exception e){notice("备份失败："+e.getMessage());}});}
+        else if(request==GAME_IN&&data.getData()!=null){Uri uri=data.getData();io.execute(()->{try(InputStream in=getContentResolver().openInputStream(uri)){byte[] bytes=TextFiles.read(in,8*1024*1024);Game g=Game.load(new ByteArrayInputStream(bytes));runOnUiThread(()->new AlertDialog.Builder(this).setTitle("导入游戏存档？").setMessage("存档角色："+g.heroName+"\n等级："+g.level+"\n会替换当前游戏进度，替换前保留一份本地备份。").setNegativeButton("取消",null).setPositiveButton("导入",(d,w)->io.execute(()->{try{backupGame();atomic(gameSave,bytes);notice("游戏存档已导入。");}catch(Exception e){notice("导入失败："+e.getMessage());}})).show());}catch(Exception e){notice("这不是可用的游戏存档："+e.getMessage());}});}
+    }
+    private String fileName(Uri uri){try(Cursor c=getContentResolver().query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(c!=null&&c.moveToFirst())return c.getString(0);}catch(Exception ignored){}return "untitled.txt";}
+    private JSONObject readDocument(Uri uri,String path)throws Exception{if(!TextFiles.validPath(path))throw new IOException("文件名不受支持");try(InputStream in=getContentResolver().openInputStream(uri)){if(in==null)throw new IOException("无法打开文件");TextFiles.Decoded file=TextFiles.decode(TextFiles.read(in,TextFiles.LIMIT));JSONObject o=new JSONObject();put(o,"path",path);put(o,"text",file.text);put(o,"encoding",file.encoding);put(o,"uri",uri.toString());trust(uri);return o;}}
+    private void importUris(List<Uri> uris){JSONArray files=new JSONArray();int skipped=0,total=0;for(Uri uri:uris)try{JSONObject file=readDocument(uri,fileName(uri));total+=file.getString("text").getBytes("UTF-8").length;if(total>12*1024*1024){skipped++;break;}files.put(file);}catch(Exception e){skipped++;}importResult(files,skipped,false);}
+    private void importTree(Uri root){JSONArray files=new JSONArray();int[] budget={0,0,0};try{String id=DocumentsContract.getTreeDocumentId(root);String directory=fileName(DocumentsContract.buildDocumentUriUsingTree(root,id));if(!TextFiles.validPath(directory))directory="project";walkTree(root,id,directory+"/",files,budget,0);importResult(files,budget[1],budget[2]!=0);}catch(Exception e){notice("文件夹读取失败："+e.getMessage());}}
+    private void walkTree(Uri root,String id,String prefix,JSONArray files,int[] budget,int depth)throws Exception{if(depth>10||files.length()>=160||budget[0]>12*1024*1024){budget[2]=1;return;}Uri children=DocumentsContract.buildChildDocumentsUriUsingTree(root,id);try(Cursor c=getContentResolver().query(children,new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID,DocumentsContract.Document.COLUMN_DISPLAY_NAME,DocumentsContract.Document.COLUMN_MIME_TYPE},null,null,null)){if(c==null)return;while(c.moveToNext()){if(files.length()>=160||budget[0]>12*1024*1024){budget[2]=1;break;}String childId=c.getString(0),name=c.getString(1),mime=c.getString(2),path=prefix+name;if(name.equals(".git")||name.equals("node_modules")||name.equals("__pycache__")){budget[1]++;continue;}if(DocumentsContract.Document.MIME_TYPE_DIR.equals(mime))walkTree(root,childId,path+"/",files,budget,depth+1);else try{JSONObject f=readDocument(DocumentsContract.buildDocumentUriUsingTree(root,childId),path);budget[0]+=f.getString("text").getBytes("UTF-8").length;if(budget[0]<=12*1024*1024)files.put(f);else budget[2]=1;}catch(Exception e){budget[1]++;}}}}
+    private void importResult(JSONArray files,int skipped,boolean limited){JSONObject o=message("imported");put(o,"files",files);put(o,"message","已导入 "+files.length()+" 个文本文件"+(skipped>0?"，跳过 "+skipped+" 项非文本、缓存或过大文件":"")+(limited?"；已达到 160 文件 / 12 MB 导入上限":""));event(o);}
+    private void writeDocument(JSONObject m,Uri uri,boolean as){if(!trustedUris.contains(uri.toString())||!"content".equals(uri.getScheme())){notice("文件授权已失效，请重新打开文件或另存为。");return;}io.execute(()->{JSONObject o=message("saved");put(o,"id",m.optString("id"));put(o,"uri",uri.toString());String encoding=as?"UTF-8":m.optString("encoding","UTF-8");put(o,"encoding",encoding);try{byte[] bytes=TextFiles.encode(m.getString("text"),encoding);try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException("文件无法写入");out.write(bytes);}put(o,"ok",true);}catch(Exception e){put(o,"ok",false);put(o,"message","写入失败："+e.getMessage()+"。草稿仍保留。");}event(o);});}
+    private void backupGame()throws IOException{if(!gameSave.getBaseFile().exists()&&!new File(gameSave.getBaseFile().getPath()+".bak").exists())return;try(InputStream in=gameSave.openRead()){atomic(new AtomicFile(new File(getFilesDir(),"journey-backup-"+System.currentTimeMillis()+".wzpsave")),TextFiles.read(in,8*1024*1024));}}
+    private static void atomic(AtomicFile file,byte[] bytes)throws IOException{FileOutputStream out=null;try{out=file.startWrite();out.write(bytes);file.finishWrite(out);}catch(IOException e){if(out!=null)file.failWrite(out);throw e;}}
+    private void backup(File source,String prefix,String suffix)throws IOException{if(!source.exists())return;try(InputStream in=new FileInputStream(source)){atomic(new AtomicFile(new File(getFilesDir(),prefix+System.currentTimeMillis()+suffix)),TextFiles.read(in,32*1024*1024));}}
+    @Override protected void onResume(){super.onResume();if(web!=null){JSONObject o=message("gameState");put(o,"exists",gameSave.getBaseFile().exists()||new File(gameSave.getBaseFile().getPath()+".bak").exists());event(o);}}
+    @Override protected void onPause(){if(web!=null)web.evaluateJavascript("window.Studio&&window.Studio.flush()",null);super.onPause();}
+    @Override public void onBackPressed(){if(web==null){finish();return;}web.evaluateJavascript("(()=>{if(document.querySelector('dialog[open]')){document.querySelector('dialog[open]').close('cancel');return true;}if(document.body.classList.contains('drawer')){document.body.classList.remove('drawer');return true;}if(!document.getElementById('lounge').hidden){document.getElementById('codeTab').click();return true;}return false;})()",result->{if(!"true".equals(result))new AlertDialog.Builder(this).setTitle("退出天工？").setMessage("工作区草稿与游戏存档分别保留。").setNegativeButton("继续编辑",null).setPositiveButton("退出",(d,w)->{web.evaluateJavascript("window.Studio&&window.Studio.flush()",v->io.execute(()->runOnUiThread(this::finish)));}).show();});}
+    @Override protected void onDestroy(){if(web!=null){web.removeJavascriptInterface("StudioBridge");web.destroy();web=null;}if(assets!=null)try{assets.close();}catch(IOException ignored){}io.shutdown();super.onDestroy();}
+}

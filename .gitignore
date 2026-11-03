@@ -21,3 +21,5 @@ dist/*-source.zip
 
 # Preserve separately downloaded APKs without publishing duplicates
 *.apk.[0-9]*
+node_modules/
+studio/web/.cache/

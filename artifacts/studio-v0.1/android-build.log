@@ -1,0 +1,40 @@
+注: 某些输入文件使用或覆盖了已过时的 API。
+注: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: CN=WuziPing Development, O=Student Project, C=CN
+Signer #1 certificate SHA-256 digest: 0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca
+Signer #1 certificate SHA-1 digest: 63ea3bcffad9bfea356d6e6c2be254168b775490
+Signer #1 certificate MD5 digest: 1a466054ed5140ffba5569d4e95609ac
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 2048
+Signer #1 public key SHA-256 digest: 477e003c80b54d58aa9b872e5a8d85612e6493e6c981f70186709ebb8d91228d
+Signer #1 public key SHA-1 digest: aa0ac2810b06b1f456e867b53a77abcd0973fad8
+Signer #1 public key MD5 digest: 3b32dc30414d3a8ca3b3f596b2a63c86
+package: name='cn.wuziping.ember' versionCode='8' versionName='0.1.0' platformBuildVersionName='14' platformBuildVersionCode='34' compileSdkVersion='34' compileSdkVersionCodename='14'
+sdkVersion:'23'
+targetSdkVersion:'34'
+uses-permission: name='android.permission.INTERNET'
+application-label:'星火代码'
+application-icon-160:'res/drawable/studio_icon.xml'
+application: label='星火代码' icon='res/drawable/studio_icon.xml'
+launchable-activity: name='cn.wuziping.studio.EditorActivity'  label='' icon=''
+feature-group: label=''
+  uses-gl-es: '0x20000'
+  uses-feature: name='android.hardware.faketouch'
+  uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'
+  uses-feature: name='android.hardware.screen.landscape'
+  uses-implied-feature: name='android.hardware.screen.landscape' reason='one or more activities have specified a landscape orientation'
+main
+other-activities
+supports-screens: 'small' 'normal' 'large' 'xlarge'
+supports-any-density: 'true'
+locales: '--_--'
+densities: '160'
+Studio APK ready: D:\大学生软件创新大赛\WuziPingRPG\dist\Ember-Studio-0.1.0-debug.apk
