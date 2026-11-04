@@ -14,6 +14,32 @@ const SILENCE_ANCHOR_MS=3000; // 语音结束后沉默超过 3s → 在沉默起
 const MAX_MS=2*60*60*1000;    // 单次录音上限 2 小时（base64 存工作区）
 const BITS_PER_SECOND=16000;  // opus 语音码率：1 小时 ≈ 7MB，2 小时仍在保存上限内
 
+/* 拿麦克风：先要带降噪的约束，失败后逐级退回，最后走旧版 getUserMedia。
+   某些 WebView 不支持 echoCancellation/noiseSuppression 这类约束，会直接抛
+   OverconstrainedError；层级回退可以避免“点了没反应”。 */
+async function requestStream(){
+  const attempts=[{audio:{echoCancellation:true,noiseSuppression:true,channelCount:1}},{audio:true}];
+  let lastError=null;
+  const modern=navigator.mediaDevices&&navigator.mediaDevices.getUserMedia;
+  if(modern){
+    for(const constraints of attempts){
+      try{return await navigator.mediaDevices.getUserMedia(constraints);}
+      catch(e){
+        lastError=e;
+        const name=e&&e.name;
+        if(name==='NotAllowedError'||name==='SecurityError'||name==='NotFoundError'||name==='NotReadableError')break;
+      }
+    }
+  }
+  const legacy=navigator.getUserMedia||navigator.webkitGetUserMedia;
+  if(legacy){
+    try{
+      return await new Promise((resolve,reject)=>legacy.call(navigator,{audio:true},resolve,reject));
+    }catch(e){lastError=e;}
+  }
+  throw lastError||new Error('无法访问麦克风：getUserMedia 不可用');
+}
+
 export class AudioEngine{
   constructor(onAutoStop){
     this.onAutoStop=onAutoStop||null;
@@ -30,13 +56,15 @@ export class AudioEngine{
     this.seq=0;
   }
   static supported(){
-    return typeof MediaRecorder!=='undefined'&&!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+    const devices=navigator.mediaDevices&&navigator.mediaDevices.getUserMedia;
+    const legacy=navigator.getUserMedia||navigator.webkitGetUserMedia;
+    return typeof MediaRecorder!=='undefined'&&!!(devices||legacy);
   }
   elapsedSec(){
     return (this.elapsedMs+(this.state==='recording'?Math.max(0,Date.now()-this.resumeAt):0))/1000;
   }
   async start(){
-    this.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+    this.stream=await requestStream();
     let mime='';
     for(const t of ['audio/webm;codecs=opus','audio/webm','audio/mp4']){
       try{if(MediaRecorder.isTypeSupported(t)){mime=t;break;}}catch(e){/* 旧实现缺 isTypeSupported */}
