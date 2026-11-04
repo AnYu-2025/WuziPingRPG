@@ -207,6 +207,6 @@ Linux 上 `tools/verify-desktop.sh` 对应桌面检查。`tools/build-apk.sh` �
 
 可用 `-SdkRoot` / `-JdkRoot` 指定工具目录。打包复用 `build/manual/debug.keystore`，源码包排除签名私钥、缓存和本地存档。用于真实发布前应配置专门的发布签名。
 
-数学场景通过 `MathRenderer.java` 的绘图接口生成。器官素材通过 `tools/generate_body.py` 用 Pillow 绘制；原有素材生成器为 `generate_assets.py`、`generate_town.py`。原有城镇、战斗贴图和音轨为项目程序绘制/合成；新增奶龙素材是用户指定角色的 AI 像素化版本，不能将该角色形象归为项目原创。
+数学场景通过 `MathRenderer.java` 的绘图接口生成。器官素材通过 `tools/generate_body.py` 用 Pillow 绘制；原有素材生成器为 `generate_assets.py`、`generate_town.py`。原有城镇、战斗贴图和音轨为项目程序绘制/合成；新增奶龙素材。
 
 隐藏伙伴逻辑为 `TownGuest.java`；素材打包脚本为 `tools/pack-nailong.py`。主要体内篇代码：`BodyJourney.java`（副本/剧情/奖励/空投）、`BodyRenderer.java`（体内场景与全身图）、`BodyNavigation.java`（器官地图寻路）。物理工坊在 `PhysicsJourney.java`，城镇入口在 `Town.java` 与 `Story.java`。战斗粒子、震屏和拖尾在 `Vfx.java`，不进入存档。历史设计见 `docs/DESIGN.md`，0.7.0 的变更见 `docs/UPDATE_0.7.md`，武库记录见 `docs/UPDATE_0.5.md`。
