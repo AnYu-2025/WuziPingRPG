@@ -28,12 +28,30 @@
 </div>
 </div>
 </section>
-<header class="appbar"><button id="filesToggle" class="icon" aria-label="文件列表" title="文件列表">☰</button><div class="doc"><strong id="activePath">main.py</strong><small id="dirtyFlag">本地草稿</small></div><button id="saveButton" class="icon saveicon" aria-label="保存" title="保存">保存</button><button id="runButton" class="primary">▶ 运行</button><button id="stopButton" class="danger" hidden>■ 停止</button><button id="moreButton" class="icon" aria-label="更多操作" title="更多操作">⋯</button></header>
-<section id="lectureBar" aria-label="上课录音控制" data-state="idle"><span class="recdot" aria-hidden="true"></span><button id="recordBtn" data-role="rec"><span id="recordLabel">🎙 开始录音</span></button><button id="pauseBtn" class="recalt" hidden>⏸ 暂停</button><button id="stopBtn" class="recstop" hidden>⏹ 停止</button><button id="newRecBtn" class="recalt" hidden>🎙 新录音</button><strong id="recordTimer">00:00</strong><span class="grow"></span><button id="anchorBtn" class="recanchor" hidden>📌<span class="anchorbtntext"> 标记锚点</span></button></section>
+<header class="appbar"><button id="filesToggle" class="icon" aria-label="文件列表" title="文件列表">☰</button><div class="doc"><strong id="activePath">main.py</strong><small id="dirtyFlag">本地草稿</small></div><button id="drawToggle" class="icon drawtoggle" aria-label="绘图模式" title="绘图模式" hidden>🖌️</button><button id="saveButton" class="icon saveicon" aria-label="保存" title="保存">保存</button><button id="runButton" class="primary">▶ 运行</button><button id="stopButton" class="danger" hidden>■ 停止</button><button id="moreButton" class="icon" aria-label="更多操作" title="更多操作">⋯</button></header>
+<section id="lectureBar" aria-label="上课录音控制" data-state="idle"><span class="recdot" aria-hidden="true"></span><button id="recordBtn" data-role="rec"><span id="recordLabel">🎙 开始录音</span></button><button id="pauseBtn" class="recalt" hidden>⏸ 暂停</button><button id="stopBtn" class="recstop" hidden>⏹ 停止</button><button id="newRecBtn" class="recalt" hidden>🎙 新录音</button><strong id="recordTimer">00:00</strong><label class="rec-translate" id="translateToggle"><input type="checkbox" id="translateCheck"><span class="reccheck"></span><span class="reclabel">翻译</span></label><span class="grow"></span><button id="anchorBtn" class="recanchor" hidden>📌<span class="anchorbtntext"> 标记锚点</span></button></section>
 <div class="tabbar"><div id="tabs" role="tablist" aria-label="打开的文件"></div><button id="newTab" class="icon tabnew" aria-label="新建文件" title="新建文件">＋</button><button id="gameTab" class="gamepitch">游戏</button></div>
 <section id="workbench">
 <div id="backdrop" hidden></div><aside id="explorer" aria-label="工作区文件"><div class="sheethead"><strong>文件</strong><button id="closeExplorer" class="icon" aria-label="关闭文件列表">✕</button></div><div class="fileactions"><button id="openFile">打开文件</button><button id="openFolder">导入文件夹</button></div><div id="fileList"></div><div class="explorerfoot">编辑自动保存草稿<br>“保存”写回手机原文件</div><div class="sheetfoot"><button id="newFile" class="newfile">＋ 新建文件</button></div></aside>
 <main class="workspace"><div id="editor" aria-label="代码编辑器"><div id="noteEmpty" aria-hidden="true">从这里开始写点什么…</div></div>
+<div id="drawLayer" hidden>
+  <canvas id="drawCanvas"></canvas>
+  <div id="drawToolbar">
+    <button class="draw-tool active" data-tool="pen" title="画笔">✏️</button>
+    <button class="draw-tool" data-tool="eraser" title="橡皮">🧹</button>
+    <span class="draw-sep"></span>
+    <button class="draw-color active" data-color="#3c3a32" style="background:#3c3a32" title="深色"></button>
+    <button class="draw-color" data-color="#b45309" style="background:#b45309" title="棕色"></button>
+    <button class="draw-color" data-color="#2563eb" style="background:#2563eb" title="蓝色"></button>
+    <button class="draw-color" data-color="#dc2626" style="background:#dc2626" title="红色"></button>
+    <button class="draw-color" data-color="#16a34a" style="background:#16a34a" title="绿色"></button>
+    <span class="draw-sep"></span>
+    <button class="draw-action" id="drawClear" title="清空画布">🗑️</button>
+    <button class="draw-action" id="drawUndo" title="撤销">↶</button>
+    <span class="grow"></span>
+    <button class="draw-action" id="drawBack" title="返回文字">✎ 文字</button>
+  </div>
+</div>
 <section class="console folded" id="consolePanel"><button class="consolehead" id="foldConsole" aria-expanded="false" aria-controls="consoleBody" title="展开或收起终端"><span class="ctitle">终端</span><span id="runState">就绪</span><span class="chev">⌃</span></button><div class="consolebody" id="consoleBody"><div class="consolebar"><button id="outputTab" class="active">输出</button><button id="inputTab">输入</button><span class="grow"></span><button id="clearOutput">清空</button></div><pre id="output" role="log" aria-live="polite"><span class="dim">Python 已内置。写好代码后点“运行”。
 需要 input() 时，先切到“输入”填写内容。</span></pre><textarea id="stdin" hidden aria-label="标准输入" placeholder="运行前填写，每个 input() 一行。未提供的输入返回 EOF。" spellcheck="false"></textarea></div></section>
 </main>

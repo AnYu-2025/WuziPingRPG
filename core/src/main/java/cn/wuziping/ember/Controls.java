@@ -43,6 +43,7 @@ public final class Controls {
                 clear();
             }return;
         }
+        if(g.mode==PhysicsJourney.MAP){if(box(x,y,340,455,280,37)){g.mode=mapReturn;clear();}return;}
         if(g.mode==Game.JOURNAL){if(box(x,y,340,444,280,40)){g.mode=journalReturn;clear();}return;}
         if(g.mode==Game.HELP){if(box(x,y,340,432,280,42)){g.mode=helpReturn;clear();}return;}
         if(g.mode==Game.UPGRADE){for(int i=0;i<3;i++)if(box(x,y,120+i*246,181,228,240)){g.choose(i);clear();return;}return;}
@@ -61,14 +62,15 @@ public final class Controls {
         if(g.mode!=Game.PLAY)return;
         float rx=x-layout.right,ty=y-layout.top,by=y-layout.bottom,cx=x-layout.centerX,cy=y-layout.centerY;
         if(g.body.enabled&&box(x-layout.left,ty,207,226,66,38)){g.mode=Arsenal.MENU;clear();return;}
-        if((g.body.enabled||g.inMath()||g.inTown())&&box(rx,ty,813,226,127,g.inBody()?174:37)){mapReturn=Game.PLAY;g.mode=g.inBody()?BodyJourney.MAP:MathJourney.MAP;clear();return;}
+        if((g.body.enabled||g.inMath()||g.inPhysics()||g.inTown())&&box(rx,ty,813,226,127,g.inBody()?174:g.inPhysics()?37:37)){mapReturn=Game.PLAY;g.mode=g.inBody()?BodyJourney.MAP:g.inPhysics()?PhysicsJourney.MAP:MathJourney.MAP;clear();return;}
+        if(g.inPhysics()&&box(x,y,layout.left+26,layout.bottom+375,120,36)){g.physics.returnTown(g);clear();return;}
         if(g.inMath()&&box(rx,by,741,337,132,31)){g.math.retry(g);clear();return;}
         if(box(rx,ty,862,19,78,38)){g.pause();clear();return;}
         if(box(rx,ty,716,19,58,38)||box(x-layout.left,ty,18,107,286,83)){journalReturn=Game.PLAY;g.mode=Game.JOURNAL;clear();return;}
         if(box(rx,ty,780,19,76,38)){g.autoAttack=!g.autoAttack;return;}
         if(x-layout.left<350&&by>300&&movePointer==-1){movePointer=pointer;move(g,pointer,x,y);}
-        else if((g.inTown()||g.inMath())&&circle(rx,by,847,429,57)){g.story.interact(g);clear();}
-        else if(g.inMath())return;
+        else if((g.inTown()||g.inMath()||g.inPhysics())&&circle(rx,by,847,429,57)){g.story.interact(g);clear();}
+        else if(g.inMath()||g.inPhysics())return;
         else if(g.inTown()){
             float camX=Game.clamp(g.x-layout.width/4,0,Math.max(0,Town.WIDTH-layout.width/2)),camY=Game.clamp(g.y-layout.height/4,0,Math.max(0,Town.HEIGHT-layout.height/2));
             if(circle(x,y,(g.guest.x-camX)*2,(g.guest.y-camY)*2-26,32)){if(g.guest.near(g))g.story.talk(g,TownGuest.NPC);clear();return;}
@@ -95,7 +97,7 @@ public final class Controls {
     public void pulsesConsumed(){input.skill=input.dash=input.potion=input.ultimate=false;}
     public void back(Game g){
         dirty=true;clear();
-        if(g.mode==Game.PLAY)g.pause();else if(g.mode==Game.PAUSE)g.resume();else if(g.mode==Game.HELP)g.mode=helpReturn;else if(g.mode==Game.JOURNAL)g.mode=journalReturn;else if(g.mode==BodyJourney.MAP||g.mode==MathJourney.MAP)g.mode=mapReturn;else if(g.mode==Arsenal.MENU)g.mode=Game.PLAY;else if(g.mode==8)g.title();else if(g.mode==Game.DIALOGUE){g.story.dialogue=null;g.mode=Game.PLAY;}
+        if(g.mode==Game.PLAY)g.pause();else if(g.mode==Game.PAUSE)g.resume();else if(g.mode==Game.HELP)g.mode=helpReturn;else if(g.mode==Game.JOURNAL)g.mode=journalReturn;else if(g.mode==BodyJourney.MAP||g.mode==MathJourney.MAP||g.mode==PhysicsJourney.MAP)g.mode=mapReturn;else if(g.mode==Arsenal.MENU)g.mode=Game.PLAY;else if(g.mode==8)g.title();else if(g.mode==Game.DIALOGUE){g.story.dialogue=null;g.mode=Game.PLAY;}
     }
     public void key(Game g,String key,boolean pressed){
         if("ESCAPE".equals(key)){if(pressed)back(g);return;}
@@ -105,7 +107,7 @@ public final class Controls {
         if(pressed&&"B".equals(key)&&g.body.enabled){g.mode=Arsenal.MENU;dirty=true;clear();return;}
         if(pressed&&"Q".equals(key)&&g.body.enabled){for(int i=1;i<=6;i++){int next=(g.arsenal.selected+i)%6;if(g.arsenal.owned(next)){g.arsenal.equip(g,next);break;}}dirty=true;return;}
         if(pressed&&"R".equals(key))input.ultimate=true;
-        if(pressed&&("M".equals(key)||"N".equals(key))&&g.story.enabled){mapReturn=Game.PLAY;g.mode=g.inBody()&&!"N".equals(key)?BodyJourney.MAP:MathJourney.MAP;dirty=true;clear();return;}
+        if(pressed&&("M".equals(key)||"N".equals(key))&&g.story.enabled){mapReturn=Game.PLAY;g.mode=g.inBody()&&!"N".equals(key)?BodyJourney.MAP:g.inPhysics()?PhysicsJourney.MAP:MathJourney.MAP;dirty=true;clear();return;}
         if(pressed&&"T".equals(key)&&g.inMath()){g.math.retry(g);dirty=true;clear();return;}
         if(pressed&&"E".equals(key)){g.story.interact(g);dirty=true;clear();return;}
         if(pressed&&"L".equals(key)){journalReturn=Game.PLAY;g.mode=Game.JOURNAL;dirty=true;clear();return;}

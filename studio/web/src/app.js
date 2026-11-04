@@ -14,6 +14,7 @@ import {HighlightStyle,syntaxHighlighting} from '@codemirror/language';
 import {tags} from '@lezer/highlight';
 import {openSearchPanel} from '@codemirror/search';
 import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAfterRestore,lectureViewCreated,lectureModeEnter,lectureModeLeave,lectureBusy,lectureStatusText,lectureDebug} from './lecture.js';
+import {initDraw,ensureDrawUI,enterDrawMode,exitDrawMode,isDrawMode,getDrawStrokes,loadDrawStrokes} from './draw.js';
 
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
 
@@ -49,7 +50,7 @@ const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript'
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 天工 · 离线 Python\n# 标准输入在下方面板填写，每行一项\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\nfor i in range(1, 4):\n    print("让想法运行起来", "✦" * i)\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这是手机上写出的第一个页面。</p>\n<button onclick="this.textContent=\'想法变成了现实 ✦\'">试着点一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15}});
+const defaults=()=>({version:1,files:[makeFile('main.py','# 天工 · 离线 Python\n# 标准输入在下方面板填写，每行一项\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\nfor i in range(1, 4):\n    print("让想法运行起来", "✦" * i)\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这是手机上写出的第一个页面。</p>\n<button onclick="this.textContent=\'想法变成了现实 ✦\'">试着点一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15},drawStrokes:[]});
 let state=defaults(),view,restoring=false,worker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 const langConfig=new Compartment(),wrapConfig=new Compartment(),editConfig=new Compartment();
 let editorStates=new Map();
@@ -57,7 +58,7 @@ function active(){return state.files.find(f=>f.path===state.active)||state.files
 function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,lecture:lectureSerialize()};}
+function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,lecture:lectureSerialize(),drawStrokes:state.drawStrokes||[]};}
 function flush(){clearTimeout(saveTimer);if(!ready)return;state.stdin=$('stdin').value;const data=snapshot(),id=++revision;$('saveState').textContent='正在保存草稿…';if(native)send('snapshot',{data,id});else try{localStorage.setItem('ember-studio-v1',JSON.stringify(data));latestSaved=id;$('saveState').textContent='草稿已保存';}catch(e){$('saveState').textContent='草稿保存失败';notify('空间不足，请先另存重要文件。');}}
 function scheduleSave(){if(restoring)return;$('saveState').textContent='草稿待保存';clearTimeout(saveTimer);saveTimer=setTimeout(flush,450);}
 function changed(){renderFiles();scheduleSave();}
@@ -67,10 +68,11 @@ function loadState(data){
   if(!files.length)throw Error('工作区文件无法读取');
   state={...defaults(),...data,files,settings:{...defaults().settings,...data.settings}};
   state.lecture=lectureSanitize(data.lecture);
+  state.drawStrokes=Array.isArray(data.drawStrokes)?data.drawStrokes:[];
   state.settings.fontSize=Math.max(12,Math.min(24,Number(state.settings.fontSize)||15));state.settings.timeLimit=[15,30,60].includes(+state.settings.timeLimit)?+state.settings.timeLimit:15;if(window.innerWidth<700)state.settings.wrap=true;
   state.active=files.some(f=>f.path===state.active)?state.active:files[0].path;state.opened=Array.isArray(state.opened)?state.opened.filter(p=>files.some(f=>f.path===p)):[];if(!state.opened.includes(state.active))state.opened.push(state.active);
 }
-function restore(data){try{loadState(data);}catch(e){if(data)notify('工作区格式无法读取；原备份未被覆盖，请先导出或检查。');}restoring=true;editorStates.clear();$('stdin').value=state.stdin||'';createEditor();restoring=false;ready=true;renderFiles();applySettings();markLandingReady();lectureAfterRestore();}
+function restore(data){try{loadState(data);}catch(e){if(data)notify('工作区格式无法读取；原备份未被覆盖，请先导出或检查。');}restoring=true;editorStates.clear();$('stdin').value=state.stdin||'';createEditor();restoring=false;ready=true;renderFiles();applySettings();markLandingReady();lectureAfterRestore();if(state.drawStrokes&&state.drawStrokes.length)loadDrawStrokes(state.drawStrokes);}
 function createEditor(){
  if(view)view.destroy();
  const config={doc:active().text,extensions:[
@@ -138,6 +140,7 @@ function showCode(){closeMenu();$('workbench').hidden=false;$('lounge').hidden=t
 on('filesToggle',()=>{closeMenu();document.body.classList.toggle('drawer');});on('backdrop',closeDrawer);on('closeExplorer',closeDrawer);on('newFile',()=>nameDialog());on('newTab',()=>nameDialog());menu('menuNew',()=>nameDialog());
 menu('findButton',()=>{openSearchPanel(view);view.focus();});menu('settingsButton',()=>$('settingsDialog').showModal());on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
 on('codeTab',showCode);on('gameTab',showGame);menu('menuGame',showGame);menu('menuMode',()=>openLanding(true));on('playGame',()=>{flush();if(native)send('play');else notify('此预览仅展示编辑器，安装 APK 后可直接进入原生游戏。');});on('exportGame',()=>native?send('exportGame'):notify('游戏存档备份在 Android APK 中使用。'));on('importGame',()=>native?send('importGame'):notify('安装 APK 后可导入游戏备份。'));
+on('drawToggle',()=>{if(workspaceMode!=='notepad')return;if(isDrawMode()){exitDrawMode();}else{enterDrawMode();}});
 $('menuDialog').addEventListener('click',event=>{if(event.target===$('menuDialog'))$('menuDialog').close();});
 for(const b of document.querySelectorAll('.quickkeys button')){
  let startX=0,startY=0,moved=false;
@@ -178,11 +181,12 @@ function ensureLectureNote(){let note=state.files.find(f=>f.path==='课堂笔记
 function applyMode(mode){
   if(workspaceMode==='lecture'&&mode!=='lecture'&&lectureBusy()){notify('正在上课录音，请先点「⏹ 停止」结束录音，再切换模式。');selectedMode='lecture';syncWheel();return;}
   workspaceMode=mode;
-  if(mode==='game'){document.body.classList.remove('notepad');document.body.classList.remove('lecture');lectureModeLeave();showGame();return;}
+  const drawToggle=$('drawToggle');
+  if(mode==='game'){document.body.classList.remove('notepad');document.body.classList.remove('lecture');lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();showGame();return;}
   showCode();
-  if(mode==='notepad'){document.body.classList.remove('lecture');lectureModeLeave();if(state.active!=='笔记.txt')lastCodePath=state.active;document.body.classList.add('notepad');switchFile(ensureNote().path);}
-  else if(mode==='lecture'){document.body.classList.remove('notepad');document.body.classList.add('lecture');const note=ensureLectureNote();switchFile(note.path);lectureModeEnter();}
-  else{document.body.classList.remove('notepad');document.body.classList.remove('lecture');lectureModeLeave();const f=(lastCodePath&&state.files.find(x=>x.path===lastCodePath))||state.files.find(x=>x.path==='main.py')||state.files.find(x=>!x.path.endsWith('.txt'))||state.files[0];if(f)switchFile(f.path);}
+  if(mode==='notepad'){document.body.classList.remove('lecture');lectureModeLeave();if(state.active!=='笔记.txt')lastCodePath=state.active;document.body.classList.add('notepad');switchFile(ensureNote().path);if(drawToggle)drawToggle.hidden=false;}
+  else if(mode==='lecture'){document.body.classList.remove('notepad');document.body.classList.add('lecture');if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();const note=ensureLectureNote();switchFile(note.path);lectureModeEnter();}
+  else{document.body.classList.remove('notepad');document.body.classList.remove('lecture');lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();const f=(lastCodePath&&state.files.find(x=>x.path===lastCodePath))||state.files.find(x=>x.path==='main.py')||state.files.find(x=>!x.path.endsWith('.txt'))||state.files[0];if(f)switchFile(f.path);}
   setTimeout(()=>{if(view)view.focus();},260);
 }
 function enterSelected(){if(!ready||!landingOpen)return;try{localStorage.setItem(MODE_KEY,selectedMode);}catch(e){}hideLanding();applyMode(selectedMode);}
@@ -207,6 +211,11 @@ initLecture({
   switchFile:path=>switchFile(path),
   workspaceMode:()=>workspaceMode,
   getState:()=>state
+});
+initDraw({
+  scheduleSave:()=>{flush();},
+  getDrawData:()=>state.drawStrokes||[],
+  saveDrawData:(strokes)=>{state.drawStrokes=strokes;flush();}
 });
 openLanding(false);
 window.Studio={getState:snapshot,get view(){return view;},run,stop,flush,importFiles,lecture:lectureDebug};

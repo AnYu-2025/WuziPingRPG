@@ -113,7 +113,7 @@ export {lectureExtensions};
 let env=null;                    // app.js 注入的钩子
 let engine=null,playback=null,timeline=null;
 let barState='idle';             // idle|starting|recording|recpaused|stopping|stopped|playing|playpaused
-let persist={audio:null,anchors:[],slides:[],notes:[]};
+let persist={audio:null,anchors:[],slides:[],notes:[],translate:false};
 let pendingStamps=[];
 let slideSeq=0,uiReady=false,animRaf=0,editAnchorId=null,previewSlideId=null;
 let ui={};
@@ -133,6 +133,7 @@ function ensureUI(){
   ui={
     bar:$('lectureBar'),timer:$('recordTimer'),label:$('recordLabel'),
     record:$('recordBtn'),pause:$('pauseBtn'),stop:$('stopBtn'),newRec:$('newRecBtn'),anchor:$('anchorBtn'),
+    translateToggle:$('translateToggle'),translateCheck:$('translateCheck'),
     canvas:$('timelineCanvas'),zoomIn:$('zoomIn'),zoomOut:$('zoomOut'),range:$('tlRange'),
     anchors:$('anchorList'),slides:$('slideList'),import:$('importSlide'),slideInput:$('slideInput'),
     tabs:$('lectureTabs'),
@@ -158,6 +159,14 @@ function ensureUI(){
     startRecording();
   });
   ui.anchor.addEventListener('click',markAnchor);
+  if(ui.translateCheck){
+    ui.translateCheck.checked=!!persist.translate;
+    ui.translateCheck.addEventListener('change',()=>{
+      persist.translate=!!ui.translateCheck.checked;
+      env.scheduleSave();
+      notify(persist.translate?'已开启实时翻译':'已关闭实时翻译');
+    });
+  }
   ui.zoomIn.addEventListener('click',()=>{timeline.zoom(1);ui.range.textContent=timeline.rangeLabel();});
   ui.zoomOut.addEventListener('click',()=>{timeline.zoom(-1);ui.range.textContent=timeline.rangeLabel();});
   for(const tab of ui.tabs.querySelectorAll('.lecture-tab')){
@@ -623,7 +632,7 @@ export function lectureSanitize(data){
     .filter(n=>n&&typeof n.pos==='number'&&isFinite(n.pos)&&n.pos>=0&&typeof n.time==='number'&&isFinite(n.time)&&n.time>=0)
     .slice(0,5000)
     .map(n=>({pos:Math.round(n.pos),time:Math.round(n.time*10)/10})):[];
-  return {audio,anchors,slides,notes,active:!!d.active};
+  return {audio,anchors,slides,notes,translate:!!d.translate,active:!!d.active};
 }
 export function lectureSerialize(){
   let stamps=persist.notes;
@@ -637,18 +646,20 @@ export function lectureSerialize(){
     audio:persist.audio,
     anchors:persist.anchors,
     slides:persist.slides,
-    notes:stamps
+    notes:stamps,
+    translate:!!persist.translate
   };
 }
 export function lectureAfterRestore(){
   const state=env?env.getState():null;
   const data=(state&&state.lecture)||{};
-  persist={audio:data.audio||null,anchors:data.anchors||[],slides:data.slides||[],notes:[]};
+  persist={audio:data.audio||null,anchors:data.anchors||[],slides:data.slides||[],notes:[],translate:!!data.translate};
   pendingStamps=(data.notes||[]).slice();
   persist.anchors.sort((a,b)=>a.time-b.time);
   if(playback){playback.release();playback=null;}
   if(uiReady){
     if(persist.audio)ensurePlayback().load(persist.audio.data,persist.audio.mime);
+    if(ui.translateCheck)ui.translateCheck.checked=!!persist.translate;
     refreshAll();
   }
   /* restore() 中 createEditor 先于本函数执行，此时补一次注入，

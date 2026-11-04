@@ -23,6 +23,7 @@ public final class Scene {
         if(g.mode==Game.JOURNAL){journal();return;}
         if(g.mode==BodyJourney.MAP){bodyMap();return;}
         if(g.mode==MathJourney.MAP){worldMap();return;}
+        if(g.mode==PhysicsJourney.MAP){physicsMap();return;}
         if(g.mode==Arsenal.MENU){armory();return;}
         hud();controls();
         anchor(0,0);if(g.mode==Game.DIALOGUE){dialogue();return;}
@@ -460,7 +461,9 @@ public final class Scene {
         panel(18,107,286,96);label("物理 · "+g.physics.name(),35,133,15,GOLD);wrapped(g.quest(),35,160,12,CREAM,250,19,2);label("观察现象，找出规律",35,191,10,MUTED);
         anchor(0,-1);panel(325,16,310,56);center(g.physics.name(),480,40,18,CREAM);center("物理规律在操作中显现",480,61,11,MUTED);
         if(g.banner>0){panel(313,88,424,45);center(g.bannerText,525,116,12,GOLD);}
-        anchor(1,-1);smallToggle("札记",746,19,54);smallToggle("Ⅱ",902,19,38);panel(813,75,127,139);center("发现 "+Integer.bitCount(g.physics.solved)+" / 5",876,98,12,GOLD);physicsMinimap();String progress=physicsProgress();center(progress,876,187,12,CREAM);center("光点是你与入口",876,204,9,MUTED);panel(813,226,127,37);center("主题地图 · 点击查看",876,250,10,GOLD);
+        anchor(1,-1);smallToggle("札记",746,19,54);smallToggle("地图",830,19,66);panel(906,75,34,139);center("发现 "+Integer.bitCount(g.physics.solved)+" / 5",923,98,11,GOLD);physicsMinimap();String progress=physicsProgress();center(progress,923,187,11,CREAM);center("光点是你与入口",923,204,8,MUTED);
+        // 直接返回城镇按钮
+        anchor(-1,1);button("返回城镇",26,375,120,36,false);
     }
     private String physicsProgress(){
         switch(g.physics.level){
@@ -606,6 +609,17 @@ public final class Scene {
         p.oval(535,195,100,70,0xff668b9b);p.oval(540,200,90,60,0xff16293c);p.line(535,290,588,226,3,0xffb9a8d2);p.line(588,226,638,290,3,0xffb9a8d2);p.line(535,290,638,290,3,0xffb9a8d2);
         label("数学 · 规律星庭",650,190,18,GOLD);label("几何轨迹 / 桥梁 / 翻向",650,221,11,MUTED);label("发现 "+Integer.bitCount(g.math.solved)+" / 3",650,251,14,CREAM);
         button("进入身体主题",145,365,290,42,true);button("进入数学主题",525,365,290,42,true);center("在中山大学可以切换主题；探索中请先从光门返回。",480,438,11,MUTED);button("返回旅程",340,455,280,37,false);
+    }
+    private void physicsMap(){
+        veil();panel(88,40,784,468);label("格物堂 · 物理工坊",119,88,27,CREAM);label("五种机关对应不同物理现象，通关可获得奖励。",120,119,12,MUTED);
+        for(int i=0;i<5;i++){
+            boolean done=(g.physics.solved&(1<<i))!=0;
+            float px=120+(i%3)*220,py=155+(i/3)*150;
+            panel(px,py,200,120);
+            center((done?"◆ ":"◇ ")+PhysicsJourney.NAMES[i],px+100,py+30,15,done?GOLD:MUTED);
+            wrapped(done?PhysicsJourney.INSIGHTS[i]:"未发现。观察现象，找出规律。",px+100,py+58,11,done?CREAM:MUTED,180,17,2);
+        }
+        button("返回城镇",340,455,280,37,false);
     }
     private void mathJournal(){
         veil();panel(88,42,784,466);label("数学 · 发现札记",120,92,29,CREAM);label("只记录已经亲自找到的规律。",120,122,13,MUTED);

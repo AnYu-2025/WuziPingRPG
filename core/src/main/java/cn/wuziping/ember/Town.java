@@ -20,7 +20,10 @@ public final class Town {
         new Npc(3,"苏禾","药师",633,306),
         new Npc(4,"知夏","学者",543,263),
         new Npc(5,"阿满","旅店掌柜",632,504),
-        new Npc(6,"程理","物理学者",1180,480)
+        new Npc(6,"程理","物理学者",1180,480),
+        new Npc(7,"朱华鸿","开发者",180,700),
+        new Npc(8,"李梓宁","开发者",280,820),
+        new Npc(9,"伍子安","开发者",400,780)
     };
     public static final House[] HOUSES={
         new House(0,"镇务厅",267,278,138,118),
