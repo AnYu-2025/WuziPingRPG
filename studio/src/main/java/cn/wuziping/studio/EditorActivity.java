@@ -7,6 +7,9 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
+import android.speech.tts.Voice;
 import android.util.AtomicFile;
 import android.webkit.*;
 import android.view.*;
@@ -19,6 +22,7 @@ import cn.wuziping.ember.Game;
 
 public final class EditorActivity extends Activity {
     private WebView web;private AssetServer assets;private PackedAssets packed;private AtomicFile workspace,gameSave;
+    private TextToSpeech tts;private boolean ttsReady=false,ttsInitializing=false,ttsRangeSeen=false;private String ttsError="",ttsCurrentId="";private int ttsCharIndex=0,ttsCurrentLength=0;
     private final ExecutorService io=Executors.newSingleThreadExecutor();private JSONObject pendingExport;private boolean pickerOpen=false,workspaceReadOnly=false;
     private static final int OPEN=30,FOLDER=31,EXPORT=32,GAME_OUT=33,GAME_IN=34,MIC=35,SLIDE=36;
     private android.webkit.PermissionRequest pendingMicRequest;
@@ -88,11 +92,14 @@ public final class EditorActivity extends Activity {
             String html=packed.readText("studio/index.html"),css=packed.readText("studio/style.css"),boot=packed.readText("studio/boot.js");
             String lectureCss="";
             try{lectureCss=packed.readText("studio/lecture.css");}catch(Throwable ignored){/* 旧包允许缺失 */}
+            String ttsCss="";
+            try{ttsCss=packed.readText("studio/tts.css");}catch(Throwable ignored){android.util.Log.w("EmberStudio","Bundled studio/tts.css is missing; TTS controls will render without dedicated styles.");}
             String app=packed.readText("studio/app.js").replace("</script","<\\/script");
             String policy="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'";
             html=html.replaceAll("(?is)<meta[^>]*Content-Security-Policy[^>]*>","<meta http-equiv=\"Content-Security-Policy\" content=\""+policy+"\">");
             html=html.contains("<link rel=\"stylesheet\" href=\"style.css\">")?html.replace("<link rel=\"stylesheet\" href=\"style.css\">","<style>"+css+"</style>"):html.replace("</head>","<style>"+css+"</style></head>");
             if(lectureCss.length()>0)html=html.contains("<link rel=\"stylesheet\" href=\"lecture.css\">")?html.replace("<link rel=\"stylesheet\" href=\"lecture.css\">","<style>"+lectureCss+"</style>"):html.replace("</head>","<style>"+lectureCss+"</style></head>");
+            if(ttsCss.length()>0)html=html.contains("<link rel=\"stylesheet\" href=\"tts.css\">")?html.replace("<link rel=\"stylesheet\" href=\"tts.css\">","<style>"+ttsCss+"</style>"):html.replace("</head>","<style>"+ttsCss+"</style></head>");
             html=html.contains("<script src=\"boot.js\"></script>")?html.replace("<script src=\"boot.js\"></script>","<script>"+boot+"</script>"):html.replace("</body>","<script>"+boot+"</script></body>");
             html=html.contains("<script src=\"app.js\"></script>")?html.replace("<script src=\"app.js\"></script>","<script>"+app+"</script>"):html.replace("</body>","<script>"+app+"</script></body>");
             web.loadDataWithBaseURL(assets.base()+"studio/index.html",html,"text/html","UTF-8",null);
@@ -177,6 +184,10 @@ public final class EditorActivity extends Activity {
         String type=m.optString("type");
         if(type.equals("ready")){deliverRestore();return;}
         if(type.equals("jsError")){lastJsError=m.optString("kind")+": "+m.optString("detail");android.util.Log.e("EmberStudio",lastJsError);return;}
+        if(type.equals("ttsStatus")){requestTtsStatus();return;}
+        if(type.equals("ttsSpeak")){speakTts(m);return;}
+        if(type.equals("ttsPause")){pauseTts(m.optString("id",ttsCurrentId));return;}
+        if(type.equals("ttsStop")){stopTts();return;}
         if(type.equals("snapshot")){JSONObject data=m.getJSONObject("data");int id=m.optInt("id");if(data.optInt("version")!=1||data.getJSONArray("files").length()>160)throw new IOException("工作区过大");io.execute(()->{JSONObject o=message("snapshotSaved");put(o,"id",id);try{if(workspaceReadOnly)throw new IOException("请先恢复旧工作区");byte[] bytes=data.toString().getBytes("UTF-8");if(bytes.length>32*1024*1024)throw new IOException("工作区超过保存上限，请另存大文件");atomic(workspace,bytes);put(o,"ok",true);}catch(Exception e){put(o,"ok",false);}event(o);});return;}
         if(type.equals("open")){pick(OPEN,new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*").putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true));return;}
         if(type.equals("folder")){pick(FOLDER,new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE));return;}
@@ -187,6 +198,155 @@ public final class EditorActivity extends Activity {
         if(type.equals("exportGame")){if(!(gameSave.getBaseFile().exists()||new File(gameSave.getBaseFile().getPath()+".bak").exists())){notice("先进入游戏创建一次存档。");return;}pick(GAME_OUT,new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/octet-stream").putExtra(Intent.EXTRA_TITLE,"星火远征-存档.wzpsave"));return;}
         if(type.equals("importGame")){pick(GAME_IN,new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"));return;}
         if(type.equals("preview")){final JSONObject preview=m;io.execute(()->{try{File file=new File(getCacheDir(),"studio-preview.json");atomic(new AtomicFile(file),preview.toString().getBytes("UTF-8"));runOnUiThread(()->startActivity(new Intent(this,PreviewActivity.class)));}catch(Exception e){notice("预览失败："+e.getMessage());}});}
+    }
+    private void requestTtsStatus(){
+        if(ttsReady||ttsInitializing){emitTtsStatus();return;}
+        releaseTts();
+        initTts();
+    }
+    private void initTts(){
+        if(ttsInitializing)return;
+        ttsInitializing=true;ttsError="";
+        emitTtsStatus();
+        final TextToSpeech[] holder=new TextToSpeech[1];
+        try{
+            holder[0]=new TextToSpeech(getApplicationContext(),status->ui.post(()->finishTtsInit(holder[0],status)));
+            tts=holder[0];
+        }catch(Throwable e){
+            ttsInitializing=false;ttsReady=false;
+            ttsError="系统英语语音引擎未能启动："+e.getMessage();
+            emitTtsStatus();
+        }
+    }
+    private void finishTtsInit(TextToSpeech engine,int status){
+        ttsInitializing=false;
+        if(status!=TextToSpeech.SUCCESS||engine==null||engine!=tts){
+            ttsReady=false;
+            ttsError="系统英语语音引擎未能启动。请重新进入英文朗读模式重试。";
+            emitTtsStatus();
+            return;
+        }
+        engine.setOnUtteranceProgressListener(new UtteranceProgressListener(){
+            @Override public void onStart(String utteranceId){if(!utteranceId.equals(ttsCurrentId))return;ttsCharIndex=0;JSONObject o=message("ttsStarted");put(o,"id",utteranceId);event(o);}
+            @Override public void onRangeStart(String utteranceId,int start,int end,int frame){
+                if(!utteranceId.equals(ttsCurrentId))return;
+                ttsCharIndex=Math.max(0,start);
+                ttsRangeSeen=true;
+                JSONObject o=message("ttsRange");put(o,"id",utteranceId);put(o,"start",start);put(o,"end",end);put(o,"frame",frame);event(o);
+            }
+            @Override public void onDone(String utteranceId){
+                if(!utteranceId.equals(ttsCurrentId))return;
+                ttsCharIndex=ttsCurrentLength;ttsCurrentId="";
+                JSONObject o=message("ttsDone");put(o,"id",utteranceId);event(o);
+            }
+            @Override public void onError(String utteranceId){failTtsUtterance("英语语音播放失败。",utteranceId);}
+            @Override public void onError(String utteranceId,int errorCode){failTtsUtterance("英语语音播放失败（"+errorCode+"）。",utteranceId);}
+        });
+        int languageStatus=engine.setLanguage(Locale.US);
+        ttsReady=languageStatus!=TextToSpeech.LANG_MISSING_DATA&&languageStatus!=TextToSpeech.LANG_NOT_SUPPORTED;
+        if(!ttsReady){
+            Voice fallback=findEnglishVoice("",Locale.US);
+            if(fallback!=null)ttsReady=engine.setVoice(fallback)==TextToSpeech.SUCCESS;
+        }
+        ttsError=ttsReady?"":"系统没有可用的英语语音，请安装英语语音数据后重新进入英文朗读模式。";
+        emitTtsStatus();
+    }
+    private void releaseTts(){
+        if(tts!=null){try{tts.stop();}catch(Throwable ignored){}try{tts.shutdown();}catch(Throwable ignored){}tts=null;}
+        ttsReady=false;ttsInitializing=false;ttsCurrentId="";ttsCharIndex=0;ttsCurrentLength=0;ttsRangeSeen=false;
+    }
+    private void emitTtsStatus(){
+        JSONObject o=message("ttsStatus");
+        put(o,"ready",ttsReady);
+        put(o,"initializing",ttsInitializing);
+        if(tts!=null){
+            String engine=tts.getDefaultEngine();
+            put(o,"engine",engine==null?"Android 英语语音":"Android 英语语音 · "+engine);
+        }else put(o,"engine","Android 英语语音");
+        if(ttsError!=null&&ttsError.length()>0)put(o,"error",ttsError);
+        JSONArray list=new JSONArray();
+        if(tts!=null&&ttsReady){
+            try{
+                Set<Voice> available=tts.getVoices();
+                if(available!=null)for(Voice voice:available){
+                    Locale locale=voice.getLocale();
+                    if(locale==null||!"en".equalsIgnoreCase(locale.getLanguage()))continue;
+                    JSONObject item=new JSONObject();
+                    put(item,"name",voice.getName());
+                    put(item,"locale",locale.toLanguageTag());
+                    put(item,"quality",voice.getQuality());
+                    list.put(item);
+                }
+            }catch(Throwable ignored){/* Some engines expose fewer voice APIs than the platform contract. */}
+        }
+        put(o,"voices",list);
+        event(o);
+    }
+    private Voice findEnglishVoice(String requested,Locale preferred){
+        if(tts==null)return null;
+        Voice first=null,preferredVoice=null;
+        try{
+            Set<Voice> voices=tts.getVoices();
+            if(voices==null)return null;
+            for(Voice voice:voices){
+                Locale locale=voice.getLocale();
+                if(locale==null||!"en".equalsIgnoreCase(locale.getLanguage()))continue;
+                if(first==null)first=voice;
+                if(requested!=null&&requested.length()>0&&requested.equalsIgnoreCase(voice.getName()))return voice;
+                if(preferredVoice==null&&preferred!=null&&preferred.getCountry().equalsIgnoreCase(locale.getCountry()))preferredVoice=voice;
+            }
+        }catch(Throwable ignored){return null;}
+        return preferredVoice!=null?preferredVoice:first;
+    }
+    private Locale englishLocale(String value){
+        String locale=value==null?"en-US":value.replace('_','-');
+        String[] parts=locale.split("-");
+        if(parts.length<1||!"en".equalsIgnoreCase(parts[0]))return Locale.US;
+        return new Locale("en",parts.length>1?parts[1].toUpperCase(Locale.US):"US");
+    }
+    private void speakTts(JSONObject m)throws Exception{
+        String id=m.optString("id");
+        String text=m.optString("text");
+        if(id.length()==0||text.length()==0){ttsError("没有可朗读的文本。",id);return;}
+        if(text.length()>TextToSpeech.getMaxSpeechInputLength()){ttsError("当前文本小节过长，请重新开始朗读。",id);return;}
+        if(!ttsReady){
+            requestTtsStatus();
+            ttsError("英语语音仍在准备，请稍后重试。",id);
+            return;
+        }
+        Locale locale=englishLocale(m.optString("locale","en-US"));
+        Voice voice=findEnglishVoice(m.optString("voice",""),locale);
+        int voiceResult=voice==null?TextToSpeech.ERROR:tts.setVoice(voice);
+        if(voiceResult!=TextToSpeech.SUCCESS)tts.setLanguage(locale);
+        float rate=Math.max(0.75f,Math.min(1.5f,(float)m.optDouble("rate",1)));
+        tts.setSpeechRate(rate);
+        Bundle params=new Bundle();
+        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME,1f);
+        ttsCurrentId=id;ttsCharIndex=0;ttsCurrentLength=text.length();ttsRangeSeen=false;
+        int result=tts.speak(text,TextToSpeech.QUEUE_FLUSH,params,id);
+        if(result!=TextToSpeech.SUCCESS){ttsCurrentId="";ttsError("英语语音引擎未能开始朗读。",id);}
+    }
+    private void pauseTts(String id){
+        int charIndex=ttsCharIndex;
+        if(tts!=null)tts.stop();
+        ttsCurrentId="";ttsCharIndex=0;ttsCurrentLength=0;
+        JSONObject o=message("ttsPaused");put(o,"id",id);put(o,"charIndex",charIndex);put(o,"supported",android.os.Build.VERSION.SDK_INT>=26&&ttsRangeSeen);ttsRangeSeen=false;event(o);
+    }
+    private void stopTts(){
+        if(tts!=null)tts.stop();
+        ttsCurrentId="";ttsCharIndex=0;ttsCurrentLength=0;ttsRangeSeen=false;
+        event(message("ttsStopped"));
+    }
+    private void failTtsUtterance(String message,String id){
+        if(id==null||!id.equals(ttsCurrentId))return;
+        ttsCurrentId="";ttsCharIndex=0;ttsCurrentLength=0;
+        ttsError(message,id);
+    }
+    private void ttsError(String message,String id){
+        JSONObject o=message("ttsError");
+        put(o,"message",message);
+        if(id!=null&&id.length()>0)put(o,"id",id);
+        event(o);
     }
     private void pick(int request,Intent intent){if(pickerOpen){notice("请先完成当前文件选择。");return;}intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);try{pickerOpen=true;startActivityForResult(intent,request);}catch(ActivityNotFoundException e){pickerOpen=false;notice("未找到系统文件选择器。");}}
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
@@ -238,7 +398,7 @@ public final class EditorActivity extends Activity {
     private static void atomic(AtomicFile file,byte[] bytes)throws IOException{FileOutputStream out=null;try{out=file.startWrite();out.write(bytes);file.finishWrite(out);}catch(IOException e){if(out!=null)file.failWrite(out);throw e;}}
     private void backup(File source,String prefix,String suffix)throws IOException{if(!source.exists())return;try(InputStream in=new FileInputStream(source)){atomic(new AtomicFile(new File(getFilesDir(),prefix+System.currentTimeMillis()+suffix)),TextFiles.read(in,32*1024*1024));}}
     @Override protected void onResume(){super.onResume();if(web!=null){JSONObject o=message("gameState");put(o,"exists",gameSave.getBaseFile().exists()||new File(gameSave.getBaseFile().getPath()+".bak").exists());event(o);}}
-    @Override protected void onPause(){if(web!=null)web.evaluateJavascript("window.Studio&&window.Studio.flush()",null);super.onPause();}
+    @Override protected void onPause(){if(tts!=null&&ttsCurrentId.length()>0)pauseTts(ttsCurrentId);if(web!=null)web.evaluateJavascript("window.Studio&&window.Studio.flush()",null);super.onPause();}
     @Override public void onBackPressed(){if(web==null){finish();return;}web.evaluateJavascript("(()=>{if(document.querySelector('dialog[open]')){document.querySelector('dialog[open]').close('cancel');return true;}if(document.body.classList.contains('drawer')){document.body.classList.remove('drawer');return true;}if(!document.getElementById('lounge').hidden){document.getElementById('codeTab').click();return true;}return false;})()",result->{if(!"true".equals(result))new AlertDialog.Builder(this).setTitle("退出天工？").setMessage("工作区草稿与游戏存档分别保留。").setNegativeButton("继续编辑",null).setPositiveButton("退出",(d,w)->{web.evaluateJavascript("window.Studio&&window.Studio.flush()",v->io.execute(()->runOnUiThread(this::finish)));}).show();});}
-    @Override protected void onDestroy(){ui.removeCallbacksAndMessages(null);if(web!=null){web.removeJavascriptInterface("StudioBridge");web.destroy();web=null;}if(assets!=null)try{assets.close();}catch(IOException ignored){}if(packed!=null)packed.close();io.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){ui.removeCallbacksAndMessages(null);releaseTts();if(web!=null){web.removeJavascriptInterface("StudioBridge");web.destroy();web=null;}if(assets!=null)try{assets.close();}catch(IOException ignored){}if(packed!=null)packed.close();io.shutdown();super.onDestroy();}
 }
