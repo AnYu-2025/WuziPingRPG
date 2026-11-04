@@ -1,0 +1,110 @@
+/* 上课模式：录音控制栏 + 三栏布局（笔记 / 时间轴 / PPT）+ 时间戳 gutter。 */
+
+/* ===== 录音控制栏 ===== */
+#lectureBar{display:none}
+body.lecture #lectureBar{
+  display:flex;align-items:center;gap:8px;height:48px;min-height:48px;flex:none;
+  padding:0 10px;background:#fff1f2;border-bottom:1px solid #fecdd3;position:relative;z-index:8;
+}
+.recdot{width:11px;height:11px;border-radius:50%;background:#fb7185;flex:none}
+#lectureBar[data-state="recording"] .recdot,#lectureBar[data-state="starting"] .recdot{
+  background:#e11d48;animation:rec-pulse 1.15s ease-in-out infinite;
+}
+@keyframes rec-pulse{0%,100%{box-shadow:0 0 0 0 rgba(225,29,72,.34)}55%{box-shadow:0 0 0 6px rgba(225,29,72,0)}}
+#recordBtn{
+  display:inline-flex;align-items:center;gap:7px;height:36px;min-height:36px;padding:0 14px;border-radius:999px;
+  background:#e11d48;color:#fff;font-weight:600;font-size:13px;box-shadow:0 6px 14px rgba(225,29,72,.24);
+}
+#recordBtn[data-role="play"]{background:#0f766e;box-shadow:0 6px 14px rgba(15,118,110,.22)}
+#recordBtn:active{transform:translateY(1px)}
+.recalt{height:34px;min-height:34px;padding:0 11px;border-radius:999px;border:1px solid #fecdd3;background:#fff;color:#9f1239;font-size:12.5px;font-weight:600}
+.recstop{height:34px;min-height:34px;padding:0 11px;border-radius:999px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;font-size:12.5px;font-weight:600}
+.recanchor{height:34px;min-height:34px;padding:0 11px;border-radius:999px;border:1px solid #fde68a;background:#fffbeb;color:#b45309;font-size:12.5px;font-weight:600}
+#recordTimer{font:600 13px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#9f1239;min-width:76px;text-align:center;letter-spacing:.03em}
+.rec-translate{display:inline-flex;align-items:center;gap:5px;height:30px;min-height:30px;padding:0 9px;border-radius:999px;border:1px solid #fecdd3;background:#fff;color:#9f1239;font-size:11.5px;font-weight:500;cursor:pointer;user-select:none;-webkit-user-select:none;transition:background .15s,border-color .15s}
+.rec-translate:hover{background:#fff1f2}
+.rec-translate input[type="checkbox"]{width:14px;height:14px;accent-color:#e11d48;margin:0;cursor:pointer}
+.rec-translate .reccheck{display:none}
+.rec-translate .reclabel{letter-spacing:.02em}
+@media(max-width:399px){
+  .anchorbtntext{display:none}
+  #anchorBtn{padding:0 10px;font-size:14px}
+  #recordTimer{min-width:64px;font-size:12px}
+  .recalt{padding:0 9px}
+  #recordBtn{padding:0 11px}
+}
+body.lecture .appbar{background:rgba(255,247,248,.92);border-bottom-color:#fbe0e5}
+body.lecture #activePath{color:#9f1239}
+body.lecture #runButton,body.lecture #stopButton,body.lecture .console,body.lecture .quickkeys{display:none!important}
+body.lecture #editor{padding-bottom:0}
+body.lecture #noteCount{display:inline}
+
+/* ===== 三栏布局 ===== */
+#lectureTimeline,#lectureSlides,#lectureTabs{display:none}
+body.lecture #workbench{background:#fff}
+body.lecture #lectureTimeline{display:flex;flex-direction:column;width:250px;flex:none;min-height:0;border-left:1px solid var(--line);background:var(--surface)}
+body.lecture #lectureSlides{display:flex;flex-direction:column;width:200px;flex:none;min-height:0;border-left:1px solid var(--line);background:#fffdf7}
+#timelineCanvas{width:100%;height:80px;display:block;touch-action:none;cursor:pointer}
+.tl-controls{display:flex;align-items:center;gap:4px;padding:2px 8px 4px;border-top:1px solid var(--line)}
+.tl-controls button{width:30px;min-width:30px;height:26px;min-height:26px;padding:0;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:14px}
+#tlRange{flex:1;text-align:right;font-size:10px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 锚点列表 */
+#anchorList{flex:1;min-height:0;overflow:auto;padding:6px 8px 10px;display:flex;flex-direction:column;gap:4px;overscroll-behavior:contain}
+.anchorrow{display:flex;align-items:center;gap:2px}
+.anchorjump{flex:1;min-width:0;display:inline-flex;align-items:center;gap:6px;height:34px;min-height:34px;padding:0 8px;border-radius:9px;background:var(--surface-2);border:1px solid var(--line);font-size:12px;color:var(--text)}
+.anchorjump:active{background:#fff1f2;border-color:#fecdd3}
+.anchordot{width:8px;height:8px;border-radius:50%;flex:none}
+.anchordot.speech{background:#0f766e}
+.anchordot.silence{background:#9ca3af}
+.anchordot.manual{background:#b45309}
+.anchorjump b{font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--text-strong);flex:none}
+.anchorlabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.anchoredit{width:30px;min-width:30px;height:34px;min-height:34px;padding:0;color:var(--faint);font-size:13px}
+.anchorempty,.slidempty{font-size:11.5px;line-height:1.75;color:var(--faint);padding:8px 4px;margin:0}
+
+/* PPT 照片 */
+#slideList{flex:1;min-height:0;overflow:auto;padding:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start;overscroll-behavior:contain}
+.slideitem{display:flex;flex-direction:column;gap:4px;min-width:0}
+.slidethumb{width:100%;height:64px;padding:0;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#fff;display:block}
+.slidethumb img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
+.slidethumb:active{border-color:#fda4af}
+.slidemeta{display:flex;flex-direction:column;gap:2px;min-width:0}
+.slidetime{height:24px;min-height:24px;padding:0 6px;border-radius:7px;background:var(--accent-soft);color:var(--accent-strong);font:600 10px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;justify-content:flex-start}
+.slidetime.unlinked{background:var(--surface-3);color:var(--muted)}
+.slidename{font-size:10px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#importSlide{margin:6px 8px 10px;height:38px;min-height:38px;flex:none;border:1px dashed #fda4af;color:#be123c;border-radius:10px;font-size:12.5px;background:#fffafb}
+
+/* 手机：单栏 + 底部 Tab */
+@media(max-width:599px){
+  body.lecture #lectureTabs{display:flex;gap:4px;padding:6px 8px;background:rgba(255,255,255,.95);border-top:1px solid var(--line)}
+  .lecture-tab{flex:1;height:38px;min-height:38px;border-radius:10px;background:var(--surface-2);font-size:12.5px;color:var(--muted);border:1px solid var(--line)}
+  .lecture-tab.active{background:#fff1f2;color:#be123c;font-weight:600;border-color:#fecdd3}
+  body.lecture #lectureTimeline,body.lecture #lectureSlides{width:100%;border-left:0}
+  body.lecture[data-lecture-tab="notes"] #lectureTimeline,
+  body.lecture[data-lecture-tab="notes"] #lectureSlides{display:none}
+  body.lecture[data-lecture-tab="timeline"] .workspace,
+  body.lecture[data-lecture-tab="timeline"] #lectureSlides{display:none}
+  body.lecture[data-lecture-tab="slides"] .workspace,
+  body.lecture[data-lecture-tab="slides"] #lectureTimeline{display:none}
+  #timelineCanvas{height:110px}
+  #slideList{grid-template-columns:1fr 1fr}
+}
+@media(min-width:900px){
+  #timelineCanvas{height:120px}
+  body.lecture #lectureTimeline{width:300px}
+  body.lecture #lectureSlides{width:220px}
+}
+
+/* ===== 笔记时间戳 gutter 与播放高亮 ===== */
+.cm-note-times{background:#fffafa}
+.cm-note-times .cm-gutterElement{padding:0 6px 0 8px;min-width:40px;text-align:right}
+.cm-note-time{font:500 9.5px/19px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#be123c;opacity:.7;letter-spacing:-.02em}
+.cm-note-time.on{opacity:1;font-weight:700}
+.cm-line.cm-note-playing{background:#fff1f2;box-shadow:inset 2px 0 0 #fb7185}
+
+/* ===== 对话框 ===== */
+#anchorDialog input[type=number]{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+#anchorDialog .dialogactions button[value="delete"]{color:var(--danger);border:1px solid #fecaca;background:var(--danger-soft);margin-right:auto}
+#slideDialog img{width:100%;max-height:52vh;object-fit:contain;border-radius:10px;border:1px solid var(--line);background:#f8fafc;display:block}
+#slideDialog .dialogactions button:first-child{margin-right:auto}

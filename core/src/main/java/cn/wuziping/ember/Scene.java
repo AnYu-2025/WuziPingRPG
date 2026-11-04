@@ -15,7 +15,7 @@ public final class Scene {
         float cx=town&&!g.inTown()?480:g.x,cy=town&&!g.inTown()?416:g.y;
         camX=Game.clamp(cx-W/4,0,Math.max(0,(town?Town.WIDTH:g.worldWidth())-W/2));camY=Game.clamp(cy-H/4,0,Math.max(0,(town?Town.HEIGHT:g.worldHeight())-H/2));
         float kick=g.mode==Game.PLAY?g.vfx.shake*(g.effectsLevel==0?.35f:1):0;camX-=(float)Math.sin(seconds*48)*kick*.5f;camY-=(float)Math.cos(seconds*37)*kick*.32f;
-        if(town)townWorld();else if(g.inMath()){MathRenderer.draw(p,g,camX,camY,W,H,clock);hero();impactOverlay();}else world();
+        if(town)townWorld();else if(g.inPhysics()){physicsWorld();hero();impactOverlay();}else if(g.inMath()){MathRenderer.draw(p,g,camX,camY,W,H,clock);hero();impactOverlay();}else world();
         ui=new UiPainter(root);p=ui;anchor(0,0);
         if(g.mode==Game.TITLE){title();return;}
         if(g.mode==8){title();confirmNew();return;}
@@ -23,6 +23,7 @@ public final class Scene {
         if(g.mode==Game.JOURNAL){journal();return;}
         if(g.mode==BodyJourney.MAP){bodyMap();return;}
         if(g.mode==MathJourney.MAP){worldMap();return;}
+        if(g.mode==PhysicsJourney.MAP){physicsMap();return;}
         if(g.mode==Arsenal.MENU){armory();return;}
         hud();controls();
         anchor(0,0);if(g.mode==Game.DIALOGUE){dialogue();return;}
@@ -48,15 +49,16 @@ public final class Scene {
         if(g.story.enabled){obj(5,Town.FOREST_GATE_X,Town.FOREST_GATE_Y,39,39);worldTag("中山大学入口",Town.FOREST_GATE_X,Town.FOREST_GATE_Y+6,0xffecd49c);}
         p.oval(sx(640)-45,sy(501)-40,90,75,0x10f6b755);
         }
-        ArrayList<DrawItem> items=new ArrayList<>();
-        if(!g.inBody())for(Game.Obstacle o:g.obstacles)if(o.x>camX-40&&o.x<camX+W/2+40&&o.y>camY-20&&o.y<camY+H/2+50)items.add(new DrawItem(o.y,o));
-        for(Game.Enemy e:g.enemies)items.add(new DrawItem(e.y,e));items.add(new DrawItem(g.y,g));
+        drawCount=0;
+        if(!g.inBody())for(Game.Obstacle o:g.obstacles)if(o.x>camX-40&&o.x<camX+W/2+40&&o.y>camY-20&&o.y<camY+H/2+50)addDraw(o.y,o);
+        for(Game.Enemy e:g.enemies)addDraw(e.y,e);addDraw(g.y,g);
         for(Game.Drop d:g.drops){int id=d.type==0?8:d.type==1?9:10;float bounce=(float)Math.sin(clock*4+d.x)*1.3f;
             int glow=d.type==1?0x33e8c27a:d.type==2?0x3391e3a0:0x339fd7c8;p.oval(sx(d.x)-12,sy(d.y)-8,24,14,glow);
             float orbit=(float)(clock*2.2+d.x);p.rect(sx(d.x)+(float)Math.cos(orbit)*11,sy(d.y)-16+(float)Math.sin(orbit)*5,2,2,0xccfff1c2);
             icon(id,sx(d.x)-9,sy(d.y)-12+bounce,18);}
-        Collections.sort(items,new Comparator<DrawItem>(){public int compare(DrawItem a,DrawItem b){return Float.compare(a.y,b.y);}});
-        for(DrawItem item:items){
+        sortDraw();
+        for(int di=0;di<drawCount;di++){
+            DrawItem item=drawPool[di];
             if(item.object instanceof Game.Obstacle){Game.Obstacle o=(Game.Obstacle)item.object;int idx=o.kind==0?((int)o.x%3):3;
                 float opacity=Game.dist(g.x,g.y,o.x,o.y-16)<27?.38f:1;
                 object(idx,o.x,o.y,idx==3?38:55,idx==3?38:55,opacity);
@@ -142,16 +144,16 @@ public final class Scene {
         for(int xx=64;xx<=Town.WIDTH-72;xx+=16){if(xx<422||xx>534)wall(xx,78);wall(xx,Town.HEIGHT-42);}
         for(int yy=94;yy<Town.HEIGHT-40;yy+=16){wall(58,yy);wall(Town.WIDTH-65,yy);}
         p.rect(sx(390),sy(343),360,2,0x556d8270);p.rect(sx(390),sy(479),360,2,0x556d8270);
-        ArrayList<DrawItem> items=new ArrayList<>();
-        for(Town.House h:Town.HOUSES)items.add(new DrawItem(h.y,h));
-        for(Town.Npc n:Town.NPCS)items.add(new DrawItem(n.y,n));
-        TownProp[] props={new TownProp(0,387,344,40),new TownProp(0,576,344,40),new TownProp(0,386,481,40),new TownProp(0,578,481,40),new TownProp(1,374,407,37),new TownProp(1,588,407,37),new TownProp(2,366,581,49),new TownProp(2,601,582,49),new TownProp(3,410,330,31),new TownProp(3,553,330,31),new TownProp(3,402,490,31),new TownProp(3,559,490,31),new TownProp(4,145,356,62),new TownProp(4,806,358,62),new TownProp(4,155,568,60),new TownProp(4,815,568,60),new TownProp(5,615,619,42),new TownProp(6,344,319,38),new TownProp(7,395,273,35),new TownProp(0,1060,590,40),new TownProp(0,1220,590,40),new TownProp(1,1040,708,37),new TownProp(1,1240,708,37),new TownProp(3,1020,622,31),new TownProp(3,1260,622,31),new TownProp(4,970,800,62),new TownProp(4,1320,800,62)};
-        for(TownProp prop:props)items.add(new DrawItem(prop.y,prop));
-        items.add(new DrawItem(408,"fountain"));items.add(new DrawItem(121,"gate"));
-        if(g.inTown())items.add(new DrawItem(g.y,g));
-        items.add(new DrawItem(g.guest.y,g.guest));
-        Collections.sort(items,new Comparator<DrawItem>(){public int compare(DrawItem a,DrawItem b){return Float.compare(a.y,b.y);}});
-        for(DrawItem item:items){
+        drawCount=0;
+        for(Town.House h:Town.HOUSES)addDraw(h.y,h);
+        for(Town.Npc n:Town.NPCS)addDraw(n.y,n);
+        for(TownProp prop:TOWN_PROPS)addDraw(prop.y,prop);
+        addDraw(408,"fountain");addDraw(121,"gate");
+        if(g.inTown())addDraw(g.y,g);
+        addDraw(g.guest.y,g.guest);
+        sortDraw();
+        for(int di=0;di<drawCount;di++){
+            DrawItem item=drawPool[di];
             if(item.object instanceof Town.House){
                 Town.House h=(Town.House)item.object;if(h.x+h.w/2<camX||h.x-h.w/2>camX+W/2||h.y<camY||h.y-h.h>camY+H/2)continue;
                 float alpha=g.inTown()&&Math.abs(g.x-h.x)<h.w*.45f&&g.y<h.y-10&&g.y>h.y-h.h?.55f:1;
@@ -185,6 +187,12 @@ public final class Scene {
         if(close){p.oval(xx-22,yy-6,44,13,0x4468cab7);p.rect(xx+29,yy-40,50,17,0xcc203640);center("可交谈",xx+54,yy-27,10,0xffbce1cf);}
     }
     private static final class DrawItem{float y;Object object;DrawItem(float a,Object b){y=a;object=b;}}
+    private static final Comparator<DrawItem> DRAW_ORDER=new Comparator<DrawItem>(){public int compare(DrawItem a,DrawItem b){return Float.compare(a.y,b.y);}};
+    private static final TownProp[] TOWN_PROPS={new TownProp(0,387,344,40),new TownProp(0,576,344,40),new TownProp(0,386,481,40),new TownProp(0,578,481,40),new TownProp(1,374,407,37),new TownProp(1,588,407,37),new TownProp(2,366,581,49),new TownProp(2,601,582,49),new TownProp(3,410,330,31),new TownProp(3,553,330,31),new TownProp(3,402,490,31),new TownProp(3,559,490,31),new TownProp(4,145,356,62),new TownProp(4,806,358,62),new TownProp(4,155,568,60),new TownProp(4,815,568,60),new TownProp(5,615,619,42),new TownProp(6,344,319,38),new TownProp(7,395,273,35),new TownProp(0,1060,590,40),new TownProp(0,1220,590,40),new TownProp(1,1040,708,37),new TownProp(1,1240,708,37),new TownProp(3,1020,622,31),new TownProp(3,1260,622,31),new TownProp(4,970,800,62),new TownProp(4,1320,800,62)};
+    private DrawItem[] drawPool=new DrawItem[80];private int drawCount;
+    /** Per-frame depth buffer: reuse objects instead of allocating a list and comparator every frame. */
+    private void addDraw(float y,Object object){if(drawCount==drawPool.length)drawPool=java.util.Arrays.copyOf(drawPool,drawPool.length*2);DrawItem item=drawPool[drawCount];if(item==null){item=new DrawItem(y,object);drawPool[drawCount]=item;}else{item.y=y;item.object=object;}drawCount++;}
+    private void sortDraw(){java.util.Arrays.sort(drawPool,0,drawCount,DRAW_ORDER);}
     private void guest(){
         TownGuest n=g.guest;float xx=sx(n.x),yy=sy(n.y);if(xx<-60||xx>W+60||yy<-80||yy>H+90)return;
         int frame=n.moving?1+(int)(n.walk*5)%2:n.stage==2?3:0;
@@ -198,13 +206,13 @@ public final class Scene {
     private void hero(){
         float px=sx(g.x),py=sy(g.y);p.oval(px-14,py-5,28,10,0x6610201b);
         int frame=(int)(clock*7)%4;int col=(Math.sin(g.facing)<-.5?4:0)+frame;boolean flip=Math.cos(g.facing)<-.3;
-        float alpha=!g.inTown()&&!g.inMath()&&g.invuln>0&&((int)(clock*15)%2==0)?.4f:1;
+        float alpha=!g.inTown()&&!g.inMath()&&!g.inPhysics()&&g.invuln>0&&((int)(clock*15)%2==0)?.4f:1;
         for(int i=g.vfx.ga.length-1;i>=0;i--)if(g.vfx.ga[i]>0)p.image("actors.png",col*32,0,32,32,sx(g.vfx.gx[i])-29,sy(g.vfx.gy[i])-48,58,58,g.vfx.ga[i]*.38f,flip);
         if(g.dashTime>0){p.oval(px-26,py-14,52,20,0x5584d1bc);p.oval(px-16,py-10,32,12,0x339fd8cc);}
         p.image("actors.png",col*32,0,32,32,px-29,py-48,58,58,alpha,flip);
         if(g.body.enabled){
             int weapon=g.arsenal.selected;float progress=Game.clamp(1-g.swing/.2f,0,1),base=(float)Math.toDegrees(g.facing)+90;
-            boolean striking=g.swing>0&&!g.inTown()&&!g.inMath();float angle=base-25,extension=0;
+            boolean striking=g.swing>0&&!g.inTown()&&!g.inMath()&&!g.inPhysics();float angle=base-25,extension=0;
             if(striking){
                 if(weapon==2){angle=base;extension=(float)Math.sin(progress*Math.PI)*34;}
                 else if(weapon==3||weapon==4){angle=base;extension=-(float)Math.sin(progress*Math.PI)*8;}
@@ -270,7 +278,8 @@ public final class Scene {
         p.rect(62,416,330,55,0x55101820);p.rect(62,416,330,1,GOLD);p.rect(62,470,330,1,0x556a4038);
         label("档案 · 点击打开札记",72,436,12,GOLD);
         label("最高区域  "+g.bestWave+" / 8",72,458,14,CREAM);label("累计击败  "+g.lifetimeKills,228,458,14,CREAM);
-        label("双主题世界  ·  走位解谜  ·  六类兵器",62,500,12,MUTED);p.text("v0.7.0",914,508,12,MUTED,2);
+        label(!g.activeRun?"第一次玩？先看「旅者手册」了解操作，再出发。":"双主题世界  ·  走位解谜  ·  六类兵器",62,500,12,!g.activeRun?GOLD:MUTED);
+        p.text(g.editorHost?"按手机返回键，随时回到天工编辑器":"v0.7.0",914,508,12,MUTED,2);
         smallToggle("修改名字 · "+g.heroName,588,454,292);
         panel(588,92,292,356);center("此行的旅者",734,124,13,GOLD);p.rect(648,136,172,1,0x55e8c27a);
         p.oval(646,292,176,30,0x33e07a45);p.oval(674,300,120,16,0x44101820);
@@ -282,6 +291,7 @@ public final class Scene {
         if(save)label("已有未完成的旅程，点击主按钮继续。",62,400,12,GOLD);
     }
     private void hud(){
+        if(g.inPhysics()){physicsHud();return;}
         if(g.inMath()){mathHud();return;}
         anchor(-1,-1);
         panel(18,16,269,82);p.rect(22,22,3,66,0xffc45c6a);p.image("actors.png",0,0,32,32,28,25,37,37,1,false);label(g.heroName,70,40,Math.min(18,130f/Math.max(1,g.heroName.codePointCount(0,g.heroName.length()))),CREAM);label("等级 "+g.level,209,39,14,GOLD);
@@ -289,8 +299,8 @@ public final class Scene {
         label("经验 "+g.xp+" / "+g.requiredXp(),30,74,9,MUTED);
         p.rect(28,78,240,5,0xff142028);p.rect(28,78,240*(float)g.xp/g.requiredXp(),5,0xff7ec8b0);p.rect(28,78,240*(float)g.xp/g.requiredXp(),1,0x88e8fff0);
         anchor(0,-1);panel(325,16,310,56);p.rect(340,66,280,2,0x55e8c27a);center(g.inTown()?"中山大学 · "+(g.body.enabled?"梦境据点":"灯火长明"):g.inBody()?g.body.name()+" · 体内远征":"迷雾森林 · "+Game.WAVE_NAMES[g.wave-1],480,39,17,CREAM);center(g.inTown()?"安全区域  ·  可以交谈与补给":g.inBody()?BodyJourney.SUBTITLES[g.body.organ]+"  ·  "+time(g.elapsed):"第 "+g.wave+" / 5 波  ·  "+time(g.elapsed),480,59,11,MUTED);
-        anchor(1,-1);icon(9,654,21,23);label(""+g.gold,683,40,16,GOLD);smallToggle("札记",746,19,54);
-        smallToggle(g.autoAttack?"自动 开":"自动 关",811,19,78);smallToggle("Ⅱ",902,19,38);
+        anchor(1,-1);icon(9,646,21,23);label(""+g.gold,674,40,16,GOLD);smallToggle("札记",716,19,58);
+        smallToggle(g.autoAttack?"自动 开":"自动 关",780,19,76);smallToggle("菜单",862,19,78);
         anchor(-1,-1);panel(18,107,286,83);p.rect(22,116,3,64,g.body.ending?0xff8ed0b7:GOLD);icon(11,32,118,24);label(g.math.active?"数学星庭 · 发现 "+Integer.bitCount(g.math.solved)+" / 3":g.body.enabled?(g.body.ending?"终章完成 · 梦醒时分":"梦入体内 · 净化 "+g.body.clearedCount()+" / 8"):g.story.enabled?g.story.chapterName():"当前委托",64,136,12,GOLD);
         wrapped(g.quest(),32,161,13,CREAM,254,18,2);label("点击查看任务与人物",32,182,10,MUTED);
         // Mini map deliberately omits any hidden off-screen collectible information.
@@ -308,7 +318,7 @@ public final class Scene {
         if(g.story.enabled){float[] target=g.inTown()&&g.math.active?new float[]{1140,620}:g.body.enabled?g.body.target(g):g.story.target();if(target!=null){p.rect(834+target[0]/g.worldWidth()*98-2,83+target[1]/g.worldHeight()*73-2,4,4,GOLD);navigation(target[0],target[1]);}}
         if(g.body.enabled){anchor(1,-1);bodyMini();anchor(-1,-1);
             panel(18,219,260,65);p.rect(22,226,3,50,Arsenal.COLORS[g.arsenal.selected]);p.image("weapons.png",g.arsenal.selected*32,0,32,32,30,228,34,34,1,false);label(g.arsenal.name(),70,240,14,GOLD);
-            p.rect(70,250,128,4,0xff101820);p.rect(70,250,128*g.arsenal.energy/100f,4,g.arsenal.energy>=100?0xffffe7b0:0xffc5a6d9);label(Arsenal.DESCS[g.arsenal.selected],32,273,10,MUTED);smallToggle("武库",213,229,54);
+            p.rect(70,250,128,4,0xff101820);p.rect(70,250,128*g.arsenal.energy/100f,4,g.arsenal.energy>=100?0xffffe7b0:0xffc5a6d9);label(Arsenal.DESCS[g.arsenal.selected],32,273,10,MUTED);smallToggle("武库",207,226,66);
         }
         anchor(0,-1);if(g.banner>0){panel(315,87,420,45);center(g.bannerText,525,115,13,GOLD);}
         Game.Enemy boss=null;if(!g.inTown())for(Game.Enemy e:g.enemies)if(e.type==4)boss=e;
@@ -338,18 +348,18 @@ public final class Scene {
         anchor(1,1);if(g.inBody()){
             if(g.arsenal.energy>=100){float pulse=4+(float)Math.sin(clock*5)*2;p.oval(645-24-pulse,330-24-pulse,(24+pulse)*2,(24+pulse)*2,0x44ffe7b0);}
             meterRing(645,330,34,g.arsenal.energy/100f,0xffc5a6d9);
-            roundButton(645,330,24,4,"爆发 "+(int)g.arsenal.energy+"%",0,1,0xffc5a6d9);
-            roundButton(857,465,38,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
-            roundButton(764,465,30,1,Arsenal.SKILLS[g.arsenal.selected],g.skillCd,7,0xffc17b51);
-            roundButton(755,370,25,2,"闪避",g.dashCd,2.6f,0xff6d9b8d);
-            roundButton(679,410,24,3,"药剂 ×"+g.potions,g.potionCd,3,0xffa87063);
+            roundButton(645,330,26,4,"爆发 "+(int)g.arsenal.energy+"%",0,1,0xffc5a6d9);
+            roundButton(866,462,46,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
+            roundButton(768,470,38,1,Arsenal.SKILLS[g.arsenal.selected],g.skillCd,7,0xffc17b51);
+            roundButton(770,362,33,2,"闪避",g.dashCd,2.6f,0xff6d9b8d);
+            roundButton(700,414,28,3,"药剂 ×"+g.potions,g.potionCd,3,0xffa87063);
             anchor(0,1);label("长按挥剑 · 点击全身图查看血管路线",325,508,11,MUTED);
             if(!g.story.interaction(g).isEmpty()){anchor(0,0);panel(348,281,264,34);center(g.story.interaction(g)+"  [E]",480,303,12,GOLD);}return;
         }
-        roundButton(857,433,45,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
-        roundButton(761,441,34,1,"星火斩",g.skillCd,8,0xffc17b51);
-        roundButton(851,334,29,2,"闪避",g.dashCd,2.6f,0xff6d9b8d);
-        roundButton(746,347,24,3,"药剂 ×"+g.potions,g.potionCd,3,0xffa87063);
+        roundButton(866,428,52,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
+        roundButton(764,449,41,1,"星火斩",g.skillCd,8,0xffc17b51);
+        roundButton(860,330,35,2,"闪避",g.dashCd,2.6f,0xff6d9b8d);
+        roundButton(748,345,30,3,"药剂 ×"+g.potions,g.potionCd,3,0xffa87063);
         anchor(0,1);label("长按普攻连续挥剑",362,508,11,0xffaec1a7);
         if(g.story.enabled&&!g.story.interaction(g).isEmpty()){anchor(0,0);panel(371,281,218,34);center(g.story.interaction(g)+"  [E]",480,303,13,GOLD);}
     }
@@ -384,6 +394,7 @@ public final class Scene {
         button("继续旅程",340,181,280,46,true);button("旅者手册",340,240,280,40,false);
         button(g.sound?"声音：开":"声音：关",340,293,134,40,false);button(g.effectsLevel==0?"特效：柔和":"特效：标准",486,293,134,40,false);button(g.story.enabled&&!g.inTown()?(g.inBody()?"沿血管返回中山大学":"返回中山大学"):"继续探索",340,346,280,40,false);button("返回主界面",340,399,280,40,false);
         center("攻击 "+(int)g.attack+"  ·  移速 "+(int)g.speed+"  ·  击败 "+g.kills,480,474,12,MUTED);
+        center("点击面板外的空白处，或按手机返回键，随时回到旅程",480,492,11,GOLD);
     }
     private void help(){
         if(g.body.enabled||!g.activeRun){bodyHelp();return;}
@@ -445,6 +456,152 @@ public final class Scene {
         if(g.banner>0){panel(313,88,424,45);center(g.bannerText,525,116,12,GOLD);}
         anchor(1,-1);smallToggle("札记",746,19,54);smallToggle("Ⅱ",902,19,38);panel(813,75,127,139);center("发现 "+Integer.bitCount(g.math.solved)+" / 3",876,98,12,GOLD);MathRenderer.minimap(p,g,824,106,105,62);String progress=g.math.level==0?"灯光 "+Integer.bitCount(g.math.circle)+" / 3":g.math.level==1?"桥梁 "+Integer.bitCount(g.math.bridges)+" / 7":"路标 "+Integer.bitCount(g.math.ribbon)+" / 3";center(progress,876,187,12,CREAM);center("光点是你与入口",876,204,9,MUTED);panel(813,226,127,37);center("主题地图 · 点击查看",876,250,10,GOLD);
     }
+    private void physicsHud(){
+        anchor(-1,-1);panel(18,16,269,82);label(g.heroName,35,43,Math.min(18,145f/Math.max(1,g.heroName.codePointCount(0,g.heroName.length()))),CREAM);label("物理学者",190,42,12,GOLD);p.rect(34,59,235,7,0xff293847);p.rect(34,59,235*g.hp/g.maxHp,7,0xff88bcad);label("体魄 "+(int)g.hp+" / "+(int)g.maxHp,35,86,11,MUTED);
+        panel(18,107,286,96);label("物理 · "+g.physics.name(),35,133,15,GOLD);wrapped(g.quest(),35,160,12,CREAM,250,19,2);label("观察现象，找出规律",35,191,10,MUTED);
+        anchor(0,-1);panel(325,16,310,56);center(g.physics.name(),480,40,18,CREAM);center("物理规律在操作中显现",480,61,11,MUTED);
+        if(g.banner>0){panel(313,88,424,45);center(g.bannerText,525,116,12,GOLD);}
+        anchor(1,-1);smallToggle("札记",746,19,54);smallToggle("地图",830,19,66);panel(906,75,34,139);center("发现 "+Integer.bitCount(g.physics.solved)+" / 5",923,98,11,GOLD);physicsMinimap();String progress=physicsProgress();center(progress,923,187,11,CREAM);center("光点是你与入口",923,204,8,MUTED);
+        // 直接返回城镇按钮
+        anchor(-1,1);button("返回城镇",26,375,120,36,false);
+    }
+    private String physicsProgress(){
+        switch(g.physics.level){
+            case 0:return "命中 "+g.physics.targetHits+" / 3";
+            case 1:return g.physics.lightReachedEnd?"光线到达":"调整镜面";
+            case 2:return "导线 "+countWires()+" / 7";
+            case 3:return g.physics.stableFrames>0?"稳定 "+g.physics.stableFrames+"/180":"调整波源";
+            case 4:return g.physics.equilibriumTime>0?"平衡 "+(int)g.physics.equilibriumTime+"/3":"引导热量";
+            default:return "";
+        }
+    }
+    private int countWires(){int c=0;for(boolean w:g.physics.wiresPlaced)if(w)c++;return c;}
+    private void physicsMinimap(){
+        p.rect(824,106,105,62,0xff1a2a3a);
+        float scaleX=105f/PhysicsJourney.WIDTH,scaleY=62f/PhysicsJourney.HEIGHT;
+        // Draw player
+        p.rect(824+g.physics.px*scaleX-2,106+g.physics.py*scaleY-2,4,4,0xffb1ead3);
+        // Draw targets/nodes based on level
+        if(g.physics.level==0){
+            for(int i=0;i<3;i++){
+                float tx=PhysicsJourney.TARGETS[i][0]*scaleX,ty=PhysicsJourney.TARGETS[i][1]*scaleY;
+                p.rect(824+tx-3,106+ty-3,6,6,i<g.physics.targetHits?0xff4caf50:0xffff5722);
+            }
+        }else if(g.physics.level==1){
+            for(int i=0;i<3;i++){
+                float mx=PhysicsJourney.MIRRORS[i][0]*scaleX,my=PhysicsJourney.MIRRORS[i][1]*scaleY;
+                p.rect(824+mx-2,106+my-2,4,4,0xffffff00);
+            }
+        }else if(g.physics.level==2){
+            for(int i=0;i<6;i++){
+                float nx=PhysicsJourney.CIRCUIT_NODES[i][0]*scaleX,ny=PhysicsJourney.CIRCUIT_NODES[i][1]*scaleY;
+                p.rect(824+nx-2,106+ny-2,4,4,0xff4fc3f7);
+            }
+        }
+    }
+    private void physicsWorld(){
+        // Simple colored background based on level
+        int bgColor=g.physics.level==0?0xff5d8a6b:g.physics.level==1?0xff2c3e50:g.physics.level==2?0xff1e3a5f:g.physics.level==3?0xff4a148c:0xff8b2500;
+        p.rect(0,0,W,H,bgColor);
+        // Draw grid
+        int gridColor=0x33ffffff;
+        for(int x=0;x<W;x+=32)p.rect(x,0,1,H,gridColor);
+        for(int y=0;y<H;y+=32)p.rect(0,y,W,1,gridColor);
+        // Draw level-specific elements
+        if(g.physics.level==0)drawProjectileRange();
+        else if(g.physics.level==1)drawLightMaze();
+        else if(g.physics.level==2)drawCircuitWorkshop();
+        else if(g.physics.level==3)drawWaveInterference();
+        else if(g.physics.level==4)drawHeatMaze();
+        // Draw gate
+        p.oval(sx(g.physics.gateX())-20,sy(g.physics.gateY())-20,40,40,0x88ffffff);
+        p.text("出口",sx(g.physics.gateX()),sy(g.physics.gateY())-30,10,0xffffffff,1);
+    }
+    private void drawProjectileRange(){
+        // Draw targets
+        for(int i=0;i<3;i++){
+            float tx=PhysicsJourney.TARGETS[i][0],ty=PhysicsJourney.TARGETS[i][1];
+            int color=i<g.physics.targetHits?0xff4caf50:0xffff5722;
+            p.oval(sx(tx)-15,sy(ty)-15,30,30,color);
+            p.oval(sx(tx)-10,sy(ty)-10,20,20,0xffffffff);
+            p.oval(sx(tx)-5,sy(ty)-5,10,10,color);
+        }
+        // Draw launch point
+        p.oval(sx(300)-20,sy(800)-20,40,40,0xffffeb3b);
+        p.text("发射点",sx(300),sy(800)-30,10,0xffffffff,1);
+        // Draw projectile if active
+        if(g.physics.projectileActive){
+            p.oval(sx(g.physics.projectileX)-8,sy(g.physics.projectileY)-8,16,16,0xffff5722);
+        }
+    }
+    private void drawLightMaze(){
+        // Draw light source
+        p.oval(sx(PhysicsJourney.LIGHT_START_X)-15,sy(PhysicsJourney.LIGHT_START_Y)-15,30,30,0xffffff00);
+        p.text("光源",sx(PhysicsJourney.LIGHT_START_X),sy(PhysicsJourney.LIGHT_START_Y)-25,10,0xffffffff,1);
+        // Draw end point
+        p.oval(sx(PhysicsJourney.LIGHT_END_X)-15,sy(PhysicsJourney.LIGHT_END_Y)-15,30,30,0xff4caf50);
+        p.text("终点",sx(PhysicsJourney.LIGHT_END_X),sy(PhysicsJourney.LIGHT_END_Y)-25,10,0xffffffff,1);
+        // Draw mirrors
+        for(int i=0;i<3;i++){
+            float mx=PhysicsJourney.MIRRORS[i][0],my=PhysicsJourney.MIRRORS[i][1];
+            p.rect(sx(mx)-20,sy(my)-3,40,6,0xffe0e0e0);
+            p.text("M"+(i+1),sx(mx),sy(my)-15,9,0xffffffff,1);
+        }
+        // Draw light ray
+        if(g.physics.lightRayEndX>0){
+            p.line(sx(PhysicsJourney.LIGHT_START_X),sy(PhysicsJourney.LIGHT_START_Y),sx(g.physics.lightRayEndX),sy(g.physics.lightRayEndY),3,0xffffff00);
+        }
+    }
+    private void drawCircuitWorkshop(){
+        // Draw nodes
+        for(int i=0;i<6;i++){
+            float nx=PhysicsJourney.CIRCUIT_NODES[i][0],ny=PhysicsJourney.CIRCUIT_NODES[i][1];
+            int color=i==g.physics.selectedNode?0xffffeb3b:0xff4fc3f7;
+            p.oval(sx(nx)-12,sy(ny)-12,24,24,color);
+            p.text("N"+(i+1),sx(nx),sy(ny)-20,9,0xffffffff,1);
+        }
+        // Draw wires
+        for(int i=0;i<7;i++){
+            if(g.physics.wiresPlaced[i]){
+                int a=PhysicsJourney.CIRCUIT_EDGES[i][0],b=PhysicsJourney.CIRCUIT_EDGES[i][1];
+                float ax=PhysicsJourney.CIRCUIT_NODES[a][0],ay=PhysicsJourney.CIRCUIT_NODES[a][1];
+                float bx=PhysicsJourney.CIRCUIT_NODES[b][0],by=PhysicsJourney.CIRCUIT_NODES[b][1];
+                p.line(sx(ax),sy(ay),sx(bx),sy(by),4,0xff4caf50);
+            }
+        }
+    }
+    private void drawWaveInterference(){
+        // Draw wave sources
+        p.oval(sx(g.physics.source1X)-15,sy(g.physics.source1Y)-15,30,30,0xffe1bee9);
+        p.oval(sx(g.physics.source2X)-15,sy(g.physics.source2Y)-15,30,30,0xffe1bee9);
+        // Draw waves
+        for(int r=20;r<200;r+=20){
+            int alpha=255-r;
+            p.oval(sx(g.physics.source1X)-r,sy(g.physics.source1Y)-r,r*2,r*2,(alpha<<24)|0xffce93d8);
+            p.oval(sx(g.physics.source2X)-r,sy(g.physics.source2Y)-r,r*2,r*2,(alpha<<24)|0xffce93d8);
+        }
+    }
+    private void drawHeatMaze(){
+        // Draw temperature grid
+        float cellW=PhysicsJourney.WIDTH/PhysicsJourney.HEAT_COLS;
+        float cellH=PhysicsJourney.HEIGHT/PhysicsJourney.HEAT_ROWS;
+        for(int i=0;i<PhysicsJourney.HEAT_COLS;i++){
+            for(int j=0;j<PhysicsJourney.HEAT_ROWS;j++){
+                float temp=g.physics.temperature[i][j];
+                int color=heatColor(temp);
+                p.rect(sx(i*cellW),sy(j*cellH),cellW*2,cellH*2,color);
+            }
+        }
+        // Draw heat source and sink
+        p.oval(sx(g.physics.heatSourceX*cellW)-10,sy(g.physics.heatSourceY*cellH)-10,20,20,0xffff0000);
+        p.oval(sx(g.physics.heatSinkX*cellW)-10,sy(g.physics.heatSinkY*cellH)-10,20,20,0xff0000ff);
+    }
+    private int heatColor(float temp){
+        // Blue (cold) to Red (hot)
+        int r=(int)(255*temp/100);
+        int b=(int)(255*(100-temp)/100);
+        return 0xff000000|(r<<16)|b;
+    }
     private void worldMap(){
         veil();panel(88,40,784,468);label("星图 · 选择探索主题",119,88,27,CREAM);label("中山大学连接不同世界，身体与数学的进度分别保存。",120,119,12,MUTED);
         panel(120,145,340,278);panel(500,145,340,278);BodyRenderer.atlas(p,g,135,181,95,141,clock,false);
@@ -452,6 +609,17 @@ public final class Scene {
         p.oval(535,195,100,70,0xff668b9b);p.oval(540,200,90,60,0xff16293c);p.line(535,290,588,226,3,0xffb9a8d2);p.line(588,226,638,290,3,0xffb9a8d2);p.line(535,290,638,290,3,0xffb9a8d2);
         label("数学 · 规律星庭",650,190,18,GOLD);label("几何轨迹 / 桥梁 / 翻向",650,221,11,MUTED);label("发现 "+Integer.bitCount(g.math.solved)+" / 3",650,251,14,CREAM);
         button("进入身体主题",145,365,290,42,true);button("进入数学主题",525,365,290,42,true);center("在中山大学可以切换主题；探索中请先从光门返回。",480,438,11,MUTED);button("返回旅程",340,455,280,37,false);
+    }
+    private void physicsMap(){
+        veil();panel(88,40,784,468);label("格物堂 · 物理工坊",119,88,27,CREAM);label("五种机关对应不同物理现象，通关可获得奖励。",120,119,12,MUTED);
+        for(int i=0;i<5;i++){
+            boolean done=(g.physics.solved&(1<<i))!=0;
+            float px=120+(i%3)*220,py=155+(i/3)*150;
+            panel(px,py,200,120);
+            center((done?"◆ ":"◇ ")+PhysicsJourney.NAMES[i],px+100,py+30,15,done?GOLD:MUTED);
+            wrapped(done?PhysicsJourney.INSIGHTS[i]:"未发现。观察现象，找出规律。",px+100,py+58,11,done?CREAM:MUTED,180,17,2);
+        }
+        button("返回城镇",340,455,280,37,false);
     }
     private void mathJournal(){
         veil();panel(88,42,784,466);label("数学 · 发现札记",120,92,29,CREAM);label("只记录已经亲自找到的规律。",120,122,13,MUTED);

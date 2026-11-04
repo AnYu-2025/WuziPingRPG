@@ -1,0 +1,398 @@
+PASS Diagonal movement is normalized
+PASS World bounds constrain movement
+PASS Solid tree collision blocks movement
+PASS Melee damages a nearby enemy
+PASS Skill finishes enemy and increments kills
+PASS Defeated enemies drop loot
+PASS Damage grants a real invulnerability window
+PASS Dash starts cooldown and invulnerability
+PASS Potion consumes stock and restores half max HP
+PASS Large XP reward queues every earned upgrade
+PASS Upgrade choices are distinct
+PASS Exactly one upgrade is consumed
+PASS Game resumes after all pending upgrades
+PASS Pause freezes movement and game time
+PASS Clearing a wave starts a supply intermission
+PASS Intermission advances to boss wave
+PASS Final wave clear ends in victory
+PASS Finish rewards cannot be granted twice
+PASS Lethal damage finalizes a run
+PASS Restored game starts at a safe title screen
+PASS Pending choice survives process restart
+PASS Snapshot preserves combat, resources and entities
+PASS Truncated or foreign saves are rejected
+PASS Independent touch pointers support moving while attacking
+PASS Releasing joystick does not release attack
+PASS Attack ends on its own pointer release
+PASS Pausing clears held inputs
+PASS Tapping outside the pause panel resumes the journey
+PASS Tapping a label inside the panel keeps the menu open
+PASS Resume button still closes the pause menu
+PASS New run asks before replacing an active save
+PASS Cancel preserves active journey
+PASS Boss telegraphed strike resolves into damage
+PASS Moving outside boss telegraph avoids damage
+PASS Chasing enemy steers around a blocking tree
+PASS 1000-second simulation soak survives progression, death and replay
+ALL 36 CHECKS PASSED
+PASS New journey begins with Chinese opening in town
+PASS Opening and town do not spawn combat or advance forest time
+PASS Completed typewriter line advances to next story page
+PASS NPC conversation requires physical proximity
+PASS Opening NPC dialogue does not prematurely accept quest
+PASS Declining quest has no reward or progression side effects
+PASS Accepting quest grants its reward once
+PASS Repeated mayor conversations cannot farm quest reward
+PASS Northern gate remains locked until ranger preparation
+PASS Ranger advances quest and supplies one potion
+PASS Ranger supply cannot be repeated
+PASS Town is a safe area with no combat actions
+PASS Plaza fountain has a real collision footprint
+PASS Town buildings have collision footprints
+PASS Town collision map provides a walkable route to 沈砚
+PASS Town collision map provides a walkable route to 阿岚
+PASS Town collision map provides a walkable route to 陆铸
+PASS Town collision map provides a walkable route to 苏禾
+PASS Town collision map provides a walkable route to 知夏
+PASS Town collision map provides a walkable route to 阿满
+PASS Northern gate is reachable from the arrival plaza
+PASS Prepared journey enters forest with main quest active
+PASS Returning to town freezes and preserves forest encounter
+PASS Reentering forest restores player position and wave progress
+PASS Blacksmith service charges gold and improves attack
+PASS Blacksmith cannot charge or apply upgrade twice
+PASS Apothecary purchase updates stock and wallet
+PASS Full potion bag does not consume gold
+PASS Supply quest rejects incomplete requirements
+PASS Supply quest grants completion reward
+PASS Supply quest reward is idempotent
+PASS Inn restores health after payment
+PASS Inn does not charge an already healthy traveller
+PASS Version two snapshot restores map, quests, services and wallet
+PASS Saved town journey resumes safely
+PASS Boss victory leaves a resumable return-to-town story
+PASS Story battle settlement cannot be duplicated
+PASS Returning starfire completes chapter and awards gold
+PASS Main quest completion reward cannot be repeated
+PASS Completed chapter survives app restart
+PASS Story defeat retains the journey
+PASS Defeat snapshot resumes with town recovery and reset current wave
+PASS Restart during dialogue does not autoaccept quest
+PASS E key opens a nearby NPC dialogue
+PASS Escape closes dialogue without accepting its choices
+PASS L key opens quest journal
+PASS Journal returns to exploration rather than main menu
+PASS Version one combat save migrates to forest with town access
+ALL 48 STORY CHECKS PASSED
+PASS New title action starts the body dream rather than legacy forest
+PASS Dream opening retains campus setting and protagonist premise
+PASS Vessel gate rejects a missing briefing
+PASS Briefing grants starting supplies once
+PASS Repeated briefings cannot farm supplies
+PASS Blood vessel enters first organ and starts transit visual
+PASS Organ 0 has walkable arrival and vessel portal
+PASS Organ 0 collision map connects every traversable cell (6834)
+PASS Organ 1 has walkable arrival and vessel portal
+PASS Organ 1 collision map connects every traversable cell (8415)
+PASS Organ 2 has walkable arrival and vessel portal
+PASS Organ 2 collision map connects every traversable cell (8993)
+PASS Organ 3 has walkable arrival and vessel portal
+PASS Organ 3 collision map connects every traversable cell (8253)
+PASS Organ 4 has walkable arrival and vessel portal
+PASS Organ 4 collision map connects every traversable cell (8825)
+PASS Organ 5 has walkable arrival and vessel portal
+PASS Organ 5 collision map connects every traversable cell (10394)
+PASS Organ 6 has walkable arrival and vessel portal
+PASS Organ 6 collision map connects every traversable cell (9163)
+PASS Organ 7 has walkable arrival and vessel portal
+PASS Organ 7 collision map connects every traversable cell (8825)
+PASS Virus finds a real route around a long intestinal fold
+PASS Medicine airdrop stays locked before four defeats
+PASS Fourth defeat schedules a falling medicine crate
+PASS Airdrop chooses a traversable landing point
+PASS Falling crate cannot be collected early
+PASS Airdrop descent freezes in the campus hub
+PASS Crate reaches landed state after descent
+PASS Landed crate requires physical pickup proximity
+PASS Nearby medicine crate supplies potion and quarter-health recovery
+PASS Claimed medicine cannot be replayed for healing
+PASS Eighth defeat schedules a weapon airdrop
+PASS Weapon crate updates equipment and combat damage
+PASS Weapon attack reward cannot be duplicated
+PASS Version three restores supply ownership, equipment and organ kills
+PASS Right-side body atlas touch opens vessel route overview
+PASS Full body overview pauses combat
+PASS Back from full body overview restores play
+PASS New action layout retains move and attack multitouch
+PASS New skill button routes to skill action
+PASS New dash button does not collide with body atlas
+PASS New medicine button routes to potion action
+PASS Body defeat keeps a resumable journey
+PASS Death restart safely recovers in campus hub
+PASS Actual death renderer displays the requested exact Chinese title
+PASS First region clear grants its exact coin, vitality, healing and potion rewards
+PASS Death retry preserves claimed airdrops and lifetime organ milestones
+PASS Actual organ 0 encounter reaches its defeat target and clears
+PASS Organ 0 spawns its correct virus or abnormal-cell family
+PASS Organ 0 cannot repeat first-clear rewards
+PASS Organ 0 completion and reward ownership survive restart
+PASS Vessel offers explicit onward travel after clear 0
+PASS Vessel advances to next organ without skipping or keeping old enemies
+PASS Actual organ 1 encounter reaches its defeat target and clears
+PASS Organ 1 spawns its correct virus or abnormal-cell family
+PASS Organ 1 cannot repeat first-clear rewards
+PASS Organ 1 completion and reward ownership survive restart
+PASS Vessel offers explicit onward travel after clear 1
+PASS Vessel advances to next organ without skipping or keeping old enemies
+PASS Actual organ 2 encounter reaches its defeat target and clears
+PASS Organ 2 spawns its correct virus or abnormal-cell family
+PASS Organ 2 cannot repeat first-clear rewards
+PASS Organ 2 completion and reward ownership survive restart
+PASS Vessel offers explicit onward travel after clear 2
+PASS Vessel advances to next organ without skipping or keeping old enemies
+PASS Actual organ 3 encounter reaches its defeat target and clears
+PASS Organ 3 spawns its correct virus or abnormal-cell family
+PASS Organ 3 cannot repeat first-clear rewards
+PASS Organ 3 completion and reward ownership survive restart
+PASS Vessel offers explicit onward travel after clear 3
+PASS Vessel advances to next organ without skipping or keeping old enemies
+PASS Actual organ 4 encounter reaches its defeat target and clears
+PASS Organ 4 spawns its correct virus or abnormal-cell family
+PASS Organ 4 cannot repeat first-clear rewards
+PASS Organ 4 completion and reward ownership survive restart
+PASS Vessel offers explicit onward travel after clear 4
+PASS Vessel advances to next organ without skipping or keeping old enemies
+PASS Actual organ 5 encounter reaches its defeat target and clears
+PASS Organ 5 spawns its correct virus or abnormal-cell family
+PASS Organ 5 cannot repeat first-clear rewards
+PASS Organ 5 completion and reward ownership survive restart
+PASS Vessel offers explicit onward travel after clear 5
+PASS Vessel advances to next organ without skipping or keeping old enemies
+PASS Actual organ 6 encounter reaches its defeat target and clears
+PASS Organ 6 spawns its correct virus or abnormal-cell family
+PASS Organ 6 cannot repeat first-clear rewards
+PASS Organ 6 completion and reward ownership survive restart
+PASS Vessel offers explicit onward travel after clear 6
+PASS Vessel advances to next organ without skipping or keeping old enemies
+PASS Actual organ 7 encounter reaches its defeat target and clears
+PASS Organ 7 spawns its correct virus or abnormal-cell family
+PASS Organ 7 cannot repeat first-clear rewards
+PASS Organ 7 completion and reward ownership survive restart
+PASS All organ clears reach final victory and award 785 region coins plus vitality
+PASS Final report awards 180 coins and named ending weapon
+PASS Ending report cannot duplicate its currency or weapon
+PASS Completed dream remains safely resumable in campus
+PASS Exact version two snapshot migrates without rewriting its legacy campaign
+PASS Truncated version three body state is rejected
+PASS Documented body snapshot length matches actual wire format
+ALL 101 BODY CHECKS PASSED
+PASS New journey keeps hidden encounter undiscovered
+PASS Journal gives no advance spoiler before discovery
+PASS Town spawn gives neither remote talk nor hidden interaction marker
+PASS Guest walks, pauses and loops autonomously for three virtual minutes
+PASS Autonomous walk stays in its hidden corner without marking discovery
+PASS Hidden corner can be reached from town arrival through real collision map
+PASS Approach discovers guest and stops wandering for conversation
+PASS Shared interaction button recognizes hidden NPC in body campaign
+PASS E opens actual named guest dialogue
+PASS Unread dialogue cannot accept listening or grant rewards
+PASS Guest position freezes while any dialogue is open
+PASS Leaving politely preserves encounter without reward or penalty
+PASS Listening advances to heart-to-heart without prematurely awarding charm
+PASS Closing the second conversation retains the listening milestone
+PASS Restart preserves listening and exact roaming position
+PASS Returning resumes the unfinished loneliness conversation
+PASS Declining comfort leaves the friendship open for a later visit
+PASS Kind response awards exact 60 coins and warm-heart vitality charm
+PASS Reward includes a visible thank-you and item explanation
+PASS Guest dialogue renderer uses generated portrait without invalid NPC index
+PASS Repeated talk and repeated action cannot duplicate friendship rewards
+PASS Reward ownership and exact stats persist together across restart
+PASS Post-restart friend conversation gives no duplicate gold
+PASS Journal reveals the discovered friend and acquired charm
+PASS Town touch interaction button opens hidden guest
+PASS Direct sprite tap tracks the guest's current world position
+PASS Out-of-range action cannot skip discovery or listening
+PASS Pause stops town guest movement
+PASS Leaving town freezes guest patrol without resetting it
+PASS Returning to town resumes existing patrol
+PASS Legacy town campaign supports the same optional friend reward
+PASS Legacy death recovery retains the charm and friendship
+PASS Confirmed new journey resets optional encounter and its per-journey stats
+PASS Exact v3 campaign migrates with original progress and fresh hidden guest
+PASS Migrated v3 save can meet the guest without restarting the journey
+PASS Truncated guest snapshot fails safely
+PASS Guest snapshot size matches migration fixture length
+PASS Invalid friendship milestone is rejected
+PASS Inactive profile also round-trips its v4 guest section
+ALL 39 GUEST CHECKS PASSED
+PASS Viewport fills 1920x1080 without letterbox
+PASS World fills viewport while controls retain left/right anchors at 1920
+PASS Movement and combat hit tests follow viewport at 1920
+PASS Armory touch target follows safe left anchor at 1920
+PASS Centered modal return button follows viewport at 1920
+PASS Viewport fills 2400x1080 without letterbox
+PASS World fills viewport while controls retain left/right anchors at 2400
+PASS Movement and combat hit tests follow viewport at 2400
+PASS Armory touch target follows safe left anchor at 2400
+PASS Centered modal return button follows viewport at 2400
+PASS Viewport fills 2750x1236 without letterbox
+PASS World fills viewport while controls retain left/right anchors at 2750
+PASS Movement and combat hit tests follow viewport at 2750
+PASS Armory touch target follows safe left anchor at 2750
+PASS Centered modal return button follows viewport at 2750
+PASS Viewport fills 3440x1440 without letterbox
+PASS World fills viewport while controls retain left/right anchors at 3440
+PASS Movement and combat hit tests follow viewport at 3440
+PASS Armory touch target follows safe left anchor at 3440
+PASS Centered modal return button follows viewport at 3440
+PASS Viewport fills 1600x1200 without letterbox
+PASS World fills viewport while controls retain left/right anchors at 1600
+PASS Movement and combat hit tests follow viewport at 1600
+PASS Armory touch target follows safe left anchor at 1600
+PASS Centered modal return button follows viewport at 1600
+PASS Viewport fills 1280x800 without letterbox
+PASS World fills viewport while controls retain left/right anchors at 1280
+PASS Movement and combat hit tests follow viewport at 1280
+PASS Armory touch target follows safe left anchor at 1280
+PASS Centered modal return button follows viewport at 1280
+PASS Cutout and bottom safe areas preserve reachable UI margins
+PASS Melee weapon 0 applies its own damage and cooldown
+PASS Weapon 0 skill applies its distinct area strike
+PASS Melee weapon 1 applies its own damage and cooldown
+PASS Weapon 1 skill applies its distinct area strike
+PASS Melee weapon 2 applies its own damage and cooldown
+PASS Weapon 2 skill launches a real three-lane volley
+PASS Ranged weapon 3 emits actual travel-time projectiles
+PASS Ranged weapon 3 projectile collides and damages a target
+PASS Weapon 3 skill launches a real three-lane volley
+PASS Ranged weapon 4 emits actual travel-time projectiles
+PASS Ranged weapon 4 projectile collides and damages a target
+PASS Weapon 4 skill applies its distinct area strike
+PASS Melee weapon 5 applies its own damage and cooldown
+PASS Weapon 5 skill applies its distinct area strike
+PASS Forging consumes exact coins and raises selected archetype damage
+PASS Forging with insufficient coins preserves weapon level
+PASS Locked weapon cannot be equipped
+PASS Unlock changes which archetype can actually be equipped
+PASS Ultimate rejects incomplete energy
+PASS Fully charged ultimate damages strengthened enemies and grants timed protection
+PASS Shield reduces real incoming damage
+PASS Format five preserves equipped weapon and flying friendly projectiles
+PASS Returning to town freezes friendly projectiles as well as enemies
+PASS Boss kind 0 telegraphs before attack
+PASS Boss kind 0 resolves dash, summons or its own projectile pattern
+PASS Boss kind 1 telegraphs before attack
+PASS Boss kind 1 resolves dash, summons or its own projectile pattern
+PASS Boss kind 2 telegraphs before attack
+PASS Boss kind 2 resolves dash, summons or its own projectile pattern
+PASS Boss kind 3 telegraphs before attack
+PASS Boss kind 3 resolves dash, summons or its own projectile pattern
+PASS Boss kind 4 telegraphs before attack
+PASS Boss kind 4 resolves dash, summons or its own projectile pattern
+PASS Eight organ encounters include all five distinct boss mechanics
+PASS Completed v4 migration keeps old rewards and friend while opening expansion
+PASS Migrated completed game can enter heart expansion without restarting
+PASS B opens paused armory
+PASS Q cycles to another owned combat archetype
+ALL 69 EXPANSION CHECKS PASSED
+PASS Math theme has an independent expanded world
+PASS Walking to a beacon lights it
+PASS Cutting across the circle breaks the trail
+PASS Continuous real movement around the circle solves equidistance
+PASS First discovery grants its exact one-time reward
+PASS Standing in a solved puzzle cannot farm rewards
+PASS Next garden unlocks only after the previous discovery
+PASS Walking a full bridge commits one edge
+PASS Walking a bridge twice resets the uncompleted path
+PASS Seven actual bridge crossings form a complete Euler trail
+PASS Second discovery adds only its own reward
+PASS Final corridor unlocks after the bridges
+PASS An unmatched orientation cannot activate a marker
+PASS Seam crossing mirrors the transverse coordinate and flips local orientation
+PASS Matching reversed orientation activates its marker
+PASS Two seam crossings restore the local orientation
+PASS All three movement puzzles complete with distinct rewards
+PASS Completed mathematics save resumes without body-ending redirection
+PASS Returning to expanded campus survives reload
+PASS Expanded math coordinates survive save beyond old world bounds
+PASS Expanded town coordinates survive save beyond old bounds
+PASS Math movement freezes body combat and ignores attack inputs
+PASS Switching back preserves the exact body encounter
+PASS Custom name and gentle effects persist safely
+PASS Name limit preserves complete Unicode code points
+PASS Empty name restores WuziPing
+PASS New journeys retain the chosen name
+PASS Story text uses the chosen name
+PASS Title rename button reaches the native editor request
+PASS Historical save format 1 migrates with default new fields
+PASS Historical save format 2 migrates with default new fields
+PASS Historical save format 3 migrates with default new fields
+PASS Historical save format 4 migrates with default new fields
+PASS Historical save format 5 migrates with default new fields
+PASS East courtyard portal enters math directly without body quest gate
+PASS Theme map opens with N
+PASS Theme switching is rejected outside the safe town
+PASS Touch theme card enters math from town
+PASS Retry key clears only the current unsolved puzzle
+PASS Effects setting is independent of sound
+PASS Pausing math resumes the same puzzle
+PASS Body normal enemies have 35 percent more health
+PASS Body incoming damage increases by 25 percent
+PASS Body bosses have 65 percent more base health
+PASS Small body atlas preserves the source aspect ratio
+PASS Rendered sword really rotates through its swing arc
+PASS Chosen name is rendered in the shared scene
+PASS Expanded campus has a traversable path to the mathematical portal
+PASS Mid-circle save resumes the continuous geometry challenge
+PASS Mid-bridge save retains the chosen edge and current node
+PASS A finished body campaign cannot interrupt mathematics on resume
+PASS Math recovery uses its own town return without resetting the body campaign
+PASS Name persists before the first journey is created
+PASS Corrupt profile text is rejected rather than reaching the UI
+PASS Impossible mathematical progression is rejected on load
+PASS Interaction key reaches scholar guidance and the east-courtyard destination
+PASS Math map touch follows the safe viewport at 1920
+PASS Math retry touch follows the bottom anchor at 1920
+PASS Math map touch follows the safe viewport at 2400
+PASS Math retry touch follows the bottom anchor at 2400
+PASS Math map touch follows the safe viewport at 3440
+PASS Math retry touch follows the bottom anchor at 3440
+PASS Math map touch follows the safe viewport at 1600
+PASS Math retry touch follows the bottom anchor at 1600
+ALL 64 MATHEMATICS AND V0.7 CHECKS PASSED
+PASS Unicode project paths are supported
+PASS Reject unsafe path ../save.bin
+PASS Reject unsafe path a/../file
+PASS Reject unsafe path /etc/passwd
+PASS Reject unsafe path a\b
+PASS Reject unsafe path a//b
+PASS Reject unsafe path a/./b
+PASS Reject unsafe path a?b?c
+PASS Reject unsafe path a|b
+PASS Reject unsafe path 
+PASS UTF-8 import/save round trip retains Chinese
+PASS UTF-16LE import/save round trip retains Chinese
+PASS UTF-16BE import/save round trip retains Chinese
+PASS GB18030 import/save round trip retains Chinese
+PASS UTF-8 BOM is stripped from editor text
+PASS Binary files cannot silently become editable text
+PASS Import limit is enforced before a large file is retained
+PASS Unsupported save encodings fail before writing
+PASS Asset server binds only to loopback
+PASS Bundled script is served offline
+PASS Editor CSP prevents user-created frames from acquiring the native bridge
+PASS Served assets declare Content-Length
+PASS HTTP resource bytes match source exactly
+PASS Session URL maps back to the asset path
+PASS localhost loopback maps to the same asset
+PASS Encoded traversal is not an asset path
+PASS WASM receives the correct MIME for streaming compilation
+PASS Server denies traversal or unavailable asset %2e%2e/journey-v1.bin
+PASS Server denies traversal or unavailable asset studio/%2e%2e/journey-v1.bin
+PASS Server denies traversal or unavailable asset missing.js
+PASS Static server cannot accept filesystem mutations
+PASS Other loopback clients cannot use a guessed session prefix
+PASS HTML preview declares UTF-8 even without a user meta tag
+PASS Separate preview permits local page scripts and denies external connections
+ALL 34 STUDIO IO CHECKS PASSED

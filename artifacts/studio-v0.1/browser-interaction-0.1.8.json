@@ -1,0 +1,21 @@
+{
+  "version": "0.1.8",
+  "engine": "Chromium via Chrome DevTools MCP; touch emulation 412x915, 360x800, 915x412 and desktop 1280x800",
+  "android_device_tested": false,
+  "note": "Focused interaction checks after the 0.1.8 light-UI rewrite. The 30-check 0.1.x browser suite in browser-checks.json was not re-run because the Tabbit runtime registration was unavailable on this machine; native bridge and real Android keyboard remain unverified.",
+  "checks": 12,
+  "passed": [
+    "Light palette applied: body #f1f4f8, editor #ffffff, run button #2563eb with white text",
+    "Mobile restore enables line wrapping: settings.wrap=true at 412px",
+    "No horizontal page overflow at 360px, 412px or 915px",
+    "360x800 fits: editor 633px high, save/run/more controls all inside 360px",
+    "412x915 editor is 748px high with the compact 52px app bar and 38px tab bar",
+    "915x412 landscape: editor 245px, folded terminal 44px, quick keys 43px, status bar hidden",
+    "File drawer opens (320px wide) and its backdrop is displayed at z-index 25; clicking the backdrop closes it",
+    "More menu opens as a bottom sheet; settings dialog opens with font size, wrap and time-limit controls",
+    "Bundled Python run completes (3.15s) and prints the expected Unicode output; terminal opens automatically",
+    "Quick symbol key inserts () at the caret and keeps DOM focus inside the editor",
+    "Game view hides quick keys and status bar; returning via codeTab restores the editor at full height",
+    "All editor assets load with HTTP 200 and no console errors after the favicon fix"
+  ]
+}

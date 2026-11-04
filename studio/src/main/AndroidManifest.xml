@@ -1,0 +1,16 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:glEsVersion="0x00020000" android:required="false" />
+    <application android:allowBackup="false" android:label="天工" android:icon="@mipmap/studio_icon"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar" android:supportsRtl="true" android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="true" android:networkSecurityConfig="@xml/studio_network">
+        <activity android:name="cn.wuziping.studio.EditorActivity" android:exported="true" android:resizeableActivity="true"
+            android:configChanges="orientation|screenSize|keyboardHidden" android:windowSoftInputMode="adjustResize">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity>
+        <activity android:name="cn.wuziping.studio.PreviewActivity" android:exported="false" android:resizeableActivity="true" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name="cn.wuziping.ember.MainActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:resizeableActivity="true"
+            android:configChanges="orientation|screenSize|keyboardHidden" android:launchMode="singleTop" />
+    </application>
+</manifest>

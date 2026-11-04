@@ -42,7 +42,9 @@ public final class Story {
         return null;
     }
     public String interaction(Game g){
+        if(g.inPhysics())return g.physics.interaction(g);
         if(g.inMath())return g.math.interaction(g);
+        if(g.inTown()&&Game.dist(g.x,g.y,1200,540)<50)return "进入物理工坊";
         if(g.inTown()&&Game.dist(g.x,g.y,1140,620)<50)return "进入数学星庭";
         if(g.guest.near(g))return "交谈 · 奶龙";
         if(g.body.enabled)return g.body.interaction(g);
@@ -54,7 +56,9 @@ public final class Story {
     }
     public void interact(Game g){
         if(g.mode!=Game.PLAY||!enabled)return;
+        if(g.inPhysics()){g.physics.interact(g);return;}
         if(g.inMath()){g.math.interact(g);return;}
+        if(g.inTown()&&Game.dist(g.x,g.y,1200,540)<50){g.physics.enter(g);return;}
         if(g.inTown()&&Game.dist(g.x,g.y,1140,620)<50){g.math.enter(g);return;}
         if(g.guest.near(g)){g.guest.talk(g);return;}
         if(g.body.enabled){g.body.interact(g);return;}
@@ -70,6 +74,7 @@ public final class Story {
     }
     public boolean talk(Game g,int id){
         if(id==TownGuest.NPC)return g.guest.talk(g);
+        if(id==6&&g.inTown()&&g.mode==Game.PLAY&&Game.dist(g.x,g.y,Town.NPCS[6].x,Town.NPCS[6].y)<43){begin(g,6,new String[]{"程理|格物堂是新开的物理工坊。这里有五种机关，分别对应不同的物理现象。","程理|抛体靶场练习弹道计算，光路迷宫学习反射定律，回路工坊理解电路连接。","程理|波的干涉展示叠加原理，热流迷宫模拟热传导。每通过一关，你都会获得新的发现。","程理|全部通关后，你会获得丰厚的奖励。准备好探索物理的奥秘了吗？"},new String[]{"进入物理工坊","稍后再来"},new int[]{310,300});return true;}
         if(id==4&&g.inTown()&&g.mode==Game.PLAY&&Game.dist(g.x,g.y,Town.NPCS[4].x,Town.NPCS[4].y)<43){begin(g,4,new String[]{"知夏|东庭新开了一道数学之门。那里的路会记住脚印，机关会回应不同的走法。","知夏|先观察，再试一试。你的发现会写进札记，那里不会提前写好走法。"},new String[]{"带我去东庭","我自己走过去"},new int[]{303,300});return true;}
         if(g.body.enabled)return g.body.talk(g,id);
         if(!g.inTown()||g.mode!=Game.PLAY||id<0||id>=Town.NPCS.length||Game.dist(g.x,g.y,Town.NPCS[id].x,Town.NPCS[id].y)>43)return false;
@@ -110,6 +115,18 @@ public final class Story {
             case 5:
                 begin(g,5,new String[]{"阿满|路过是客，回来也是客。旅舍还有热汤和空床，赶路的人总得好好睡一觉。","阿满|住一晚十枚金币，恢复全部生命。外面的战斗会停在你离开的地方，不必急着赶路。"},new String[]{"休息一晚 · 10 金币","再去镇上走走"},new int[]{REST,CLOSE});
                 break;
+            case 6:
+                begin(g,6,new String[]{"程理|格物堂是新开的物理工坊。这里有五种机关，分别对应不同的物理现象。","程理|抛体靶场练习弹道计算，光路迷宫学习反射定律，回路工坊理解电路连接。","程理|波的干涉展示叠加原理，热流迷宫模拟热传导。每通过一关，你都会获得新的发现。","程理|全部通关后，你会获得丰厚的奖励。准备好探索物理的奥秘了吗？"},new String[]{"进入物理工坊","稍后再来"},new int[]{310,300});
+                break;
+            case 7:
+                begin(g,7,new String[]{"朱华鸿|嘘——你居然找到我了。我是这个世界的建造者之一。","朱华鸿|每一块砖、每一盏灯，都从我手里经过。不过我最得意的，还是那些藏在角落里的彩蛋。","朱华鸿|你能走到这里，说明你是个细心的旅人。这份好奇心，比星火还珍贵。"},new String[]{"谢谢你的创造"},new int[]{CLOSE});
+                break;
+            case 8:
+                begin(g,8,new String[]{"李梓宁|嘿，旅人。我是负责让这个世界动起来的人。","李梓宁|你挥剑时的弧度、钟楼的灯光、甚至风吹过的方向，都是我一笔一笔画出来的。","李梓宁|有人说，最好的画面是你注意不到的那些。我觉得你说得对——因为你正在好好体验这个世界。"},new String[]{"你的画很美"},new int[]{CLOSE});
+                break;
+            case 9:
+                begin(g,9,new String[]{"伍子安|你来了。我是最后一个藏在这里的人。","伍子安|他们负责造世界，我负责往里面塞故事。每一段对话、每一个选择，都有我想说的话。","伍子安|星火为什么灭了？因为它在等一个愿意找回它的人。你找到了——不只是星火，还有我们。","伍子安|谢谢你走完这条路。后面的故事，由你来写。"},new String[]{"我会继续走下去"},new int[]{CLOSE});
+                break;
         }
         return true;
     }
@@ -121,7 +138,8 @@ public final class Story {
     public void choose(Game g,int index){
         Dialogue d=dialogue;if(d==null||g.mode!=Game.DIALOGUE||!d.last()||!d.complete()||index<0||index>=d.actions.length)return;
         int action=d.actions[index];dialogue=null;g.mode=Game.PLAY;
-        if(action>=300){if(action==303){g.x=1080;g.y=660;g.announce("东庭 · 数学之门在前方");}else g.math.action(g,action);return;}
+        if(action==310){g.physics.enter(g);return;}
+        if(action>=300){if(action==303){g.x=1080;g.y=660;g.announce("东庭 · 数学之门在前方");}else if(action>=320)g.physics.action(g,action);else g.math.action(g,action);return;}
         if(d.npc==TownGuest.NPC&&action>=200){g.guest.action(g,action);return;}
         if(g.body.enabled&&action>=100){g.body.action(g,action);return;}
         switch(action){

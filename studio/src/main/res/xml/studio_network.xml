@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Asset server binds to 127.0.0.1 only. A domain rule for that IP is ignored on some phones and the editor page never loads. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
