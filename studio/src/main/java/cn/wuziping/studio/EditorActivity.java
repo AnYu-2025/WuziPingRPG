@@ -226,21 +226,14 @@ public final class EditorActivity extends Activity {
             emitTtsStatus();
             return;
         }
+        /* 进度回调在语音引擎的后台线程上。ttsCurrentId、ttsCharIndex、ttsCurrentLength、ttsRangeSeen 也由界面线程读写，先送回主线程再改。 */
         engine.setOnUtteranceProgressListener(new UtteranceProgressListener(){
-            @Override public void onStart(String utteranceId){if(!utteranceId.equals(ttsCurrentId))return;ttsCharIndex=0;JSONObject o=message("ttsStarted");put(o,"id",utteranceId);event(o);}
-            @Override public void onRangeStart(String utteranceId,int start,int end,int frame){
-                if(!utteranceId.equals(ttsCurrentId))return;
-                ttsCharIndex=Math.max(0,start);
-                ttsRangeSeen=true;
-                JSONObject o=message("ttsRange");put(o,"id",utteranceId);put(o,"start",start);put(o,"end",end);put(o,"frame",frame);event(o);
-            }
-            @Override public void onDone(String utteranceId){
-                if(!utteranceId.equals(ttsCurrentId))return;
-                ttsCharIndex=ttsCurrentLength;ttsCurrentId="";
-                JSONObject o=message("ttsDone");put(o,"id",utteranceId);event(o);
-            }
-            @Override public void onError(String utteranceId){failTtsUtterance("英语语音播放失败。",utteranceId);}
-            @Override public void onError(String utteranceId,int errorCode){failTtsUtterance("英语语音播放失败（"+errorCode+"）。",utteranceId);}
+            private void onUi(Runnable work){ui.post(work);}
+            @Override public void onStart(String utteranceId){onUi(()->{if(utteranceId==null||!utteranceId.equals(ttsCurrentId))return;ttsCharIndex=0;JSONObject o=message("ttsStarted");put(o,"id",utteranceId);event(o);});}
+            @Override public void onRangeStart(String utteranceId,int start,int end,int frame){onUi(()->{if(utteranceId==null||!utteranceId.equals(ttsCurrentId))return;ttsCharIndex=Math.max(0,start);ttsRangeSeen=true;JSONObject o=message("ttsRange");put(o,"id",utteranceId);put(o,"start",start);put(o,"end",end);put(o,"frame",frame);event(o);});}
+            @Override public void onDone(String utteranceId){onUi(()->{if(utteranceId==null||!utteranceId.equals(ttsCurrentId))return;ttsCharIndex=ttsCurrentLength;ttsCurrentId="";JSONObject o=message("ttsDone");put(o,"id",utteranceId);event(o);});}
+            @Override public void onError(String utteranceId){onUi(()->failTtsUtterance("英语语音播放失败。",utteranceId));}
+            @Override public void onError(String utteranceId,int errorCode){onUi(()->failTtsUtterance("英语语音播放失败（"+errorCode+"）。",utteranceId));}
         });
         int languageStatus=engine.setLanguage(Locale.US);
         ttsReady=languageStatus!=TextToSpeech.LANG_MISSING_DATA&&languageStatus!=TextToSpeech.LANG_NOT_SUPPORTED;
