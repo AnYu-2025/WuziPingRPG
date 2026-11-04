@@ -323,8 +323,6 @@ public final class Game {
         String n=value==null?"":value.replaceAll("[\\p{Cntrl}]", "").trim();if(n.isEmpty())n=HERO;if(n.codePointCount(0,n.length())>12)n=n.substring(0,n.offsetByCodePoints(0,12));heroName=n;
     }
     private void readProfileExtras(DataInputStream in,int version)throws IOException{
-        if(version>=6)math=MathJourney.read(in);
-        if(version>=7)physics=PhysicsJourney.read(in);
         String name=in.readUTF();if(name.isEmpty()||name.codePointCount(0,name.length())>12||!name.equals(name.trim())||name.matches(".*[\\p{Cntrl}].*"))throw new IOException("Invalid hero name");heroName=name;effectsLevel=bounded(in.readInt(),0,1);
     }
     private static int bounded(int n,int lo,int hi)throws IOException{if(n<lo||n>hi)throw new IOException("Save value out of range");return n;}
