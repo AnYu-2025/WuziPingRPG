@@ -6,15 +6,28 @@ import java.util.Arrays;
 
 /** Emits exact historical tails, so migration tests never feed new fields to old formats. */
 final class LegacySaves {
+    private interface Section { void write(DataOutputStream out)throws IOException; }
+    private static byte[] bytes(Section section)throws IOException{
+        ByteArrayOutputStream out=new ByteArrayOutputStream();DataOutputStream data=new DataOutputStream(out);section.write(data);data.flush();return out.toByteArray();
+    }
     static byte[] snapshot(Game g,int version)throws IOException{
         if(!g.arsenal.bolts.isEmpty())throw new IOException("Fixture requires no friendly projectiles");
+        if(version<1||version>5)throw new IllegalArgumentException("Unsupported legacy fixture version");
         ByteArrayOutputStream current=new ByteArrayOutputStream();g.save(current);
-        ByteArrayOutputStream extra=new ByteArrayOutputStream();DataOutputStream extras=new DataOutputStream(extra);g.math.write(extras);extras.writeUTF(g.heroName);extras.writeInt(g.effectsLevel);extras.flush();
-        if(version==5){byte[] bytes=Arrays.copyOf(current.toByteArray(),current.size()-extra.size());bytes[7]=5;return bytes;}
-        int prefix=current.size()-extra.size()-BodyJourney.SAVE_BYTES-TownGuest.SAVE_BYTES-Arsenal.EMPTY_SAVE_BYTES-(version==1?25:0);
+        byte[] currentBytes=current.toByteArray();
+        byte[] story=bytes(g.story::write),body=bytes(g.body::write),guest=bytes(g.guest::write),arsenal=bytes(g.arsenal::write),math=bytes(g.math::write),physics=bytes(g.physics::write);
+        byte[] profile=bytes(out->{out.writeUTF(g.heroName);out.writeInt(g.effectsLevel);});
+        int prefix=currentBytes.length-story.length-body.length-guest.length-arsenal.length-math.length-physics.length-profile.length;
+        if(prefix<12)throw new IOException("Invalid current snapshot layout");
         ByteArrayOutputStream out=new ByteArrayOutputStream();out.write(Arrays.copyOf(current.toByteArray(),prefix));DataOutputStream d=new DataOutputStream(out);
-        if(version>=3){BodyJourney b=g.body;d.writeBoolean(b.enabled);d.writeBoolean(b.briefed);d.writeBoolean(b.ending);d.writeInt(b.organ);d.writeInt(b.cured);d.writeInt(b.weaponLevel);
-            for(int i=0;i<5;i++)d.writeInt(b.kills[i]);for(int i=0;i<10;i++){d.writeInt(b.supply[i]);d.writeFloat(b.supplyX[i]);d.writeFloat(b.supplyY[i]);d.writeFloat(b.fall[i]);}}
-        if(version>=4)g.guest.write(d);d.flush();byte[] bytes=out.toByteArray();bytes[7]=(byte)version;return bytes;
+        if(version>=2)d.write(story);
+        if(version>=5)d.write(body);
+        else if(version>=3){
+            BodyJourney b=g.body;d.writeBoolean(b.enabled);d.writeBoolean(b.briefed);d.writeBoolean(b.ending);d.writeInt(b.organ);d.writeInt(b.cured);d.writeInt(b.weaponLevel);
+            for(int i=0;i<5;i++)d.writeInt(b.kills[i]);for(int i=0;i<10;i++){d.writeInt(b.supply[i]);d.writeFloat(b.supplyX[i]);d.writeFloat(b.supplyY[i]);d.writeFloat(b.fall[i]);}
+        }
+        if(version>=4)d.write(guest);
+        if(version>=5)d.write(arsenal);
+        d.flush();byte[] result=out.toByteArray();result[7]=(byte)version;return result;
     }
 }
