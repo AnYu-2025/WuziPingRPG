@@ -489,6 +489,30 @@ async function importSlides(files){
   env.scheduleSave();
   notify(added?('已导入 '+added+' 张 PPT 照片'+(skipped?'，跳过 '+skipped+' 张无法识别的文件':'')+'。录音中点「📌 标记锚点」即可关联当前页。'):'没有可识别的图片文件。');
 }
+async function importSlideUrls(urls){
+  ensureUI();
+  const list=[...urls||[]];
+  if(!list.length)return;
+  const room=MAX_SLIDES-persist.slides.length;
+  if(room<=0){notify('最多保留 '+MAX_SLIDES+' 张 PPT 照片。');return;}
+  let added=0,skipped=0;
+  for(const url of list.slice(0,room)){
+    try{
+      const img=await loadImage(url);
+      const scale=Math.min(1,SLIDE_MAX_W/(img.width||SLIDE_MAX_W));
+      const w=Math.max(1,Math.round((img.width||SLIDE_MAX_W)*scale)),h=Math.max(1,Math.round((img.height||SLIDE_MAX_W*0.75)*scale));
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      const data=cv.toDataURL('image/jpeg',SLIDE_QUALITY);
+      if(!data.startsWith('data:image/'))throw new Error('压缩失败');
+      persist.slides.push({id:'s'+(slideSeq++),name:'slide_'+slideSeq,data,w,h,anchorTime:null,createdAt:Date.now()});
+      added++;
+    }catch(e){skipped++;}
+  }
+  renderSlides();renderTimeline();
+  env.scheduleSave();
+  notify(added?('已导入 '+added+' 张 PPT 照片'+(skipped?'，跳过 '+skipped+' 张':'')+'。录音中点「📌 标记锚点」即可关联当前页。'):'没有可识别的图片文件。');
+}
 function openSlidePreview(slide){
   ensureUI();
   previewSlideId=slide.id;
@@ -657,5 +681,6 @@ export const lectureDebug={
   stamp(list){const view=env&&env.view();if(view&&env.activePath()===NOTES_PATH&&Array.isArray(list))view.dispatch({effects:setStamps.of(list)});return lectureDebug.info();},
   time:()=>playTime(),
   anchors:()=>persist.anchors.slice(),
+  importSlideUrls:urls=>importSlideUrls(urls),
   info(){return {bar:barState,audio:!!(persist.audio&&persist.audio.data),duration:playDur(),anchors:persist.anchors.length,slides:persist.slides.length};}
 };

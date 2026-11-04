@@ -20,8 +20,9 @@ import cn.wuziping.ember.Game;
 public final class EditorActivity extends Activity {
     private WebView web;private AssetServer assets;private PackedAssets packed;private AtomicFile workspace,gameSave;
     private final ExecutorService io=Executors.newSingleThreadExecutor();private JSONObject pendingExport;private boolean pickerOpen=false,workspaceReadOnly=false;
-    private static final int OPEN=30,FOLDER=31,EXPORT=32,GAME_OUT=33,GAME_IN=34,MIC=35;
+    private static final int OPEN=30,FOLDER=31,EXPORT=32,GAME_OUT=33,GAME_IN=34,MIC=35,SLIDE=36;
     private android.webkit.PermissionRequest pendingMicRequest;
+    private android.webkit.ValueCallback<Uri[]> pendingSlideChooser;
     private static final int SOURCE_ASSETS=0,SOURCE_LOOPBACK=1,SOURCE_PACKAGED=2;
     private final android.os.Handler ui=new android.os.Handler(android.os.Looper.getMainLooper());
     private int source=SOURCE_ASSETS,probeCount=0,restoreResends=0;private boolean bootOk=false,bootFailureShown=false,rendererRecovery=false;
@@ -44,22 +45,29 @@ public final class EditorActivity extends Activity {
         /* 上课模式录音：WebView 的 getUserMedia 需要宿主授予音频采集资源，
            并在系统层持有 RECORD_AUDIO 运行时权限。 */
         @Override public void onPermissionRequest(final android.webkit.PermissionRequest request){
-            runOnUiThread(()->{
-                if(web==null||isFinishing()||isDestroyed()){try{request.deny();}catch(Exception ignored){}return;}
-                java.util.List<String> needed=new java.util.ArrayList<>();
-                boolean wantsAudio=false;
-                for(String resource:request.getResources()){
-                    if(android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)){wantsAudio=true;break;}
-                }
-                if(!wantsAudio){try{request.deny();}catch(Exception ignored){}return;}
-                if(checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)==android.content.pm.PackageManager.PERMISSION_GRANTED){
-                    try{request.grant(request.getResources());}catch(Exception e){try{request.deny();}catch(Exception ignored){}}
-                }else{
-                    pendingMicRequest=request;
-                    try{requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO},MIC);}
-                    catch(Exception e){pendingMicRequest=null;try{request.deny();}catch(Exception ignored){}}
-                }
-            });
+            if(web==null||isFinishing()||isDestroyed()){try{request.deny();}catch(Exception ignored){}return;}
+            boolean wantsAudio=false;
+            for(String resource:request.getResources()){
+                if(android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)){wantsAudio=true;break;}
+            }
+            if(!wantsAudio){try{request.deny();}catch(Exception ignored){}return;}
+            android.util.Log.i("EmberStudio","onPermissionRequest: audio capture, self="+checkSelfPermission(android.Manifest.permission.RECORD_AUDIO));
+            if(checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)==android.content.pm.PackageManager.PERMISSION_GRANTED){
+                try{request.grant(request.getResources());android.util.Log.i("EmberStudio","granted audio immediately");}catch(Exception e){try{request.deny();}catch(Exception ignored){}}
+            }else{
+                pendingMicRequest=request;
+                try{requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO},MIC);android.util.Log.i("EmberStudio","requesting RECORD_AUDIO runtime permission");}
+                catch(Exception e){pendingMicRequest=null;try{request.deny();}catch(Exception ignored){}}
+            }
+        }
+        /* 上课模式 PPT 照片导入：WebView 的 <input type="file"> 需要宿主打开系统文件选择器。 */
+        @Override public boolean onShowFileChooser(WebView webView,android.webkit.ValueCallback<Uri[]> callback,FileChooserParams params){
+            if(pendingSlideChooser!=null){callback.onReceiveValue(null);return true;}
+            pendingSlideChooser=callback;
+            Intent intent=params.createIntent();
+            intent.setType("image/*");intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);
+            pick(SLIDE,intent);
+            return true;
         }});
         web.setWebViewClient(StudioClient.create(assets,new StudioClient.Hooks(){
             public void pageFinished(){pageReady();}
@@ -192,12 +200,13 @@ public final class EditorActivity extends Activity {
             else{request.deny();notice("麦克风权限被拒绝，上课模式无法录音。可在系统设置 → 应用 → 天工 → 权限中开启。");}
         }catch(Exception ignored){}
     }
-    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);pickerOpen=false;if(result!=RESULT_OK||data==null){if(request==EXPORT&&pendingExport!=null){JSONObject o=message("saved");put(o,"id",pendingExport.optString("id"));put(o,"ok",false);put(o,"message","已取消导出，草稿仍保留。");event(o);pendingExport=null;}return;}
+    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);pickerOpen=false;if(result!=RESULT_OK||data==null){if(request==EXPORT&&pendingExport!=null){JSONObject o=message("saved");put(o,"id",pendingExport.optString("id"));put(o,"ok",false);put(o,"message","已取消导出，草稿仍保留。");event(o);pendingExport=null;}if(request==SLIDE&&pendingSlideChooser!=null){android.webkit.ValueCallback<Uri[]> cb=pendingSlideChooser;pendingSlideChooser=null;try{cb.onReceiveValue(null);}catch(Exception ignored){}}return;}
         if(request==OPEN){final ArrayList<Uri> uris=new ArrayList<>();if(data.getClipData()!=null){ClipData clips=data.getClipData();for(int i=0;i<Math.min(160,clips.getItemCount());i++)uris.add(clips.getItemAt(i).getUri());}else if(data.getData()!=null)uris.add(data.getData());for(Uri uri:uris){persistGrant(uri,data.getFlags());trust(uri);}io.execute(()->importUris(uris));}
         else if(request==FOLDER&&data.getData()!=null){Uri uri=data.getData();persistGrant(uri,data.getFlags());io.execute(()->importTree(uri));}
         else if(request==EXPORT&&pendingExport!=null&&data.getData()!=null){Uri uri=data.getData();persistGrant(uri,data.getFlags());trust(uri);JSONObject payload=pendingExport;pendingExport=null;writeDocument(payload,uri,true);}
         else if(request==GAME_OUT&&data.getData()!=null){Uri uri=data.getData();io.execute(()->{try(InputStream in=gameSave.openRead();OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException("文件无法写入");byte[] b=TextFiles.read(in,8*1024*1024);out.write(b);notice("游戏存档已导出，请妥善保留。");}catch(Exception e){notice("备份失败："+e.getMessage());}});}
         else if(request==GAME_IN&&data.getData()!=null){Uri uri=data.getData();io.execute(()->{try(InputStream in=getContentResolver().openInputStream(uri)){byte[] bytes=TextFiles.read(in,8*1024*1024);Game g=Game.load(new ByteArrayInputStream(bytes));runOnUiThread(()->new AlertDialog.Builder(this).setTitle("导入游戏存档？").setMessage("存档角色："+g.heroName+"\n等级："+g.level+"\n会替换当前游戏进度，替换前保留一份本地备份。").setNegativeButton("取消",null).setPositiveButton("导入",(d,w)->io.execute(()->{try{backupGame();atomic(gameSave,bytes);notice("游戏存档已导入。");}catch(Exception e){notice("导入失败："+e.getMessage());}})).show());}catch(Exception e){notice("这不是可用的游戏存档："+e.getMessage());}});}
+        else if(request==SLIDE){final ArrayList<Uri> uris=new ArrayList<>();if(data.getClipData()!=null){ClipData clips=data.getClipData();for(int i=0;i<Math.min(50,clips.getItemCount());i++)uris.add(clips.getItemAt(i).getUri());}else if(data.getData()!=null)uris.add(data.getData());android.webkit.ValueCallback<Uri[]> cb=pendingSlideChooser;pendingSlideChooser=null;try{if(cb!=null)cb.onReceiveValue(uris.toArray(new Uri[0]));}catch(Exception ignored){}if(!uris.isEmpty())io.execute(()->importSlideImages(uris));}
     }
     private String fileName(Uri uri){try(Cursor c=getContentResolver().query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(c!=null&&c.moveToFirst())return c.getString(0);}catch(Exception ignored){}return "untitled.txt";}
     private JSONObject readDocument(Uri uri,String path)throws Exception{if(!TextFiles.validPath(path))throw new IOException("文件名不受支持");try(InputStream in=getContentResolver().openInputStream(uri)){if(in==null)throw new IOException("无法打开文件");TextFiles.Decoded file=TextFiles.decode(TextFiles.read(in,TextFiles.LIMIT));JSONObject o=new JSONObject();put(o,"path",path);put(o,"text",file.text);put(o,"encoding",file.encoding);put(o,"uri",uri.toString());trust(uri);return o;}}
@@ -205,6 +214,25 @@ public final class EditorActivity extends Activity {
     private void importTree(Uri root){JSONArray files=new JSONArray();int[] budget={0,0,0};try{String id=DocumentsContract.getTreeDocumentId(root);String directory=fileName(DocumentsContract.buildDocumentUriUsingTree(root,id));if(!TextFiles.validPath(directory))directory="project";walkTree(root,id,directory+"/",files,budget,0);importResult(files,budget[1],budget[2]!=0);}catch(Exception e){notice("文件夹读取失败："+e.getMessage());}}
     private void walkTree(Uri root,String id,String prefix,JSONArray files,int[] budget,int depth)throws Exception{if(depth>10||files.length()>=160||budget[0]>12*1024*1024){budget[2]=1;return;}Uri children=DocumentsContract.buildChildDocumentsUriUsingTree(root,id);try(Cursor c=getContentResolver().query(children,new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID,DocumentsContract.Document.COLUMN_DISPLAY_NAME,DocumentsContract.Document.COLUMN_MIME_TYPE},null,null,null)){if(c==null)return;while(c.moveToNext()){if(files.length()>=160||budget[0]>12*1024*1024){budget[2]=1;break;}String childId=c.getString(0),name=c.getString(1),mime=c.getString(2),path=prefix+name;if(name.equals(".git")||name.equals("node_modules")||name.equals("__pycache__")){budget[1]++;continue;}if(DocumentsContract.Document.MIME_TYPE_DIR.equals(mime))walkTree(root,childId,path+"/",files,budget,depth+1);else try{JSONObject f=readDocument(DocumentsContract.buildDocumentUriUsingTree(root,childId),path);budget[0]+=f.getString("text").getBytes("UTF-8").length;if(budget[0]<=12*1024*1024)files.put(f);else budget[2]=1;}catch(Exception e){budget[1]++;}}}}
     private void importResult(JSONArray files,int skipped,boolean limited){JSONObject o=message("imported");put(o,"files",files);put(o,"message","已导入 "+files.length()+" 个文本文件"+(skipped>0?"，跳过 "+skipped+" 项非文本、缓存或过大文件":"")+(limited?"；已达到 160 文件 / 12 MB 导入上限":""));event(o);}
+    private void importSlideImages(List<Uri> uris){
+        StringBuilder js=new StringBuilder("(function(){var urls=[");
+        int ok=0,skipped=0;
+        for(Uri uri:uris){
+            try(InputStream in=getContentResolver().openInputStream(uri)){
+                if(in==null){skipped++;continue;}
+                byte[] bytes=TextFiles.read(in,6*1024*1024);
+                String mime=getContentResolver().getType(uri);
+                if(mime==null||!mime.startsWith("image/"))mime="image/jpeg";
+                String b64=android.util.Base64.encodeToString(bytes,android.util.Base64.NO_WRAP);
+                if(ok>0)js.append(',');
+                js.append('"').append("data:").append(mime).append(";base64,").append(b64).append('"');
+                ok++;
+            }catch(Exception e){skipped++;}
+        }
+        js.append("];if(window.Studio&&window.Studio.lecture&&window.Studio.lecture.importSlideUrls)window.Studio.lecture.importSlideUrls(urls);})()");
+        if(ok==0&&skipped>0)notice("PPT 照片导入失败：无法读取所选文件。");
+        runOnUiThread(()->{if(web!=null)web.evaluateJavascript(js.toString(),null);});
+    }
     private void writeDocument(JSONObject m,Uri uri,boolean as){if(!trustedUris.contains(uri.toString())||!"content".equals(uri.getScheme())){notice("文件授权已失效，请重新打开文件或另存为。");return;}io.execute(()->{JSONObject o=message("saved");put(o,"id",m.optString("id"));put(o,"uri",uri.toString());String encoding=as?"UTF-8":m.optString("encoding","UTF-8");put(o,"encoding",encoding);try{byte[] bytes=TextFiles.encode(m.getString("text"),encoding);try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException("文件无法写入");out.write(bytes);}put(o,"ok",true);}catch(Exception e){put(o,"ok",false);put(o,"message","写入失败："+e.getMessage()+"。草稿仍保留。");}event(o);});}
     private void backupGame()throws IOException{if(!gameSave.getBaseFile().exists()&&!new File(gameSave.getBaseFile().getPath()+".bak").exists())return;try(InputStream in=gameSave.openRead()){atomic(new AtomicFile(new File(getFilesDir(),"journey-backup-"+System.currentTimeMillis()+".wzpsave")),TextFiles.read(in,8*1024*1024));}}
     private static void atomic(AtomicFile file,byte[] bytes)throws IOException{FileOutputStream out=null;try{out=file.startWrite();out.write(bytes);file.finishWrite(out);}catch(IOException e){if(out!=null)file.failWrite(out);throw e;}}

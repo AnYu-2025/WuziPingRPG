@@ -15,7 +15,7 @@ public final class Scene {
         float cx=town&&!g.inTown()?480:g.x,cy=town&&!g.inTown()?416:g.y;
         camX=Game.clamp(cx-W/4,0,Math.max(0,(town?Town.WIDTH:g.worldWidth())-W/2));camY=Game.clamp(cy-H/4,0,Math.max(0,(town?Town.HEIGHT:g.worldHeight())-H/2));
         float kick=g.mode==Game.PLAY?g.vfx.shake*(g.effectsLevel==0?.35f:1):0;camX-=(float)Math.sin(seconds*48)*kick*.5f;camY-=(float)Math.cos(seconds*37)*kick*.32f;
-        if(town)townWorld();else if(g.inMath()){MathRenderer.draw(p,g,camX,camY,W,H,clock);hero();impactOverlay();}else world();
+        if(town)townWorld();else if(g.inPhysics()){physicsWorld();hero();impactOverlay();}else if(g.inMath()){MathRenderer.draw(p,g,camX,camY,W,H,clock);hero();impactOverlay();}else world();
         ui=new UiPainter(root);p=ui;anchor(0,0);
         if(g.mode==Game.TITLE){title();return;}
         if(g.mode==8){title();confirmNew();return;}
@@ -205,13 +205,13 @@ public final class Scene {
     private void hero(){
         float px=sx(g.x),py=sy(g.y);p.oval(px-14,py-5,28,10,0x6610201b);
         int frame=(int)(clock*7)%4;int col=(Math.sin(g.facing)<-.5?4:0)+frame;boolean flip=Math.cos(g.facing)<-.3;
-        float alpha=!g.inTown()&&!g.inMath()&&g.invuln>0&&((int)(clock*15)%2==0)?.4f:1;
+        float alpha=!g.inTown()&&!g.inMath()&&!g.inPhysics()&&g.invuln>0&&((int)(clock*15)%2==0)?.4f:1;
         for(int i=g.vfx.ga.length-1;i>=0;i--)if(g.vfx.ga[i]>0)p.image("actors.png",col*32,0,32,32,sx(g.vfx.gx[i])-29,sy(g.vfx.gy[i])-48,58,58,g.vfx.ga[i]*.38f,flip);
         if(g.dashTime>0){p.oval(px-26,py-14,52,20,0x5584d1bc);p.oval(px-16,py-10,32,12,0x339fd8cc);}
         p.image("actors.png",col*32,0,32,32,px-29,py-48,58,58,alpha,flip);
         if(g.body.enabled){
             int weapon=g.arsenal.selected;float progress=Game.clamp(1-g.swing/.2f,0,1),base=(float)Math.toDegrees(g.facing)+90;
-            boolean striking=g.swing>0&&!g.inTown()&&!g.inMath();float angle=base-25,extension=0;
+            boolean striking=g.swing>0&&!g.inTown()&&!g.inMath()&&!g.inPhysics();float angle=base-25,extension=0;
             if(striking){
                 if(weapon==2){angle=base;extension=(float)Math.sin(progress*Math.PI)*34;}
                 else if(weapon==3||weapon==4){angle=base;extension=-(float)Math.sin(progress*Math.PI)*8;}
@@ -290,6 +290,7 @@ public final class Scene {
         if(save)label("已有未完成的旅程，点击主按钮继续。",62,400,12,GOLD);
     }
     private void hud(){
+        if(g.inPhysics()){physicsHud();return;}
         if(g.inMath()){mathHud();return;}
         anchor(-1,-1);
         panel(18,16,269,82);p.rect(22,22,3,66,0xffc45c6a);p.image("actors.png",0,0,32,32,28,25,37,37,1,false);label(g.heroName,70,40,Math.min(18,130f/Math.max(1,g.heroName.codePointCount(0,g.heroName.length()))),CREAM);label("等级 "+g.level,209,39,14,GOLD);
@@ -453,6 +454,150 @@ public final class Scene {
         anchor(0,-1);panel(325,16,310,56);center(g.math.name(),480,40,18,CREAM);center("脚步会让隐藏的规律显形",480,61,11,MUTED);
         if(g.banner>0){panel(313,88,424,45);center(g.bannerText,525,116,12,GOLD);}
         anchor(1,-1);smallToggle("札记",746,19,54);smallToggle("Ⅱ",902,19,38);panel(813,75,127,139);center("发现 "+Integer.bitCount(g.math.solved)+" / 3",876,98,12,GOLD);MathRenderer.minimap(p,g,824,106,105,62);String progress=g.math.level==0?"灯光 "+Integer.bitCount(g.math.circle)+" / 3":g.math.level==1?"桥梁 "+Integer.bitCount(g.math.bridges)+" / 7":"路标 "+Integer.bitCount(g.math.ribbon)+" / 3";center(progress,876,187,12,CREAM);center("光点是你与入口",876,204,9,MUTED);panel(813,226,127,37);center("主题地图 · 点击查看",876,250,10,GOLD);
+    }
+    private void physicsHud(){
+        anchor(-1,-1);panel(18,16,269,82);label(g.heroName,35,43,Math.min(18,145f/Math.max(1,g.heroName.codePointCount(0,g.heroName.length()))),CREAM);label("物理学者",190,42,12,GOLD);p.rect(34,59,235,7,0xff293847);p.rect(34,59,235*g.hp/g.maxHp,7,0xff88bcad);label("体魄 "+(int)g.hp+" / "+(int)g.maxHp,35,86,11,MUTED);
+        panel(18,107,286,96);label("物理 · "+g.physics.name(),35,133,15,GOLD);wrapped(g.quest(),35,160,12,CREAM,250,19,2);label("观察现象，找出规律",35,191,10,MUTED);
+        anchor(0,-1);panel(325,16,310,56);center(g.physics.name(),480,40,18,CREAM);center("物理规律在操作中显现",480,61,11,MUTED);
+        if(g.banner>0){panel(313,88,424,45);center(g.bannerText,525,116,12,GOLD);}
+        anchor(1,-1);smallToggle("札记",746,19,54);smallToggle("Ⅱ",902,19,38);panel(813,75,127,139);center("发现 "+Integer.bitCount(g.physics.solved)+" / 5",876,98,12,GOLD);physicsMinimap();String progress=physicsProgress();center(progress,876,187,12,CREAM);center("光点是你与入口",876,204,9,MUTED);panel(813,226,127,37);center("主题地图 · 点击查看",876,250,10,GOLD);
+    }
+    private String physicsProgress(){
+        switch(g.physics.level){
+            case 0:return "命中 "+g.physics.targetHits+" / 3";
+            case 1:return g.physics.lightReachedEnd?"光线到达":"调整镜面";
+            case 2:return "导线 "+countWires()+" / 7";
+            case 3:return g.physics.stableFrames>0?"稳定 "+g.physics.stableFrames+"/180":"调整波源";
+            case 4:return g.physics.equilibriumTime>0?"平衡 "+(int)g.physics.equilibriumTime+"/3":"引导热量";
+            default:return "";
+        }
+    }
+    private int countWires(){int c=0;for(boolean w:g.physics.wiresPlaced)if(w)c++;return c;}
+    private void physicsMinimap(){
+        p.rect(824,106,105,62,0xff1a2a3a);
+        float scaleX=105f/PhysicsJourney.WIDTH,scaleY=62f/PhysicsJourney.HEIGHT;
+        // Draw player
+        p.rect(824+g.physics.px*scaleX-2,106+g.physics.py*scaleY-2,4,4,0xffb1ead3);
+        // Draw targets/nodes based on level
+        if(g.physics.level==0){
+            for(int i=0;i<3;i++){
+                float tx=PhysicsJourney.TARGETS[i][0]*scaleX,ty=PhysicsJourney.TARGETS[i][1]*scaleY;
+                p.rect(824+tx-3,106+ty-3,6,6,i<g.physics.targetHits?0xff4caf50:0xffff5722);
+            }
+        }else if(g.physics.level==1){
+            for(int i=0;i<3;i++){
+                float mx=PhysicsJourney.MIRRORS[i][0]*scaleX,my=PhysicsJourney.MIRRORS[i][1]*scaleY;
+                p.rect(824+mx-2,106+my-2,4,4,0xffffff00);
+            }
+        }else if(g.physics.level==2){
+            for(int i=0;i<6;i++){
+                float nx=PhysicsJourney.CIRCUIT_NODES[i][0]*scaleX,ny=PhysicsJourney.CIRCUIT_NODES[i][1]*scaleY;
+                p.rect(824+nx-2,106+ny-2,4,4,0xff4fc3f7);
+            }
+        }
+    }
+    private void physicsWorld(){
+        // Simple colored background based on level
+        int bgColor=g.physics.level==0?0xff5d8a6b:g.physics.level==1?0xff2c3e50:g.physics.level==2?0xff1e3a5f:g.physics.level==3?0xff4a148c:0xff8b2500;
+        p.rect(0,0,W,H,bgColor);
+        // Draw grid
+        int gridColor=0x33ffffff;
+        for(int x=0;x<W;x+=32)p.rect(x,0,1,H,gridColor);
+        for(int y=0;y<H;y+=32)p.rect(0,y,W,1,gridColor);
+        // Draw level-specific elements
+        if(g.physics.level==0)drawProjectileRange();
+        else if(g.physics.level==1)drawLightMaze();
+        else if(g.physics.level==2)drawCircuitWorkshop();
+        else if(g.physics.level==3)drawWaveInterference();
+        else if(g.physics.level==4)drawHeatMaze();
+        // Draw gate
+        p.oval(sx(g.physics.gateX())-20,sy(g.physics.gateY())-20,40,40,0x88ffffff);
+        p.text("出口",sx(g.physics.gateX()),sy(g.physics.gateY())-30,10,0xffffffff,1);
+    }
+    private void drawProjectileRange(){
+        // Draw targets
+        for(int i=0;i<3;i++){
+            float tx=PhysicsJourney.TARGETS[i][0],ty=PhysicsJourney.TARGETS[i][1];
+            int color=i<g.physics.targetHits?0xff4caf50:0xffff5722;
+            p.oval(sx(tx)-15,sy(ty)-15,30,30,color);
+            p.oval(sx(tx)-10,sy(ty)-10,20,20,0xffffffff);
+            p.oval(sx(tx)-5,sy(ty)-5,10,10,color);
+        }
+        // Draw launch point
+        p.oval(sx(300)-20,sy(800)-20,40,40,0xffffeb3b);
+        p.text("发射点",sx(300),sy(800)-30,10,0xffffffff,1);
+        // Draw projectile if active
+        if(g.physics.projectileActive){
+            p.oval(sx(g.physics.projectileX)-8,sy(g.physics.projectileY)-8,16,16,0xffff5722);
+        }
+    }
+    private void drawLightMaze(){
+        // Draw light source
+        p.oval(sx(PhysicsJourney.LIGHT_START_X)-15,sy(PhysicsJourney.LIGHT_START_Y)-15,30,30,0xffffff00);
+        p.text("光源",sx(PhysicsJourney.LIGHT_START_X),sy(PhysicsJourney.LIGHT_START_Y)-25,10,0xffffffff,1);
+        // Draw end point
+        p.oval(sx(PhysicsJourney.LIGHT_END_X)-15,sy(PhysicsJourney.LIGHT_END_Y)-15,30,30,0xff4caf50);
+        p.text("终点",sx(PhysicsJourney.LIGHT_END_X),sy(PhysicsJourney.LIGHT_END_Y)-25,10,0xffffffff,1);
+        // Draw mirrors
+        for(int i=0;i<3;i++){
+            float mx=PhysicsJourney.MIRRORS[i][0],my=PhysicsJourney.MIRRORS[i][1];
+            p.rect(sx(mx)-20,sy(my)-3,40,6,0xffe0e0e0);
+            p.text("M"+(i+1),sx(mx),sy(my)-15,9,0xffffffff,1);
+        }
+        // Draw light ray
+        if(g.physics.lightRayEndX>0){
+            p.line(sx(PhysicsJourney.LIGHT_START_X),sy(PhysicsJourney.LIGHT_START_Y),sx(g.physics.lightRayEndX),sy(g.physics.lightRayEndY),3,0xffffff00);
+        }
+    }
+    private void drawCircuitWorkshop(){
+        // Draw nodes
+        for(int i=0;i<6;i++){
+            float nx=PhysicsJourney.CIRCUIT_NODES[i][0],ny=PhysicsJourney.CIRCUIT_NODES[i][1];
+            int color=i==g.physics.selectedNode?0xffffeb3b:0xff4fc3f7;
+            p.oval(sx(nx)-12,sy(ny)-12,24,24,color);
+            p.text("N"+(i+1),sx(nx),sy(ny)-20,9,0xffffffff,1);
+        }
+        // Draw wires
+        for(int i=0;i<7;i++){
+            if(g.physics.wiresPlaced[i]){
+                int a=PhysicsJourney.CIRCUIT_EDGES[i][0],b=PhysicsJourney.CIRCUIT_EDGES[i][1];
+                float ax=PhysicsJourney.CIRCUIT_NODES[a][0],ay=PhysicsJourney.CIRCUIT_NODES[a][1];
+                float bx=PhysicsJourney.CIRCUIT_NODES[b][0],by=PhysicsJourney.CIRCUIT_NODES[b][1];
+                p.line(sx(ax),sy(ay),sx(bx),sy(by),4,0xff4caf50);
+            }
+        }
+    }
+    private void drawWaveInterference(){
+        // Draw wave sources
+        p.oval(sx(g.physics.source1X)-15,sy(g.physics.source1Y)-15,30,30,0xffe1bee9);
+        p.oval(sx(g.physics.source2X)-15,sy(g.physics.source2Y)-15,30,30,0xffe1bee9);
+        // Draw waves
+        for(int r=20;r<200;r+=20){
+            int alpha=255-r;
+            p.oval(sx(g.physics.source1X)-r,sy(g.physics.source1Y)-r,r*2,r*2,(alpha<<24)|0xffce93d8);
+            p.oval(sx(g.physics.source2X)-r,sy(g.physics.source2Y)-r,r*2,r*2,(alpha<<24)|0xffce93d8);
+        }
+    }
+    private void drawHeatMaze(){
+        // Draw temperature grid
+        float cellW=PhysicsJourney.WIDTH/PhysicsJourney.HEAT_COLS;
+        float cellH=PhysicsJourney.HEIGHT/PhysicsJourney.HEAT_ROWS;
+        for(int i=0;i<PhysicsJourney.HEAT_COLS;i++){
+            for(int j=0;j<PhysicsJourney.HEAT_ROWS;j++){
+                float temp=g.physics.temperature[i][j];
+                int color=heatColor(temp);
+                p.rect(sx(i*cellW),sy(j*cellH),cellW*2,cellH*2,color);
+            }
+        }
+        // Draw heat source and sink
+        p.oval(sx(g.physics.heatSourceX*cellW)-10,sy(g.physics.heatSourceY*cellH)-10,20,20,0xffff0000);
+        p.oval(sx(g.physics.heatSinkX*cellW)-10,sy(g.physics.heatSinkY*cellH)-10,20,20,0xff0000ff);
+    }
+    private int heatColor(float temp){
+        // Blue (cold) to Red (hot)
+        int r=(int)(255*temp/100);
+        int b=(int)(255*(100-temp)/100);
+        return 0xff000000|(r<<16)|b;
     }
     private void worldMap(){
         veil();panel(88,40,784,468);label("星图 · 选择探索主题",119,88,27,CREAM);label("中山大学连接不同世界，身体与数学的进度分别保存。",120,119,12,MUTED);

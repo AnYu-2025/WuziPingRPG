@@ -28,6 +28,7 @@ public final class Game {
     public TownGuest guest=new TownGuest();
     public Arsenal arsenal=new Arsenal();
     public MathJourney math=new MathJourney();
+    public PhysicsJourney physics=new PhysicsJourney();
     public String heroName=HERO;public boolean renamePending=false;public int effectsLevel=1;
     /** True while the game runs embedded behind the 天工 editor (show editor-return hints). */
     public boolean editorHost=false;
@@ -70,7 +71,7 @@ public final class Game {
     public int waveTarget(){return body.enabled?BodyJourney.TARGETS[body.organ]:wave==5?7:5+wave*3;}
     public boolean hasSave(){return activeRun;}
     public void startRun(){
-        story=new Story();body=new BodyJourney();guest=new TownGuest();arsenal=new Arsenal();math=new MathJourney();
+        story=new Story();body=new BodyJourney();guest=new TownGuest();arsenal=new Arsenal();math=new MathJourney();physics=new PhysicsJourney();
         mode=PLAY;activeRun=true;wave=level=1;xp=kills=gold=waveSpawned=waveKilled=pendingUpgrades=0;potions=3;
         x=640;y=510;hp=maxHp=100;attack=16;speed=65;attackDelay=.43f;facing=0;
         elapsed=attackCd=skillCd=dashCd=potionCd=invuln=swing=skillFlash=dashTime=intermission=0;
@@ -80,11 +81,12 @@ public final class Game {
     public void startAdventure(){startRun();story.enabled=true;story.area=Story.TOWN;x=480;y=520;banner=0;story.opening(this);}
     public void startDream(){startRun();body.enabled=true;story.enabled=true;story.area=Story.TOWN;x=480;y=520;banner=0;body.opening(this);}
     public boolean inTown(){return story.enabled&&story.area==Story.TOWN;}
-    public boolean inBody(){return body.enabled&&!inTown()&&!math.active;}
-    public boolean inMath(){return math.active&&!inTown();}
-    public int worldWidth(){return inTown()?Town.WIDTH:inMath()?MathJourney.WIDTH:WORLD_W;}
-    public int worldHeight(){return inTown()?Town.HEIGHT:inMath()?MathJourney.HEIGHT:WORLD_H;}
-    public void resume(){if(activeRun){if(math.failed){math.recover(this);return;}if(math.active){mode=pendingUpgrades>0?UPGRADE:PLAY;return;}if(body.enabled){body.resume(this);return;}if(story.defeated){story.recover(this);return;}if(story.enabled&&story.battleWon&&!inTown()){story.enterTown(this);return;}mode=pendingUpgrades>0?UPGRADE:PLAY;}}
+    public boolean inBody(){return body.enabled&&!inTown()&&!math.active&&!physics.active;}
+    public boolean inMath(){return math.active&&!inTown()&&!physics.active;}
+    public boolean inPhysics(){return physics.active&&!inTown();}
+    public int worldWidth(){return inTown()?Town.WIDTH:inPhysics()?PhysicsJourney.WIDTH:inMath()?MathJourney.WIDTH:WORLD_W;}
+    public int worldHeight(){return inTown()?Town.HEIGHT:inPhysics()?PhysicsJourney.HEIGHT:inMath()?MathJourney.HEIGHT:WORLD_H;}
+    public void resume(){if(activeRun){if(physics.failed){physics.recover(this);return;}if(physics.active){mode=pendingUpgrades>0?UPGRADE:PLAY;return;}if(math.failed){math.recover(this);return;}if(math.active){mode=pendingUpgrades>0?UPGRADE:PLAY;return;}if(body.enabled){body.resume(this);return;}if(story.defeated){story.recover(this);return;}if(story.enabled&&story.battleWon&&!inTown()){story.enterTown(this);return;}mode=pendingUpgrades>0?UPGRADE:PLAY;}}
     public void pause(){if(mode==PLAY)mode=PAUSE;}
     public void title(){mode=TITLE;}
     public void announce(String s){bannerText=s;banner=3;}
@@ -100,6 +102,9 @@ public final class Game {
         if(inTown()){move(mx*speed*1.2f*dt,my*speed*1.2f*dt);guest.tick(this,dt);return;}
         if(inMath()){
             invuln=Math.max(0,invuln-dt);dashCd=Math.max(0,dashCd-dt);move(mx*speed*dt,my*speed*dt);math.tick(this,dt);return;
+        }
+        if(inPhysics()){
+            invuln=Math.max(0,invuln-dt);dashCd=Math.max(0,dashCd-dt);move(mx*speed*dt,my*speed*dt);physics.tick(this,dt);return;
         }
         if(body.enabled){body.tick(this,dt);arsenal.tick(this,dt);if(in.ultimate)arsenal.ultimate(this);}
         attackCd=Math.max(0,attackCd-dt);skillCd=Math.max(0,skillCd-dt);dashCd=Math.max(0,dashCd-dt);
@@ -139,7 +144,7 @@ public final class Game {
         float nx=clamp(x+dx,18,worldWidth()-18),ny=clamp(y+dy,18,worldHeight()-18);
         if(!blocked(nx,y,6))x=nx;if(!blocked(x,ny,6))y=ny;
     }
-    public boolean blocked(float a,float b,float r){if(inTown())return Town.blocked(a,b,r);if(inMath())return math.blocked(a,b,r);if(inBody())return BodyJourney.blocked(body.organ,a,b,r);for(Obstacle o:obstacles)if(dist(a,b,o.x,o.y)<r+o.r)return true;return false;}
+    public boolean blocked(float a,float b,float r){if(inTown())return Town.blocked(a,b,r);if(inPhysics())return physics.blocked(a,b,r);if(inMath())return math.blocked(a,b,r);if(inBody())return BodyJourney.blocked(body.organ,a,b,r);for(Obstacle o:obstacles)if(dist(a,b,o.x,o.y)<r+o.r)return true;return false;}
     private void spawnNext(){
         int type;
         if(body.enabled)type=body.enemyType(this);
@@ -276,23 +281,23 @@ public final class Game {
     }
     public void popup(float a,float b,String t,int color){if(effects.size()<90)effects.add(new Effect(a,b,t,color,.8f));}
     private void flashHurt(){vfx.flash=Math.max(vfx.flash,.58f);}
-    public String quest(){if(math.active)return math.objective(this);if(body.enabled)return body.objective(this);if(story.enabled&&(inTown()||story.battleWon))return story.objective();return wave==5?"击败遗迹守卫，找回星火":"净化此地的魔物  "+waveKilled+" / "+waveTarget();}
+    public String quest(){if(physics.active)return physics.objective(this);if(math.active)return math.objective(this);if(body.enabled)return body.objective(this);if(story.enabled&&(inTown()||story.battleWon))return story.objective();return wave==5?"击败遗迹守卫，找回星火":"净化此地的魔物  "+waveKilled+" / "+waveTarget();}
 
     /** Versioned binary snapshot: no framework dependencies, no Java object deserialization. */
     public void save(OutputStream stream)throws IOException{
-        DataOutputStream o=new DataOutputStream(stream);o.writeInt(0x575A5052);o.writeInt(6);
+        DataOutputStream o=new DataOutputStream(stream);o.writeInt(0x575A5052);o.writeInt(7);
         o.writeInt(totalRuns);o.writeInt(bestWave);o.writeInt(lifetimeKills);o.writeInt(bank);o.writeBoolean(sound);o.writeBoolean(autoAttack);o.writeBoolean(activeRun);
-        if(!activeRun){story.write(o);body.write(o);guest.write(o);arsenal.write(o);math.write(o);o.writeUTF(heroName);o.writeInt(effectsLevel);o.flush();return;}
+        if(!activeRun){story.write(o);body.write(o);guest.write(o);arsenal.write(o);math.write(o);physics.write(o);o.writeUTF(heroName);o.writeInt(effectsLevel);o.flush();return;}
         int[] ints={wave,level,xp,kills,gold,potions,waveSpawned,waveKilled,pendingUpgrades};for(int n:ints)o.writeInt(n);
         float[] fs={x,y,hp,maxHp,attack,speed,attackDelay,attackCd,skillCd,dashCd,potionCd,invuln,elapsed,facing,spawnTimer,intermission};for(float f:fs)o.writeFloat(f);
         o.writeLong(rng);for(int n:upgrades)o.writeInt(n);for(int n:choices)o.writeInt(n);
         o.writeInt(enemies.size());for(Enemy e:enemies){o.writeInt(e.type);o.writeInt(e.id);float[] ef={e.x,e.y,e.hp,e.maxHp,e.cd,e.hit,e.windup,e.targetX,e.targetY,e.knockX,e.knockY};for(float f:ef)o.writeFloat(f);o.writeBoolean(e.bossAttack);}
         o.writeInt(drops.size());for(Drop p:drops){o.writeFloat(p.x);o.writeFloat(p.y);o.writeInt(p.type);o.writeInt(p.value);}
-        o.writeInt(shots.size());for(Shot p:shots){o.writeFloat(p.x);o.writeFloat(p.y);o.writeFloat(p.vx);o.writeFloat(p.vy);o.writeFloat(p.life);o.writeInt(p.damage);}story.write(o);body.write(o);guest.write(o);arsenal.write(o);math.write(o);o.writeUTF(heroName);o.writeInt(effectsLevel);o.flush();
+        o.writeInt(shots.size());for(Shot p:shots){o.writeFloat(p.x);o.writeFloat(p.y);o.writeFloat(p.vx);o.writeFloat(p.vy);o.writeFloat(p.life);o.writeInt(p.damage);}story.write(o);body.write(o);guest.write(o);arsenal.write(o);math.write(o);physics.write(o);o.writeUTF(heroName);o.writeInt(effectsLevel);o.flush();
     }
     public static Game load(InputStream stream)throws IOException{
-        DataInputStream i=new DataInputStream(stream);if(i.readInt()!=0x575A5052)throw new IOException("Unsupported save");int version=i.readInt();if(version<1||version>6)throw new IOException("Unsupported save version");Game g=new Game();
-        g.totalRuns=bounded(i.readInt(),0,1000000);g.bestWave=bounded(i.readInt(),0,8);g.lifetimeKills=bounded(i.readInt(),0,100000000);g.bank=bounded(i.readInt(),0,100000000);g.sound=i.readBoolean();g.autoAttack=i.readBoolean();g.activeRun=i.readBoolean();if(!g.activeRun){if(version>=2)g.story=Story.read(i);if(version>=3)g.body=BodyJourney.read(i,version>=5?8:5);if(version>=4)g.guest=TownGuest.read(i);if(version>=5)g.arsenal=Arsenal.read(i);if(version>=6)g.readProfileExtras(i);return g;}
+        DataInputStream i=new DataInputStream(stream);if(i.readInt()!=0x575A5052)throw new IOException("Unsupported save");int version=i.readInt();if(version<1||version>7)throw new IOException("Unsupported save version");Game g=new Game();
+        g.totalRuns=bounded(i.readInt(),0,1000000);g.bestWave=bounded(i.readInt(),0,8);g.lifetimeKills=bounded(i.readInt(),0,100000000);g.bank=bounded(i.readInt(),0,100000000);g.sound=i.readBoolean();g.autoAttack=i.readBoolean();g.activeRun=i.readBoolean();if(!g.activeRun){if(version>=2)g.story=Story.read(i);if(version>=3)g.body=BodyJourney.read(i,version>=5?8:5);if(version>=4)g.guest=TownGuest.read(i);if(version>=5)g.arsenal=Arsenal.read(i);if(version>=6)g.math=MathJourney.read(i);if(version>=7)g.physics=PhysicsJourney.read(i);else g.physics=new PhysicsJourney();if(version>=6)g.readProfileExtras(i,version);return g;}
         g.wave=bounded(i.readInt(),1,8);g.level=bounded(i.readInt(),1,10000);g.xp=bounded(i.readInt(),0,1000000);g.kills=bounded(i.readInt(),0,100000);g.gold=bounded(i.readInt(),0,10000000);g.potions=bounded(i.readInt(),0,100);g.waveSpawned=bounded(i.readInt(),0,100);g.waveKilled=bounded(i.readInt(),0,100);g.pendingUpgrades=bounded(i.readInt(),0,100);
         float[] f=new float[16];for(int n=0;n<f.length;n++){f[n]=i.readFloat();if(Float.isNaN(f[n])||Float.isInfinite(f[n]))throw new IOException("Nonfinite save");}
         g.x=clamp(f[0],18,WORLD_W-18);g.y=clamp(f[1],18,WORLD_H-18);g.hp=f[2];g.maxHp=f[3];g.attack=f[4];g.speed=f[5];g.attackDelay=f[6];g.attackCd=f[7];g.skillCd=f[8];g.dashCd=f[9];g.potionCd=f[10];g.invuln=f[11];g.elapsed=f[12];g.facing=f[13];g.spawnTimer=f[14];g.intermission=f[15];
@@ -306,15 +311,21 @@ public final class Game {
         if(version>=4)g.guest=TownGuest.read(i);
         if(version>=5)g.arsenal=Arsenal.read(i);
         else if(g.body.enabled){g.arsenal.unlocked=(1<<Math.min(6,g.body.organ+2))-1;if(g.body.cured==31){g.story.battleWon=false;g.body.ending=false;}}
-        if(version>=6){g.readProfileExtras(i);if(g.inMath()){g.x=clamp(f[0],18,MathJourney.WIDTH-18);g.y=clamp(f[1],18,MathJourney.HEIGHT-18);}}
+        if(version>=6)g.math=MathJourney.read(i);
+        if(version>=7)g.physics=PhysicsJourney.read(i);
+        else g.physics=new PhysicsJourney();
+        if(version>=6){g.readProfileExtras(i,version);if(g.inMath()){g.x=clamp(f[0],18,MathJourney.WIDTH-18);g.y=clamp(f[1],18,MathJourney.HEIGHT-18);}}
+        if(version>=7&&g.inPhysics()){g.x=clamp(f[0],18,PhysicsJourney.WIDTH-18);g.y=clamp(f[1],18,PhysicsJourney.HEIGHT-18);}
         if(g.inTown()){g.x=clamp(f[0],78,Town.WIDTH-78);g.y=clamp(f[1],98,Town.HEIGHT-66);}
         g.mode=TITLE;return g;
     }
     public void setHeroName(String value){
         String n=value==null?"":value.replaceAll("[\\p{Cntrl}]", "").trim();if(n.isEmpty())n=HERO;if(n.codePointCount(0,n.length())>12)n=n.substring(0,n.offsetByCodePoints(0,12));heroName=n;
     }
-    private void readProfileExtras(DataInputStream in)throws IOException{
-        math=MathJourney.read(in);String name=in.readUTF();if(name.isEmpty()||name.codePointCount(0,name.length())>12||!name.equals(name.trim())||name.matches(".*[\\p{Cntrl}].*"))throw new IOException("Invalid hero name");heroName=name;effectsLevel=bounded(in.readInt(),0,1);
+    private void readProfileExtras(DataInputStream in,int version)throws IOException{
+        if(version>=6)math=MathJourney.read(in);
+        if(version>=7)physics=PhysicsJourney.read(in);
+        String name=in.readUTF();if(name.isEmpty()||name.codePointCount(0,name.length())>12||!name.equals(name.trim())||name.matches(".*[\\p{Cntrl}].*"))throw new IOException("Invalid hero name");heroName=name;effectsLevel=bounded(in.readInt(),0,1);
     }
     private static int bounded(int n,int lo,int hi)throws IOException{if(n<lo||n>hi)throw new IOException("Save value out of range");return n;}
 }

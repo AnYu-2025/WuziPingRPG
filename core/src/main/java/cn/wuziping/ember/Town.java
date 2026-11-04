@@ -19,7 +19,8 @@ public final class Town {
         new Npc(2,"陆铸","铁匠",333,493),
         new Npc(3,"苏禾","药师",633,306),
         new Npc(4,"知夏","学者",543,263),
-        new Npc(5,"阿满","旅店掌柜",632,504)
+        new Npc(5,"阿满","旅店掌柜",632,504),
+        new Npc(6,"程理","物理学者",1180,480)
     };
     public static final House[] HOUSES={
         new House(0,"镇务厅",267,278,138,118),
@@ -29,7 +30,9 @@ public final class Town {
         new House(4,"旧日书屋",480,226,126,106),
         new House(5,"河畔人家",250,643,112,92),
         new House(5,"风铃小屋",710,643,112,92),
-        new House(4,"星图学舍",1140,488,168,132),new House(5,"东庭花房",1150,890,148,116)
+        new House(4,"星图学舍",1140,488,168,132),
+        new House(6,"格物堂",1200,540,158,126),
+        new House(5,"东庭花房",1150,890,148,116)
     };
     public static boolean blocked(float x,float y,float r){
         if(x-r<72||x+r>WIDTH-72||y-r<92||y+r>HEIGHT-60)return true;
