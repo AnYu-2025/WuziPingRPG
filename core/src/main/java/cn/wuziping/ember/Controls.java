@@ -47,6 +47,8 @@ public final class Controls {
         if(g.mode==Game.HELP){if(box(x,y,340,432,280,42)){g.mode=helpReturn;clear();}return;}
         if(g.mode==Game.UPGRADE){for(int i=0;i<3;i++)if(box(x,y,120+i*246,181,228,240)){g.choose(i);clear();return;}return;}
         if(g.mode==Game.PAUSE){
+            /* 点面板之外的任何空白处都视为继续旅程，避免玩家被困在菜单里。 */
+            if(!box(x,y,304,66,352,435)){g.resume();clear();return;}
             if(box(x,y,340,181,280,46)){g.resume();clear();}
             else if(box(x,y,340,240,280,40)){helpReturn=Game.PAUSE;g.mode=Game.HELP;}
             else if(box(x,y,340,293,134,40))g.sound=!g.sound;
@@ -58,12 +60,12 @@ public final class Controls {
         if(g.mode==Game.DEAD||g.mode==Game.VICTORY){if(box(x,y,310,350,340,46)){if(g.math.failed)g.math.recover(g);else if(g.story.enabled){if(g.story.defeated)g.story.recover(g);else g.story.enterTown(g);}else g.startRun();clear();}else if(box(x,y,310,410,340,36))g.title();return;}
         if(g.mode!=Game.PLAY)return;
         float rx=x-layout.right,ty=y-layout.top,by=y-layout.bottom,cx=x-layout.centerX,cy=y-layout.centerY;
-        if(g.body.enabled&&box(x-layout.left,ty,213,229,54,31)){g.mode=Arsenal.MENU;clear();return;}
+        if(g.body.enabled&&box(x-layout.left,ty,207,226,66,38)){g.mode=Arsenal.MENU;clear();return;}
         if((g.body.enabled||g.inMath()||g.inTown())&&box(rx,ty,813,226,127,g.inBody()?174:37)){mapReturn=Game.PLAY;g.mode=g.inBody()?BodyJourney.MAP:MathJourney.MAP;clear();return;}
         if(g.inMath()&&box(rx,by,741,337,132,31)){g.math.retry(g);clear();return;}
-        if(box(rx,ty,902,19,38,31)){g.pause();clear();return;}
-        if(box(rx,ty,746,19,54,31)||box(x-layout.left,ty,18,107,286,83)){journalReturn=Game.PLAY;g.mode=Game.JOURNAL;clear();return;}
-        if(box(rx,ty,811,19,78,31)){g.autoAttack=!g.autoAttack;return;}
+        if(box(rx,ty,862,19,78,38)){g.pause();clear();return;}
+        if(box(rx,ty,716,19,58,38)||box(x-layout.left,ty,18,107,286,83)){journalReturn=Game.PLAY;g.mode=Game.JOURNAL;clear();return;}
+        if(box(rx,ty,780,19,76,38)){g.autoAttack=!g.autoAttack;return;}
         if(x-layout.left<350&&by>300&&movePointer==-1){movePointer=pointer;move(g,pointer,x,y);}
         else if((g.inTown()||g.inMath())&&circle(rx,by,847,429,57)){g.story.interact(g);clear();}
         else if(g.inMath())return;
@@ -74,16 +76,16 @@ public final class Controls {
         }
         else if(g.story.enabled&&box(cx,cy,g.inBody()?348:371,281,g.inBody()?264:218,34)&&!g.story.interaction(g).isEmpty()){g.story.interact(g);clear();}
         else if(g.inBody()){
-            if(circle(rx,by,645,330,29)){input.ultimate=true;return;}
-            if(circle(rx,by,857,465,43)){attackPointer=pointer;input.attack=true;}
-            else if(circle(rx,by,764,465,35))input.skill=true;
-            else if(circle(rx,by,755,370,29))input.dash=true;
-            else if(circle(rx,by,679,410,29))input.potion=true;
+            if(circle(rx,by,645,330,31)){input.ultimate=true;return;}
+            if(circle(rx,by,866,462,49)){attackPointer=pointer;input.attack=true;}
+            else if(circle(rx,by,768,470,41))input.skill=true;
+            else if(circle(rx,by,770,362,36))input.dash=true;
+            else if(circle(rx,by,700,414,31))input.potion=true;
         }
-        else if(circle(rx,by,857,433,52)){attackPointer=pointer;input.attack=true;}
-        else if(circle(rx,by,761,441,42))input.skill=true;
-        else if(circle(rx,by,851,334,37))input.dash=true;
-        else if(circle(rx,by,746,347,32))input.potion=true;
+        else if(circle(rx,by,866,428,55)){attackPointer=pointer;input.attack=true;}
+        else if(circle(rx,by,764,449,44))input.skill=true;
+        else if(circle(rx,by,860,330,38))input.dash=true;
+        else if(circle(rx,by,748,345,33))input.potion=true;
     }
     public void move(Game g,int pointer,float x,float y){
         if(g.mode!=Game.PLAY)return;

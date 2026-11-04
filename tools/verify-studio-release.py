@@ -19,7 +19,7 @@ def cert(path):
     return re.search(r'certificate SHA-256 digest: ([0-9a-f]+)',result).group(1)
 log=(out/'java-checks.log').read_text(encoding='utf-8')
 counts=[int(n) for n in re.findall(r'ALL (\d+) (?:[A-Z0-9. ]+ )?CHECKS PASSED',log)]
-assert counts==[33,48,101,39,69,64,34],counts
+assert counts==[36,48,101,39,69,64,34],counts
 browser=json.loads((out/'browser-checks.json').read_text(encoding='utf-8'))
 assert browser['checks']==30 and browser['android_device_tested'] is False
 interaction=json.loads((out/'browser-interaction-0.1.12.json').read_text(encoding='utf-8'))

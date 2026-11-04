@@ -22,8 +22,8 @@ public final class ExpansionTests {
         for(int[] size:sizes){
             Viewport v=new Viewport();v.set(size[0],size[1],0,0,0,0);check(Math.abs(v.width*v.scale-size[0])<.01&&Math.abs(v.height*v.scale-size[1])<.01,"Viewport fills "+size[0]+"x"+size[1]+" without letterbox");
             Game g=field();Scene scene=new Scene();scene.layout=v;Capture p=new Capture(v.width,v.height);scene.draw(p,g,2);
-            check(p.background&&Math.abs(p.texts.get("移动")[0]-(92+v.left))<.1&&Math.abs(p.texts.get("普攻")[0]-(857+v.right))<.1,"World fills viewport while controls retain left/right anchors at "+size[0]);
-            Controls c=new Controls();c.layout=v;c.down(g,1,92+v.left+25,435+v.bottom);c.down(g,2,857+v.right,465+v.bottom);check(c.input.mx>0&&c.input.attack,"Movement and combat hit tests follow viewport at "+size[0]);c.clear();
+            check(p.background&&Math.abs(p.texts.get("移动")[0]-(92+v.left))<.1&&Math.abs(p.texts.get("普攻")[0]-(866+v.right))<.1,"World fills viewport while controls retain left/right anchors at "+size[0]);
+            Controls c=new Controls();c.layout=v;c.down(g,1,92+v.left+25,435+v.bottom);c.down(g,2,866+v.right,462+v.bottom);check(c.input.mx>0&&c.input.attack,"Movement and combat hit tests follow viewport at "+size[0]);c.clear();
             c.down(g,3,230+v.left,240+v.top);check(g.mode==Arsenal.MENU,"Armory touch target follows safe left anchor at "+size[0]);
             c.down(g,4,380+v.centerX,458+v.centerY);check(g.mode==Game.PLAY,"Centered modal return button follows viewport at "+size[0]);
         }

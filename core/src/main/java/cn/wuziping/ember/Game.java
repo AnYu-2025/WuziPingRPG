@@ -29,6 +29,8 @@ public final class Game {
     public Arsenal arsenal=new Arsenal();
     public MathJourney math=new MathJourney();
     public String heroName=HERO;public boolean renamePending=false;public int effectsLevel=1;
+    /** True while the game runs embedded behind the 天工 editor (show editor-return hints). */
+    public boolean editorHost=false;
     public final Vfx vfx=new Vfx();
     private final BodyNavigation bodyNavigation=new BodyNavigation();
     private final ArrayList<Enemy> enemySnapshot=new ArrayList<>();

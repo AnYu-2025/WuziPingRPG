@@ -1,2 +1,2 @@
-2d63162aa1d32081d849866ba6be335e89ac56468df677056110b61ee8777972  Ember-Studio-0.1.12-debug.apk
-125ac0aa43b501ccadcf129d801d053c5c375531930c75d795cd7d344cd77c0e  Ember-Studio-0.1.12-parallel-debug.apk
+7dba95acd5334a96eda2acda7b8ce28102055b6246ade5e3f0e74cf4ab97bade  Ember-Studio-0.1.12-debug.apk
+95d8cef6b0bfe7fe46008d4e5f8a4dd6fee6b89c712391db0785466b1f06f0c1  Ember-Studio-0.1.12-parallel-debug.apk

@@ -36,6 +36,9 @@ public final class GameTests {
         boolean rejected=false;try{Game.load(new ByteArrayInputStream(new byte[]{1,2,3,4,5}));}catch(IOException expected){rejected=true;}check(rejected,"Truncated or foreign saves are rejected");
         Controls c=new Controls();g=fresh();c.down(g,11,120,435);c.down(g,22,857,433);check(c.input.mx>0&&c.input.attack,"Independent touch pointers support moving while attacking");c.up(11);check(c.input.mx==0&&c.input.attack,"Releasing joystick does not release attack");c.up(22);check(!c.input.attack,"Attack ends on its own pointer release");
         c.down(g,33,120,435);c.back(g);check(g.mode==Game.PAUSE&&c.input.mx==0,"Pausing clears held inputs");
+        c.down(g,33,50,80);check(g.mode==Game.PLAY,"Tapping outside the pause panel resumes the journey");c.back(g);
+        c.down(g,33,480,474);check(g.mode==Game.PAUSE,"Tapping a label inside the panel keeps the menu open");
+        c.down(g,33,340,181);check(g.mode==Game.PLAY,"Resume button still closes the pause menu");
         g.mode=Game.TITLE;c.down(g,44,100,350);check(g.mode==8&&g.activeRun,"New run asks before replacing an active save");c.down(g,44,400,375);check(g.mode==Game.TITLE&&g.activeRun,"Cancel preserves active journey");
         g=fresh();g.wave=5;g.spawnEnemy(4,g.x+60,g.y);e=g.enemies.get(0);e.windup=.01f;e.bossAttack=true;e.targetX=g.x;e.targetY=g.y;g.update(.02f,new Game.Input());check(g.hp<100,"Boss telegraphed strike resolves into damage");
         g=fresh();g.wave=5;g.spawnEnemy(4,g.x+60,g.y);e=g.enemies.get(0);e.windup=.01f;e.bossAttack=true;e.targetX=g.x-200;e.targetY=g.y;g.update(.02f,new Game.Input());check(g.hp==100,"Moving outside boss telegraph avoids damage");

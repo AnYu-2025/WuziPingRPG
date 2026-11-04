@@ -25,13 +25,16 @@ PASS Independent touch pointers support moving while attacking
 PASS Releasing joystick does not release attack
 PASS Attack ends on its own pointer release
 PASS Pausing clears held inputs
+PASS Tapping outside the pause panel resumes the journey
+PASS Tapping a label inside the panel keeps the menu open
+PASS Resume button still closes the pause menu
 PASS New run asks before replacing an active save
 PASS Cancel preserves active journey
 PASS Boss telegraphed strike resolves into damage
 PASS Moving outside boss telegraph avoids damage
 PASS Chasing enemy steers around a blocking tree
 PASS 1000-second simulation soak survives progression, death and replay
-ALL 33 CHECKS PASSED
+ALL 36 CHECKS PASSED
 PASS New journey begins with Chinese opening in town
 PASS Opening and town do not spawn combat or advance forest time
 PASS Completed typewriter line advances to next story page

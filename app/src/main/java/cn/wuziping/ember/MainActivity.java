@@ -27,6 +27,7 @@ public final class MainActivity extends Activity {
     @Override protected void onPause(){super.onPause();if(view!=null){view.suspend();persist(view.game);}}
     @Override protected void onResume(){super.onResume();if(view!=null)view.resumeView();}
     @Override protected void onDestroy(){if(view!=null)view.dispose();super.onDestroy();}
+    public boolean isEditorHost(){return getIntent().getBooleanExtra("editorHost",false);}
     @Override public void onBackPressed(){if(view!=null){if(view.game.mode==Game.TITLE){persist(view.game);finish();}else if(getIntent().getBooleanExtra("editorHost",false)){
         view.suspend();persist(view.game);
         new android.app.AlertDialog.Builder(this).setTitle("旅途小憩").setMessage("游戏进度已保存，可以回到编辑器继续创作。")

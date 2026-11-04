@@ -277,7 +277,8 @@ public final class Scene {
         p.rect(62,416,330,55,0x55101820);p.rect(62,416,330,1,GOLD);p.rect(62,470,330,1,0x556a4038);
         label("档案 · 点击打开札记",72,436,12,GOLD);
         label("最高区域  "+g.bestWave+" / 8",72,458,14,CREAM);label("累计击败  "+g.lifetimeKills,228,458,14,CREAM);
-        label("双主题世界  ·  走位解谜  ·  六类兵器",62,500,12,MUTED);p.text("v0.7.0",914,508,12,MUTED,2);
+        label(!g.activeRun?"第一次玩？先看「旅者手册」了解操作，再出发。":"双主题世界  ·  走位解谜  ·  六类兵器",62,500,12,!g.activeRun?GOLD:MUTED);
+        p.text(g.editorHost?"按手机返回键，随时回到天工编辑器":"v0.7.0",914,508,12,MUTED,2);
         smallToggle("修改名字 · "+g.heroName,588,454,292);
         panel(588,92,292,356);center("此行的旅者",734,124,13,GOLD);p.rect(648,136,172,1,0x55e8c27a);
         p.oval(646,292,176,30,0x33e07a45);p.oval(674,300,120,16,0x44101820);
@@ -296,8 +297,8 @@ public final class Scene {
         label("经验 "+g.xp+" / "+g.requiredXp(),30,74,9,MUTED);
         p.rect(28,78,240,5,0xff142028);p.rect(28,78,240*(float)g.xp/g.requiredXp(),5,0xff7ec8b0);p.rect(28,78,240*(float)g.xp/g.requiredXp(),1,0x88e8fff0);
         anchor(0,-1);panel(325,16,310,56);p.rect(340,66,280,2,0x55e8c27a);center(g.inTown()?"中山大学 · "+(g.body.enabled?"梦境据点":"灯火长明"):g.inBody()?g.body.name()+" · 体内远征":"迷雾森林 · "+Game.WAVE_NAMES[g.wave-1],480,39,17,CREAM);center(g.inTown()?"安全区域  ·  可以交谈与补给":g.inBody()?BodyJourney.SUBTITLES[g.body.organ]+"  ·  "+time(g.elapsed):"第 "+g.wave+" / 5 波  ·  "+time(g.elapsed),480,59,11,MUTED);
-        anchor(1,-1);icon(9,654,21,23);label(""+g.gold,683,40,16,GOLD);smallToggle("札记",746,19,54);
-        smallToggle(g.autoAttack?"自动 开":"自动 关",811,19,78);smallToggle("Ⅱ",902,19,38);
+        anchor(1,-1);icon(9,646,21,23);label(""+g.gold,674,40,16,GOLD);smallToggle("札记",716,19,58);
+        smallToggle(g.autoAttack?"自动 开":"自动 关",780,19,76);smallToggle("菜单",862,19,78);
         anchor(-1,-1);panel(18,107,286,83);p.rect(22,116,3,64,g.body.ending?0xff8ed0b7:GOLD);icon(11,32,118,24);label(g.math.active?"数学星庭 · 发现 "+Integer.bitCount(g.math.solved)+" / 3":g.body.enabled?(g.body.ending?"终章完成 · 梦醒时分":"梦入体内 · 净化 "+g.body.clearedCount()+" / 8"):g.story.enabled?g.story.chapterName():"当前委托",64,136,12,GOLD);
         wrapped(g.quest(),32,161,13,CREAM,254,18,2);label("点击查看任务与人物",32,182,10,MUTED);
         // Mini map deliberately omits any hidden off-screen collectible information.
@@ -315,7 +316,7 @@ public final class Scene {
         if(g.story.enabled){float[] target=g.inTown()&&g.math.active?new float[]{1140,620}:g.body.enabled?g.body.target(g):g.story.target();if(target!=null){p.rect(834+target[0]/g.worldWidth()*98-2,83+target[1]/g.worldHeight()*73-2,4,4,GOLD);navigation(target[0],target[1]);}}
         if(g.body.enabled){anchor(1,-1);bodyMini();anchor(-1,-1);
             panel(18,219,260,65);p.rect(22,226,3,50,Arsenal.COLORS[g.arsenal.selected]);p.image("weapons.png",g.arsenal.selected*32,0,32,32,30,228,34,34,1,false);label(g.arsenal.name(),70,240,14,GOLD);
-            p.rect(70,250,128,4,0xff101820);p.rect(70,250,128*g.arsenal.energy/100f,4,g.arsenal.energy>=100?0xffffe7b0:0xffc5a6d9);label(Arsenal.DESCS[g.arsenal.selected],32,273,10,MUTED);smallToggle("武库",213,229,54);
+            p.rect(70,250,128,4,0xff101820);p.rect(70,250,128*g.arsenal.energy/100f,4,g.arsenal.energy>=100?0xffffe7b0:0xffc5a6d9);label(Arsenal.DESCS[g.arsenal.selected],32,273,10,MUTED);smallToggle("武库",207,226,66);
         }
         anchor(0,-1);if(g.banner>0){panel(315,87,420,45);center(g.bannerText,525,115,13,GOLD);}
         Game.Enemy boss=null;if(!g.inTown())for(Game.Enemy e:g.enemies)if(e.type==4)boss=e;
@@ -345,18 +346,18 @@ public final class Scene {
         anchor(1,1);if(g.inBody()){
             if(g.arsenal.energy>=100){float pulse=4+(float)Math.sin(clock*5)*2;p.oval(645-24-pulse,330-24-pulse,(24+pulse)*2,(24+pulse)*2,0x44ffe7b0);}
             meterRing(645,330,34,g.arsenal.energy/100f,0xffc5a6d9);
-            roundButton(645,330,24,4,"爆发 "+(int)g.arsenal.energy+"%",0,1,0xffc5a6d9);
-            roundButton(857,465,38,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
-            roundButton(764,465,30,1,Arsenal.SKILLS[g.arsenal.selected],g.skillCd,7,0xffc17b51);
-            roundButton(755,370,25,2,"闪避",g.dashCd,2.6f,0xff6d9b8d);
-            roundButton(679,410,24,3,"药剂 ×"+g.potions,g.potionCd,3,0xffa87063);
+            roundButton(645,330,26,4,"爆发 "+(int)g.arsenal.energy+"%",0,1,0xffc5a6d9);
+            roundButton(866,462,46,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
+            roundButton(768,470,38,1,Arsenal.SKILLS[g.arsenal.selected],g.skillCd,7,0xffc17b51);
+            roundButton(770,362,33,2,"闪避",g.dashCd,2.6f,0xff6d9b8d);
+            roundButton(700,414,28,3,"药剂 ×"+g.potions,g.potionCd,3,0xffa87063);
             anchor(0,1);label("长按挥剑 · 点击全身图查看血管路线",325,508,11,MUTED);
             if(!g.story.interaction(g).isEmpty()){anchor(0,0);panel(348,281,264,34);center(g.story.interaction(g)+"  [E]",480,303,12,GOLD);}return;
         }
-        roundButton(857,433,45,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
-        roundButton(761,441,34,1,"星火斩",g.skillCd,8,0xffc17b51);
-        roundButton(851,334,29,2,"闪避",g.dashCd,2.6f,0xff6d9b8d);
-        roundButton(746,347,24,3,"药剂 ×"+g.potions,g.potionCd,3,0xffa87063);
+        roundButton(866,428,52,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
+        roundButton(764,449,41,1,"星火斩",g.skillCd,8,0xffc17b51);
+        roundButton(860,330,35,2,"闪避",g.dashCd,2.6f,0xff6d9b8d);
+        roundButton(748,345,30,3,"药剂 ×"+g.potions,g.potionCd,3,0xffa87063);
         anchor(0,1);label("长按普攻连续挥剑",362,508,11,0xffaec1a7);
         if(g.story.enabled&&!g.story.interaction(g).isEmpty()){anchor(0,0);panel(371,281,218,34);center(g.story.interaction(g)+"  [E]",480,303,13,GOLD);}
     }
@@ -391,6 +392,7 @@ public final class Scene {
         button("继续旅程",340,181,280,46,true);button("旅者手册",340,240,280,40,false);
         button(g.sound?"声音：开":"声音：关",340,293,134,40,false);button(g.effectsLevel==0?"特效：柔和":"特效：标准",486,293,134,40,false);button(g.story.enabled&&!g.inTown()?(g.inBody()?"沿血管返回中山大学":"返回中山大学"):"继续探索",340,346,280,40,false);button("返回主界面",340,399,280,40,false);
         center("攻击 "+(int)g.attack+"  ·  移速 "+(int)g.speed+"  ·  击败 "+g.kills,480,474,12,MUTED);
+        center("点击面板外的空白处，或按手机返回键，随时回到旅程",480,492,11,GOLD);
     }
     private void help(){
         if(g.body.enabled||!g.activeRun){bodyHelp();return;}
