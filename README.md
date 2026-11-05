@@ -2,26 +2,37 @@
 
 仓库里现在有两样可以装到手机上的东西：原来的离线像素 RPG，以及手机工作台「天工」。上课模式和离线 Python 写在 [天工使用与安装说明](studio/README.md)。
 
-## 下载天工 0.1.15
+## 下载天工 0.1.17
 
-手机浏览器直接打开链接就会下载，不用先克隆仓库。版本名 **0.1.15**，versionCode **23**。
+手机浏览器直接打开链接就会下载，不用先克隆仓库。版本名 **0.1.17**，versionCode **25**。
 
 - **标准包**，包名 `cn.wuziping.ember`，桌面名「天工」。这是用来换掉手机上已经安装的同包名天工或游戏的那一个。  
-  [Ember-Studio-0.1.15.apk](https://github.com/ohGGBob/WuziPingRPG/raw/main/dist/Ember-Studio-0.1.15.apk)
+  [Ember-Studio-0.1.17.apk](https://github.com/ohGGBob/WuziPingRPG/raw/main/dist/Ember-Studio-0.1.17.apk)
 - **共存包**，包名 `cn.wuziping.ember.preview07`，桌面名「天工 · 试玩」。它和标准包并排安装，数据各存各的。  
-  [Ember-Studio-0.1.15-parallel.apk](https://github.com/ohGGBob/WuziPingRPG/raw/main/dist/Ember-Studio-0.1.15-parallel.apk)
+  [Ember-Studio-0.1.17-parallel.apk](https://github.com/ohGGBob/WuziPingRPG/raw/main/dist/Ember-Studio-0.1.17-parallel.apk)
 
 已经装着 `cn.wuziping.ember` 的选标准包；想留着现有安装、再装一份的选共存包。
 
 标准包和 0.1.13、0.1.14、游戏 0.7.1 用的是同一张开发证书（`CN=WuziPing Development, O=Student Project, C=CN`，SHA-256 `0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca`）。直接覆盖安装，**不要先卸载**。游戏存档 `journey-v1.bin` 和天工工作区都会留着。共存包也是这张证书，可以盖掉已经安装的 `cn.wuziping.ember.preview07`。外部 0.6 是另一张证书，标准包盖不上去。私钥不进入 Git。
 
-### 0.1.15
+### 0.1.17
+
+- **AI 助手**（启动页第六个模式）：对话、模型/接口设置、插话与排队、工具审批卡片、过程折叠、会话导出与回放、分享卡、六套主题、中英切换、网页视图、横屏平板、原创像素小助手；请求走 Android 原生 HTTP 桥，联网默认关闭，Key 只存本机工作区。
+- **设备能力**：授权目录后只读扫描残留文件、逐项确认后整理/清理、写入工作日志草稿、创建/查看/取消定时任务；任务支持开机恢复，**永不执行删除**。
+- **离线执行沙盒**：AI 生成的代码可直接用随包的 Pyodide / JS Worker 在本机运行，结果回灌对话，不需要额外 Linux 运行时。
+- 四位新增居民（程理与三位开发者）的像素形象补齐，`npcs.png` 从 256×128 扩到 256×160；开发者彩蛋对话在梦境存档里也能触发。
+- 发布包 `dist/Ember-Studio-0.1.17.apk` 与 `-parallel.apk` 已打出，与 0.1.13 / 0.1.14 / 0.1.15 同一张开发证书，可直接覆盖安装。
+
+> **⚠️ 清理功能会永久删除文件。** Android 没有统一回收站。实现里第一遍扫描永远只读，删除前必须在应用内二次确认并逐条列出路径，每批最多 10 条，只作用于你主动授权的系统文件目录，删除结果写操作日志；定时任务不会删除任何文件。精确闹钟与开机自启权限需要你在系统设置中手动授予。
+
+### 0.1.15 及更早
+
 
 - 英文朗读：启动页第五个模式。手机用系统 `TextToSpeech`，浏览器里用 `speechSynthesis`。长文按句子分段，可以选英语语音、调节语速，并暂停、继续或停止。
 - 存档修复：格式 6、7 的读取和写入对齐。数学进度、名字和特效能按原样迁过来；格式 6 的物理工坊按未开始处理，格式 7 去掉后来新增的字段后，发射参数回到初始。
 - 记事本涂画：手指能在画布上画出笔画。画布按已经显示出来的图层量尺寸，不再把隐藏时的 0 宽度写进样式。
 
-当前源码版本：游戏 `app/build.gradle` 为 **0.7.1**（versionCode 8），天工 `studio/build.gradle` 为 **0.1.17**（versionCode 25）。仓库里可以直接下载的天工安装包仍是文首的 **0.1.15**（versionCode 23）；0.1.17 还没有打进 `dist/`。游戏 0.7.1 的标准包和共存包仍在 `dist/`。校验和：`dist/SHA256SUMS.txt` 是游戏 0.7.1，`dist/STUDIO-SHA256SUMS.txt` 是天工 0.1.15。`tools/package-source.py` 的目标是 `dist/WuziPingRPG-0.7.0-source.zip`，`tools/package-studio-source.py` 的目标是 `dist/Ember-Studio-0.1.15-source.zip`，这两个压缩包目前都不在仓库里。
+当前源码版本：游戏 `app/build.gradle` 为 **0.7.1**（versionCode 8），天工 `studio/build.gradle` 为 **0.1.17**（versionCode 25）。文首的 **0.1.17**（versionCode 25）安装包已打进 `dist/`，0.1.15 的两个旧包也仍在。游戏 0.7.1 的标准包和共存包仍在 `dist/`。校验和：`dist/SHA256SUMS.txt` 是游戏 0.7.1，`dist/STUDIO-SHA256SUMS.txt` 覆盖天工 0.1.15 与 0.1.17 的四个包。`tools/package-source.py` 的目标是 `dist/WuziPingRPG-0.7.0-source.zip`，`tools/package-studio-source.py` 的目标是 `dist/Ember-Studio-0.1.15-source.zip`，这两个压缩包目前都不在仓库里。
 
 [下载游戏 v0.7.1](dist/WuziPing-Emberbound-0.7.1-debug.apk) · [下载仓库源码 ZIP](https://github.com/ohGGBob/WuziPingRPG/archive/refs/heads/main.zip)
 
@@ -60,7 +71,7 @@
 
 ## 天工
 
-天工是可安装的 Android 工作台，不是 VS Code 移植。界面用 CodeMirror 6，Python 用打进 APK 的 Pyodide 0.27.7 / CPython 3.12.7，运行资源都在包内。启动页用滑动、滚轮、方向键或点按，在五个模式里选一个。
+天工是可安装的 Android 工作台，不是 VS Code 移植。界面用 CodeMirror 6，Python 用打进 APK 的 Pyodide 0.27.7 / CPython 3.12.7，运行资源都在包内。启动页用滑动、滚轮、方向键或点按，在六个模式里选一个。
 
 | 模式 | 打开之后 |
 | --- | --- |
@@ -70,7 +81,7 @@
 | 上课 | 录音、时间戳笔记和 PPT 照片放在同一条时间轴上。点一行笔记，音频跳到当时，并显示对应的 PPT。详见 `studio/README.md` |
 | 英文朗读 | 朗读编辑器里的英文。Android 使用系统 `TextToSpeech`，浏览器里没有这个接口时改用 `speechSynthesis`。长文按句子分段，可以选择已安装的英语语音、调节语速，并暂停、继续或停止 |
 
-上课模式用 WebView 的 `getUserMedia` 和 `MediaRecorder`（webm/opus），单次最长 2 小时。Android 端在第一次录音时申请 `RECORD_AUDIO`。能量 VAD 会自动记语音锚点和沉默锚点，也可以手动「📌 标记锚点」并关联最近一张还没标记的 PPT 照片。照片最长边压到 1024 像素，最多 50 张。0.1.17 源码还可以直接导入 `.pptx`，在页面里逐页画成图片再放进同一照片库；已发布的 0.1.15 安装包还没有这一项。音频、波形、锚点、照片和笔记时间戳写在工作区 JSON 的 `state.lecture` 里。0.1.13 补上了系统选图（`onShowFileChooser`，`image/*`，可多选）和麦克风权限请求的时机。宿主快照上限仍是 32MB。
+上课模式用 WebView 的 `getUserMedia` 和 `MediaRecorder`（webm/opus），单次最长 2 小时。Android 端在第一次录音时申请 `RECORD_AUDIO`。能量 VAD 会自动记语音锚点和沉默锚点，也可以手动「📌 标记锚点」并关联最近一张还没标记的 PPT 照片。照片最长边压到 1024 像素，最多 50 张。0.1.17 源码还可以直接导入 `.pptx`，在页面里逐页画成图片再放进同一照片库；0.1.17 安装包已包含这一项。音频、波形、锚点、照片和笔记时间戳写在工作区 JSON 的 `state.lecture` 里。0.1.13 补上了系统选图（`onShowFileChooser`，`image/*`，可多选）和麦克风权限请求的时机。宿主快照上限仍是 32MB。
 
 英文朗读是启动页上的第五个模式，0.1.15 的两个安装包里都有。手机上由 Android `TextToSpeech` 出声，选择已安装的英语语音，语速在 0.75 到 1.5 倍之间。长文按句子切成小节，可以暂停、继续或停止。同一套页面在浏览器里打开时，改用浏览器的 `speechSynthesis`。新建工作区仍然只有 `main.py`、`geometry.py`、`data.json` 和 `index.html`。进入英文朗读时，如果当时没有可朗读的英文文本，才会创建 `English.txt`；已经存在的工作区文件保持原样。
 
@@ -78,9 +89,9 @@
 
 - 上课录音栏有一枚「翻译」勾选。勾上或取消都会写入课堂会话，并提示「已开启实时翻译」或「已关闭实时翻译」。它只保存这个开关，没有把语音或笔记送去翻译。
 - 普通记事本可以自由涂画：画笔、橡皮、深色 / 棕色 / 蓝色 / 红色 / 绿色、撤销、清空，以及回到文字。笔画放在工作区快照的 `drawStrokes`，按钮只在记事本模式出现。0.1.15 按可见图层测量画布，手指画的笔画会留在画布上。
-- 启动页是深色的，背景用 CSS 动画画了几道下落的流星。已发布的 0.1.15 安装包品牌旁标着 `0.1.15`；当前源码标着 `0.1.17`。
+- 启动页是深色的，背景用 CSS 动画画了几道下落的流星。0.1.17 安装包与源码的品牌旁都标着 `0.1.17`。
 
-构建脚本 `tools/build-studio.ps1`（Linux 用 `tools/build-studio.sh`）现在会写出 `dist/Ember-Studio-0.1.17.apk`，共存包是 `dist/Ember-Studio-0.1.17-parallel.apk`，versionName 0.1.17、versionCode 25。仓库里现有的包仍是 0.1.15；重新构建才会改写 `dist/STUDIO-SHA256SUMS.txt`。
+构建脚本 `tools/build-studio.ps1`（Linux 用 `tools/build-studio.sh`）现在会写出 `dist/Ember-Studio-0.1.17.apk`，共存包是 `dist/Ember-Studio-0.1.17-parallel.apk`，versionName 0.1.17、versionCode 25。0.1.17 的两个包已提交；重新构建会改写 `dist/STUDIO-SHA256SUMS.txt`，需要时记得补回历史版本的校验和。
 
 ## 物理工坊
 
@@ -109,7 +120,7 @@
 - 非体内布局的战斗圆钮可视半径：普攻 45→52，星火斩 34→41，闪避 29→35，药剂 24→30。体内布局的普攻、技能、闪避、药剂和爆发也加大，并挪开全身图。
 - 还没有存档时，标题底部写着：第一次玩？先看「旅者手册」了解操作，再出发。从天工进游戏时，标题右下角改为「按手机返回键，随时回到天工编辑器」。直接打开游戏包时，标题右下角仍写着 `v0.7.0`。
 
-城镇西南有三位开发者，可以交谈，没有任务和奖励：朱华鸿（180, 700）、李梓宁（280, 820）、伍子安（400, 780）。这三位以及翻译开关、记事本绘图、启动页流星、英文朗读和物理 HUD 返回按钮，都在 0.1.15 里。
+城镇西南有三位开发者，可以交谈，没有任务和奖励：朱华鸿（180, 700）、李梓宁（280, 820）、伍子安（400, 780）。这三位以及翻译开关、记事本绘图、启动页流星、英文朗读和物理 HUD 返回按钮，都在 0.1.15 里。四位新增居民（程理与三位开发者）的像素形象由 `tools/generate_town.py` 补画，`npcs.png` 从 256×128 扩到 256×160；0.1.15 及更早的安装包里这四位仍是空白，0.1.17 包里已经能看到。
 
 ## 横屏与窗口适配
 
@@ -209,7 +220,7 @@ Android 30 以上使用 WindowInsetsController 沉浸模式，旧版保留全屏
 
 `artifacts/screenshots-v0.7/` 共 49 张共享 Java2D 渲染预览；39 为扩建东庭，40 为主题选择，41–43 为数学关卡，44 为发现札记，45 为改名，46–49 为挥剑/突刺/挥锤的不同姿态。试玩提交按新按钮重绘过其中若干张。它们是可复现演示状态，不是手机实拍，也没有物理工坊的画面。日志：`artifacts/verification-v0.7.log`、`artifacts/apk-build-v0.7.log`、`artifacts/apk-parallel-build-v0.7.log`。
 
-试玩反馈已经改过暂停菜单和触控尺寸。仓库里的自动检查仍是桌面逻辑和浏览器复测。覆盖升级、帧率、音频、真实麦克风和实际多点触控还没有写进这些记录。当前是可玩的离线原型，尚未加入 AI 自动生成关卡、医学知识判分、器官重复挑战或联机。新横屏布局需要在用户手机上复核。
+试玩反馈已经改过暂停菜单和触控尺寸。仓库里的自动检查仍是桌面逻辑和浏览器复测。覆盖升级、帧率、音频、真实麦克风和实际多点触控还没有写进这些记录。当前是可玩的离线原型，尚未加入 AI 自动生成关卡、医学知识判分、器官重复挑战或联机。天工侧的 AI 助手见上文，它是编辑器工作台能力，不改动游戏本体。新横屏布局需要在用户手机上复核。
 
 ## 构建与素材
 
@@ -224,7 +235,7 @@ python .\tools\package-source.py
 
 Linux 上 `tools/verify-desktop.sh` 对应桌面检查。`tools/build-apk.sh` 的步骤相同，但版本戳还停在 0.7.0 / versionCode 7，输出文件名是 `WuziPing-Emberbound-0.7.0-*.apk`，并会用这些文件重写 `dist/SHA256SUMS.txt`。要得到 0.7.1，用上面的 PowerShell 脚本。可用 `SDK_ROOT` / `JDK_ROOT` 指定工具目录。
 
-天工用 `tools/build-studio.ps1`，Linux 上用 `tools/build-studio.sh`。源码版本戳是 0.1.17 / versionCode 25，重新构建会输出 `dist/Ember-Studio-0.1.17.apk` 和 `dist/Ember-Studio-0.1.17-parallel.apk`。仓库里已经提交的安装包仍是 0.1.15。前端和检查步骤见 `studio/README.md` 的构建一节。
+天工用 `tools/build-studio.ps1`，Linux 上用 `tools/build-studio.sh`。源码版本戳是 0.1.17 / versionCode 25，重新构建会输出 `dist/Ember-Studio-0.1.17.apk` 和 `dist/Ember-Studio-0.1.17-parallel.apk`。仓库里已提交 0.1.17 标准包与共存包，0.1.15 的旧包也保留。前端和检查步骤见 `studio/README.md` 的构建一节。
 
 可用 `-SdkRoot` / `-JdkRoot` 指定工具目录。打包复用 `build/manual/debug.keystore`，源码包排除签名私钥、缓存和本地存档。用于真实发布前应配置专门的发布签名。
 

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"><meta name="theme-color" content="#ffffff"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 23V9h4v5.4L17.2 9h5.2l-5.8 6.1L23 23h-5.2l-3.7-5.4L12 19.4V23z' fill='white'/%3E%3C/svg%3E"><meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'"><title>天工</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lecture.css"><link rel="stylesheet" href="tts.css"></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"><meta name="theme-color" content="#ffffff"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 23V9h4v5.4L17.2 9h5.2l-5.8 6.1L23 23h-5.2l-3.7-5.4L12 19.4V23z' fill='white'/%3E%3C/svg%3E"><meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'"><title>天工</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lecture.css"><link rel="stylesheet" href="tts.css"><link rel="stylesheet" href="ai.css"></head>
 <body>
 <section id="landing" class="landing" aria-label="选择今天要做的事" data-mode="python" data-ready="0">
 <div class="landing-top"><span class="landing-brand"><span class="brandspark" aria-hidden="true">✦</span><strong>天工</strong><span class="brandsub">随身工作台</span><span class="brandver">0.1.17</span></span><button id="landingBack" class="landing-back" hidden>返回</button></div>
@@ -12,7 +12,7 @@
 </div>
 <div class="landing-pick">
 <div class="pick-card">
-<div class="pick-head"><span>选择今天的状态</span><span id="modeIndex" class="mode-index" aria-hidden="true">01 / 05</span></div>
+<div class="pick-head"><span>选择今天的状态</span><span id="modeIndex" class="mode-index" aria-hidden="true">01 / 06</span></div>
 <div class="wheel-wrap">
 <div class="wheel-frame" aria-hidden="true"></div>
 <div id="modeWheel" class="wheel" role="listbox" aria-label="选择今天的模式" tabindex="0">
@@ -21,6 +21,7 @@
 <button class="wheel-item" data-mode="game" role="option" aria-selected="false"><span class="wheel-icon">✦</span><span class="wheel-text"><strong>游戏</strong><small>伍子平 · 星火远征</small></span></button>
 <button class="wheel-item" data-mode="lecture" role="option" aria-selected="false"><span class="wheel-icon">🎙</span><span class="wheel-text"><strong>上课</strong><small>录音 · 笔记 · 时间轴</small></span></button>
 <button class="wheel-item" data-mode="tts" role="option" aria-selected="false"><span class="wheel-icon">EN</span><span class="wheel-text"><strong>英文朗读</strong><small>标准英语 · 长文分段</small></span></button>
+<button class="wheel-item" data-mode="ai" role="option" aria-selected="false"><span class="wheel-icon">✧</span><span class="wheel-text"><strong>AI 助手</strong><small>对话 · 工具审批 · 本机运行</small></span></button>
 </div>
 </div>
 <button id="enterMode" class="landing-enter" disabled><span id="enterModeLabel">正在点亮工作台…</span><span class="enter-arrow" aria-hidden="true">→</span></button>
@@ -69,6 +70,52 @@
 <div class="quickkeys" aria-label="编程快捷输入"><button data-key="tab">Tab</button><button data-key="undo" aria-label="撤销">↶</button><button data-key="redo" aria-label="重做">↷</button><button data-insert="(" data-pair=")">( )</button><button data-insert="[" data-pair="]">[ ]</button><button data-insert="{" data-pair="}">{ }</button><button data-insert=":">:</button><button data-insert="=">=</button><button data-insert="'">'</button><button data-insert="&quot;">"</button><button data-insert=",">,</button><button data-insert=".">.</button><button data-insert="#">#</button><button data-insert="    " aria-label="四空格缩进">␣␣</button><button data-key="left" aria-label="左移">←</button><button data-key="right" aria-label="右移">→</button><button data-key="newline" aria-label="换行">↵</button></div>
 <footer class="statusbar"><span id="saveState">草稿已保存</span><span id="position">第 1 行，第 1 列</span><span id="noteCount"></span><span class="grow"></span><span id="language">Python</span><span id="encoding">UTF-8</span></footer>
 <section id="lounge" hidden><div class="loungehead"><button id="codeTab">← 返回编辑器</button></div><article class="gamecard"><div class="gameart"><img src="../studio-game.png" alt="星火远征像素游戏场景"><span class="gamebadge">离线单机 · 进度保留</span></div><div class="gameinfo"><small>伍子平 · 星火远征</small><h2>从中山大学出发</h2><p>走进体内八境，或去数学星庭走一回机关。原来的游戏存档还在。</p><button id="playGame" class="primary playcta">进入游戏</button><p class="savehint" id="gameSaveInfo">进度自动保存。游戏里按返回键可回到这里。</p></div></article><div class="backuprow"><button id="exportGame">备份存档</button><button id="importGame">导入存档</button></div></section>
+
+<section id="aiPanel" hidden aria-label="AI 助手">
+<aside class="ai-side">
+ <div class="ai-section"><h3 id="aiSettingsTitle">连接与外观</h3>
+  <label class="ai-field"><input id="aiEnabled" type="checkbox"><span id="aiEnableLabel">开启联网</span></label>
+  <label class="ai-field">接口地址<input id="aiBaseUrl" type="url" autocomplete="off" spellcheck="false"></label>
+  <label class="ai-field">API Key<input id="aiApiKey" type="password" autocomplete="off"></label>
+  <label class="ai-field">模型<input id="aiModel" list="aiModels" autocomplete="off"><datalist id="aiModels"><option value="deepseek-chat"><option value="deepseek-reasoner"><option value="deepseek-coder"></datalist></label>
+  <label class="ai-field">温度<input id="aiTemperature" type="number" min="0" max="2" step="0.1"></label>
+  <label class="ai-field"><input id="aiRemote" type="checkbox"><span>连接电脑上的服务</span></label>
+  <label class="ai-field">电脑服务地址<input id="aiRemoteUrl" type="url" autocomplete="off" spellcheck="false" placeholder="http://192.168.1.10:8080/v1/chat/completions"></label>
+  <label class="ai-field"><input id="aiAutoApprove" type="checkbox"><span>自动批准只读工具</span></label>
+  <label class="ai-field">系统提示<textarea id="aiSystem"></textarea></label>
+ </div>
+ <div class="ai-section"><h3 id="aiQuickTitle">快捷指令</h3><div class="ai-quick" id="aiQuick">
+  <button data-quick="explain" type="button">解释当前代码</button><button data-quick="generate" type="button">生成代码</button>
+  <button data-quick="run" type="button">运行当前文件</button><button data-quick="summarize" type="button">总结会话</button>
+ </div></div>
+</aside>
+<div class="ai-main">
+ <header class="ai-head"><h2 id="aiTitle">AI 助手</h2><span class="ai-status" id="aiStatus">联网未开启</span><span class="grow"></span>
+  <select id="aiLang" aria-label="语言"><option value="zh">中文</option><option value="en">English</option></select>
+  <select id="aiTheme" aria-label="主题"><option value="jade">青绿</option><option value="ink">墨蓝</option><option value="amber">琥珀</option><option value="rose">胭脂</option><option value="ocean">湖蓝</option><option value="violet">紫藤</option></select>
+  <select id="aiView" aria-label="视图"><option value="chat">对话</option><option value="web">网页</option></select>
+  <button id="aiNewSession" type="button">新会话</button><button id="aiExport" type="button">导出会话</button>
+  <button id="aiImport" type="button">导入回放</button><button id="aiShare" type="button">分享卡</button>
+ </header>
+ <div class="ai-gate" id="aiGate"><p id="aiGateText">AI 助手默认不联网。开启后，请求只发往你填写的服务，密钥仅保存在本机工作区。</p><button id="aiGateBtn" type="button">我了解，开启联网</button></div>
+ <p class="ai-status-hint" id="aiStatusHint">把内容写进编辑器或文件前，需要你点「允许」。</p>
+ <div class="ai-messages" id="aiMessages" role="log" aria-live="polite"></div>
+ <div class="ai-queue" id="aiQueue" hidden><strong id="aiQueueLabel">插话队列</strong><ul id="aiQueueList"></ul><button id="aiFlushQueue" type="button">立即发送</button></div>
+ <form class="ai-composer" id="aiComposer" onsubmit="return false">
+  <textarea id="aiInput" placeholder="问点什么，或让我帮你改代码…"></textarea>
+  <button id="aiAttach" type="button">添加图片</button><input id="aiAttachInput" type="file" accept="image/*" hidden>
+  <button id="aiVoice" type="button">语音输入</button>
+  <button class="ai-send" id="aiSend" type="submit">发送</button><button id="aiStop" type="button">停止</button>
+ </form>
+</div>
+<aside class="ai-tools">
+ <div class="ai-pet" id="aiPet" data-state="off"><div class="head"></div><div class="body"></div></div>
+ <div class="ai-pet-note" id="aiPetNote">小助手</div>
+ <div class="ai-section"><h3 id="aiToolsTitle">工具卡</h3><button id="aiAuthorize" type="button">授权手机目录</button><p class="ai-status-hint">AI 请求读写文件、运行代码或插入编辑器时，会先生成一张卡片等你确认。</p></div>
+</aside>
+</section>
+<dialog id="aiShareDialog" class="ai-dialog"><h2 id="aiShareTitle">天工 · AI 助手对话</h2><canvas id="aiShareCanvas" width="720" height="520"></canvas><div class="ai-dialog-actions"><button id="aiCloseShare" type="button">关闭</button></div></dialog>
+<dialog id="aiSessionDialog" class="ai-dialog"><h2 id="aiSessionTitle">会话回放</h2><textarea id="aiSessionText" spellcheck="false"></textarea><div class="ai-dialog-actions"><button id="aiCopy" type="button">复制会话</button><button id="aiLoad" type="button">载入会话文本</button><button id="aiCloseSession" type="button">关闭</button></div></dialog>
 <div id="toast" role="status" hidden></div>
 <dialog id="anchorDialog"><form method="dialog"><span class="eyebrow">锚点</span><h2>编辑锚点</h2><label for="anchorLabel">标签</label><input id="anchorLabel" autocomplete="off" maxlength="40" placeholder="例如：讲到第 3 页"><label for="anchorTime">时间（秒，可写 1:23）</label><input id="anchorTime" inputmode="decimal" autocomplete="off" placeholder="0.0"><p class="hint" id="anchorSlide">未关联 PPT 照片。</p><div class="dialogactions"><button id="anchorDelete" value="delete">删除</button><button value="cancel">取消</button><button id="anchorSave" value="save" class="primary">保存</button></div></form></dialog>
 <dialog id="slideDialog"><form method="dialog"><span class="eyebrow">PPT</span><h2 id="slideTitle">照片预览</h2><img id="slideImage" alt="PPT 照片预览"><div class="dialogactions"><button value="cancel">关闭</button><button id="slideSeek" value="seek" class="primary">跳到此页开始</button></div></form></dialog>

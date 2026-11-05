@@ -13,8 +13,8 @@ jdk = Path(os.environ.get('JDK_ROOT') or os.environ.get('JAVA_HOME') or r'C:\Pro
 bt = sdk / 'build-tools/34.0.0'
 out = root / 'artifacts/studio-v0.1'
 out.mkdir(parents=True, exist_ok=True)
-VERSION_NAME = '0.1.15'
-VERSION_CODE = '23'
+VERSION_NAME = '0.1.17'
+VERSION_CODE = '25'
 # Certificate of dist Ember Studio 0.1.13 / game 0.7.1. An in-place upgrade needs this key.
 ORIGINAL_CERT = '0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca'
 
@@ -53,7 +53,10 @@ info = json.loads((root / 'studio/src/main/assets/studio/runtime/pyodide-lock.js
 assert info['version'] == '0.27.7' and info['python'] == '3.12.7'
 for line in (root / 'studio/src/main/assets/studio/runtime/SHA256SUMS.txt').read_text().splitlines():
     digest, name = line.split()
-    assert hashlib.sha256((root / 'studio/src/main/assets/studio/runtime' / name).read_bytes()).hexdigest() == digest, name
+    raw = (root / 'studio/src/main/assets/studio/runtime' / name).read_bytes()
+    # Windows checkouts may use CRLF while the manifest was generated from LF sources.
+    normalized = raw.replace(b'\r\n', b'\n')
+    assert digest in (hashlib.sha256(raw).hexdigest(), hashlib.sha256(normalized).hexdigest()), name
 report = {
     'version': VERSION_NAME,
     'version_code': int(VERSION_CODE),
@@ -72,8 +75,8 @@ report = {
 }
 dexes = []
 variants = [
-    ('Ember-Studio-0.1.15.apk', 'cn.wuziping.ember', '天工', 'WuziPing-Emberbound-0.7.1-debug.apk'),
-    ('Ember-Studio-0.1.15-parallel.apk', 'cn.wuziping.ember.preview07', '天工 · 试玩', 'WuziPing-Emberbound-0.7.1-parallel-debug.apk'),
+    ('Ember-Studio-0.1.17.apk', 'cn.wuziping.ember', '天工', 'WuziPing-Emberbound-0.7.1-debug.apk'),
+    ('Ember-Studio-0.1.17-parallel.apk', 'cn.wuziping.ember.preview07', '天工 · 试玩', 'WuziPing-Emberbound-0.7.1-parallel-debug.apk'),
 ]
 for filename, package, label, old_name in variants:
     path = root / 'dist' / filename
@@ -82,7 +85,7 @@ for filename, package, label, old_name in variants:
         raw = [entry.orig_filename for entry in z.infolist()]
         bad = [name for name in raw if '\\' in name]
         assert not bad, 'APK entry names contain backslashes: %r' % bad[:5]
-        assert 'assets/studio/style.css' in raw and 'assets/studio/app.js' in raw and 'assets/studio/lecture.css' in raw and 'assets/audio/boss.wav' in raw
+        assert 'assets/studio/style.css' in raw and 'assets/studio/app.js' in raw and 'assets/studio/lecture.css' in raw and 'assets/studio/ai.css' in raw and 'assets/audio/boss.wav' in raw
         index_html = z.read('assets/studio/index.html')
         bundle = z.read('assets/studio/app.js')
         lecture_css = z.read('assets/studio/lecture.css')
@@ -92,7 +95,7 @@ for filename, package, label, old_name in variants:
             'data-mode="lecture"' in page,
             'id="lectureBar"' in page and 'id="recordBtn"' in page,
             'id="timelineCanvas"' in page and 'id="anchorList"' in page and 'id="slideList"' in page,
-            '01 / 05' in page,
+            '01 / 06' in page,
             notes_marker,
             b'audio/webm;codecs=opus' in bundle,
             b'cm-note-time' in bundle and b'cm-note-playing' in bundle,
@@ -103,16 +106,19 @@ for filename, package, label, old_name in variants:
         assert all(lecture_checks), 'Lecture mode assets incomplete: %r' % [i for i, ok in enumerate(lecture_checks) if not ok]
         feature_checks = [
             'data-mode="tts"' in page and 'id="ttsBar"' in page,
-            'class="brandver">0.1.15' in page,
+            'class="brandver">0.1.17' in page,
             b'speechSynthesis' in bundle or b'TextToSpeech' in bundle,
             b'drawStrokes' in bundle and b'drawCanvas' in bundle,
             b'pointerdown' in bundle and b'touchstart' in bundle and b'pointercancel' in bundle,
             b'clientWidth' in bundle and b'style' in bundle,
+            'data-mode="ai"' in page and 'id="aiPanel"' in page and 'id="aiShareCanvas"' in page,
+            b'aiRequest' in bundle and b'aiToolResult' in bundle,
+            b'scanFiles' in bundle and b'deleteFiles' in bundle and b'scheduleTask' in bundle,
         ]
-        assert all(feature_checks), '0.1.15 read-aloud or drawing bundle incomplete: %r' % [i for i, ok in enumerate(feature_checks) if not ok]
+        assert all(feature_checks), '0.1.17 read-aloud, drawing or assistant bundle incomplete: %r' % [i for i, ok in enumerate(feature_checks) if not ok]
         dex = z.read('classes.dex')
         dexes.append(dex)
-        for cls in ['Lcn/wuziping/studio/EditorActivity;', 'Lcn/wuziping/studio/PreviewActivity;', 'Lcn/wuziping/studio/AssetServer;', 'Lcn/wuziping/ember/MainActivity;', 'Lcn/wuziping/ember/Game;', 'Lcn/wuziping/ember/MathJourney;']:
+        for cls in ['Lcn/wuziping/studio/AssistantTools;', 'Lcn/wuziping/studio/AssistantAlarmReceiver;', 'Lcn/wuziping/studio/EditorActivity;', 'Lcn/wuziping/studio/PreviewActivity;', 'Lcn/wuziping/studio/AssetServer;', 'Lcn/wuziping/ember/MainActivity;', 'Lcn/wuziping/ember/Game;', 'Lcn/wuziping/ember/MathJourney;']:
             assert cls.encode() in dex, cls
         assert b'onPermissionRequest' in dex and b'RECORD_AUDIO' in dex, 'Lecture recording permission flow missing from dex'
         assert b'Landroid/speech/tts/TextToSpeech;' in dex, 'English read-aloud engine missing from dex'
@@ -137,7 +143,8 @@ for filename, package, label, old_name in variants:
     assert "application-label:'" + label + "'" in meta
     assert "launchable-activity: name='cn.wuziping.studio.EditorActivity'" in meta
     permissions = re.findall(r"uses-permission: name='([^']+)'", meta)
-    assert permissions == ['android.permission.INTERNET', 'android.permission.RECORD_AUDIO'], permissions
+    assert permissions == ['android.permission.INTERNET', 'android.permission.RECORD_AUDIO',
+                           'android.permission.RECEIVE_BOOT_COMPLETED', 'android.permission.SCHEDULE_EXACT_ALARM'], permissions
     manifest = command(aapt, 'dump', 'xmltree', path, 'AndroidManifest.xml')
     assert 'cn.wuziping.ember.MainActivity' in manifest and 'cn.wuziping.studio.PreviewActivity' in manifest
     report['apks'].append({

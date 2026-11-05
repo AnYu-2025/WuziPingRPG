@@ -24,7 +24,7 @@ public final class EditorActivity extends Activity {
     private WebView web;private AssetServer assets;private PackedAssets packed;private AtomicFile workspace,gameSave;
     private TextToSpeech tts;private boolean ttsReady=false,ttsInitializing=false,ttsRangeSeen=false;private String ttsError="",ttsCurrentId="";private int ttsCharIndex=0,ttsCurrentLength=0;
     private final ExecutorService io=Executors.newSingleThreadExecutor();private JSONObject pendingExport;private boolean pickerOpen=false,workspaceReadOnly=false;
-    private static final int OPEN=30,FOLDER=31,EXPORT=32,GAME_OUT=33,GAME_IN=34,MIC=35,SLIDE=36,SLIDES=37,PPTX=38;
+    private static final int OPEN=30,FOLDER=31,EXPORT=32,GAME_OUT=33,GAME_IN=34,MIC=35,SLIDE=36,SLIDES=37,PPTX=38,TREE=39;
     private static final String SLIDE_PREFIX="slide-cache/";
     private File slideCache;
     private android.webkit.PermissionRequest pendingMicRequest;
@@ -36,10 +36,13 @@ public final class EditorActivity extends Activity {
     private static int rendererRecoveries=0;
     private final Runnable bootWatchdog=new Runnable(){@Override public void run(){if(!bootOk&&web!=null){lastPageError="启动超时（"+sourceName()+"）";escalateTransport();}}};
     private final Set<String> trustedUris=Collections.synchronizedSet(new HashSet<String>());
+    private AssistantTools assistant;
     @Override public void onCreate(Bundle state){super.onCreate(state);try{getWindow().setStatusBarColor(0xffffffff);getWindow().setNavigationBarColor(android.os.Build.VERSION.SDK_INT>=26?0xffffffff:0xff1f2937);getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         int light=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;if(android.os.Build.VERSION.SDK_INT>=26)light|=View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;getWindow().getDecorView().setSystemUiVisibility(light);
         workspace=new AtomicFile(new File(getFilesDir(),"studio-workspace-v1.json"));gameSave=new AtomicFile(new File(getFilesDir(),"journey-v1.bin"));trustedUris.addAll(getPreferences(0).getStringSet("trustedUris",new HashSet<String>()));
         packed=new PackedAssets(this);slideCache=new File(getCacheDir(),"slide-cache");clearSlideCache();
+        assistant=new AssistantTools(this,io,new AssistantTools.Emit(){@Override public void emit(JSONObject o){event(o);}});
+        assistant.restoreAlarms();
         try{assets=new AssetServer(this::openAsset,false);}catch(IOException e){fatal("离线资源未能启动："+e.getMessage());return;}
         try{web=new WebView(this);}catch(RuntimeException e){fatal("系统 WebView 不可用，编辑器无法打开。请在系统设置中启用或更新 Android System WebView 后重试。");return;}
         web.setBackgroundColor(0xffffffff);web.setFocusable(true);web.setFocusableInTouchMode(true);web.setOverScrollMode(View.OVER_SCROLL_NEVER);WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setCacheMode(WebSettings.LOAD_NO_CACHE);settings.setUseWideViewPort(true);settings.setLoadWithOverviewMode(false);settings.setSupportZoom(false);settings.setTextZoom(100);settings.setDefaultTextEncodingName("UTF-8");settings.setMediaPlaybackRequiresUserGesture(true);settings.setSupportMultipleWindows(false);if(android.os.Build.VERSION.SDK_INT>=33)settings.setAlgorithmicDarkeningAllowed(false);else if(android.os.Build.VERSION.SDK_INT>=29)settings.setForceDark(WebSettings.FORCE_DARK_OFF);if(android.os.Build.VERSION.SDK_INT>=26)settings.setSafeBrowsingEnabled(false);
@@ -327,6 +330,10 @@ public final class EditorActivity extends Activity {
     private void handle(JSONObject m)throws Exception{
         String type=m.optString("type");
         if(type.equals("ready")){deliverRestore();return;}
+        if(type.equals("aiRequest")){assistant.aiRequest(m);return;}
+        if(type.equals("aiCancel")){assistant.aiCancel(m.optString("id",""));return;}
+        if(type.equals("aiTool")){assistant.tool(m);return;}
+        if(type.equals("aiTree")){pick(TREE,new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION));return;}
         if(type.equals("jsError")){lastJsError=m.optString("kind")+": "+m.optString("detail");android.util.Log.e("EmberStudio",lastJsError);return;}
         if(type.equals("ttsStatus")){requestTtsStatus();return;}
         if(type.equals("ttsSpeak")){speakTts(m);return;}
@@ -524,6 +531,7 @@ public final class EditorActivity extends Activity {
     @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);pickerOpen=false;if(result!=RESULT_OK||data==null){if(request==EXPORT&&pendingExport!=null){JSONObject o=message("saved");put(o,"id",pendingExport.optString("id"));put(o,"ok",false);put(o,"message","已取消导出，草稿仍保留。");event(o);pendingExport=null;}if(request==SLIDE&&pendingSlideChooser!=null){resolveSlideChooser(null);}return;}
         if(request==OPEN){final ArrayList<Uri> uris=new ArrayList<>();if(data.getClipData()!=null){ClipData clips=data.getClipData();for(int i=0;i<Math.min(160,clips.getItemCount());i++)uris.add(clips.getItemAt(i).getUri());}else if(data.getData()!=null)uris.add(data.getData());for(Uri uri:uris){persistGrant(uri,data.getFlags());trust(uri);}io.execute(()->importUris(uris));}
         else if(request==FOLDER&&data.getData()!=null){Uri uri=data.getData();persistGrant(uri,data.getFlags());io.execute(()->importTree(uri));}
+        else if(request==TREE&&data.getData()!=null){assistant.saveTree(data.getData(),data.getFlags());notice("目录已授权。AI 可以先做只读扫描，再由你逐项确认整理或清理。");}
         else if(request==EXPORT&&pendingExport!=null&&data.getData()!=null){Uri uri=data.getData();persistGrant(uri,data.getFlags());trust(uri);JSONObject payload=pendingExport;pendingExport=null;writeDocument(payload,uri,true);}
         else if(request==GAME_OUT&&data.getData()!=null){Uri uri=data.getData();io.execute(()->{try(InputStream in=gameSave.openRead();OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException("文件无法写入");byte[] b=TextFiles.read(in,8*1024*1024);out.write(b);notice("游戏存档已导出，请妥善保留。");}catch(Exception e){notice("备份失败："+e.getMessage());}});}
         else if(request==GAME_IN&&data.getData()!=null){Uri uri=data.getData();io.execute(()->{try(InputStream in=getContentResolver().openInputStream(uri)){byte[] bytes=TextFiles.read(in,8*1024*1024);Game g=Game.load(new ByteArrayInputStream(bytes));runOnUiThread(()->new AlertDialog.Builder(this).setTitle("导入游戏存档？").setMessage("存档角色："+g.heroName+"\n等级："+g.level+"\n会替换当前游戏进度，替换前保留一份本地备份。").setNegativeButton("取消",null).setPositiveButton("导入",(d,w)->io.execute(()->{try{backupGame();atomic(gameSave,bytes);notice("游戏存档已导入。");}catch(Exception e){notice("导入失败："+e.getMessage());}})).show());}catch(Exception e){notice("这不是可用的游戏存档："+e.getMessage());}});}

@@ -1,15 +1,15 @@
 # 天工
 
-一个可安装的 Android 手机工作台原型：启动时用选择器（滑动、鼠标滚轮、方向键或点按）选择「写 Python」「普通记事本」「游戏」「上课」或「英文朗读」，Python 离线运行，游戏区保留《伍子平 · 星火远征》0.7。不是微软 VS Code 的移植，界面使用 CodeMirror 6，Python 使用随 APK 打包的 Pyodide 0.27.7 / CPython 3.12.7。启动页品牌旁标着当前版本。
+一个可安装的 Android 手机工作台原型：启动时用选择器（滑动、鼠标滚轮、方向键或点按）选择「写 Python」「普通记事本」「游戏」「上课」「英文朗读」或「AI 助手」，Python 离线运行，游戏区保留《伍子平 · 星火远征》0.7。不是微软 VS Code 的移植，界面使用 CodeMirror 6，Python 使用随 APK 打包的 Pyodide 0.27.7 / CPython 3.12.7。启动页品牌旁标着当前版本。
 
-## 下载 0.1.15
+## 下载 0.1.17
 
-手机浏览器打开下面的链接就会下载。版本名 **0.1.15**，versionCode **23**。
+手机浏览器打开下面的链接就会下载。版本名 **0.1.17**，versionCode **25**。
 
 - **标准包** `cn.wuziping.ember`，桌面名「天工」。用来替换手机上同包名的安装。  
-  [Ember-Studio-0.1.15.apk](https://github.com/ohGGBob/WuziPingRPG/raw/main/dist/Ember-Studio-0.1.15.apk)
+  [Ember-Studio-0.1.17.apk](https://github.com/ohGGBob/WuziPingRPG/raw/main/dist/Ember-Studio-0.1.17.apk)
 - **共存包** `cn.wuziping.ember.preview07`，桌面名「天工 · 试玩」。和标准包并排安装。  
-  [Ember-Studio-0.1.15-parallel.apk](https://github.com/ohGGBob/WuziPingRPG/raw/main/dist/Ember-Studio-0.1.15-parallel.apk)
+  [Ember-Studio-0.1.17-parallel.apk](https://github.com/ohGGBob/WuziPingRPG/raw/main/dist/Ember-Studio-0.1.17-parallel.apk)
 
 已经装着标准包名的选第一个；想保留现有安装再装一份的选第二个。
 
@@ -20,6 +20,28 @@
 - 英文朗读：启动页第五个模式。Android 使用 `TextToSpeech`，浏览器使用 `speechSynthesis`。
 - 存档修复：格式 6、7 按写入顺序读取，数学进度、名字和特效可以迁过来。
 - 记事本涂画：按可见图层测量画布，手指笔画能留在画面上，并写进工作区的 `drawStrokes`。
+
+## AI 助手（第六个模式）
+
+联网**默认关闭**。开启后填写 DeepSeek 兼容接口地址、API Key 与模型，请求由 Android 原生 HTTP 桥发出（WebView 的 CSP 禁止外部 `connect`），密钥只保存在工作区 `state.ai`，不写日志。浏览器预览不能访问外部服务，会明确提示在 APK 中使用。
+
+界面与能力：流式对话、模型/温度/系统提示设置、生成中插话排队与「立即发送」、工具过程折叠、会话导出与回放、Canvas 分享卡、六套主题、中英切换、对话/网页双视图、横屏平板布局，以及一只随状态变化的原创像素小助手。
+
+工具卡协议是本项目自研的：AI 在回复里输出 ` ```tool ` 代码块，页面渲染成卡片等你点「允许」。只读工具（读文件、列文件、离线运行代码）可设为自动批准；写工具（插入编辑器、写工作区文件）必须人工确认。
+
+设备工具卡（0.1.17 新增）：
+
+| 工具 | 行为 |
+| --- | --- |
+| `authorizeTree` / `scanFiles` | 用系统文件选择器授权目录；**只读**枚举，输出路径、大小、修改时间与判定理由 |
+| `organizeFiles` | 按确认后的方案重命名，每批最多 10 项 |
+| `deleteFiles` | **永久删除**，见下方红线 |
+| `writeWorkLog` | 把 AI 整理出的摘要写入工作日志草稿 |
+| `scheduleTask` / `listTasks` / `cancelTask` | 创建提醒、定时日志、定时扫描报告；支持开机恢复 |
+
+**⚠️ 删除不可逆。** Android 没有统一回收站。第一遍扫描永远只读；删除前必须在应用内二次确认并逐条列出路径，每批 ≤10，只作用于你主动授权的系统目录，删除结果写入操作日志。定时任务**永不执行删除**。开机自启与精确闹钟权限（`RECEIVE_BOOT_COMPLETED` / `SCHEDULE_EXACT_ALARM`）由你在系统设置里手动授予，厂商省电策略仍可能拦截后台触发。
+
+离线执行沙盒复用随包 Pyodide / JS Worker：AI 生成的代码在本机跑完，输出回灌对话，不需要 1GB 的 Linux 运行时，也不需要额外权限。
 
 ## 上课模式（录音 · 笔记 · 时间轴）
 

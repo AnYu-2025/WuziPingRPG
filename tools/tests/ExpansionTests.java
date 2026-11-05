@@ -51,6 +51,32 @@ public final class ExpansionTests {
         g=field();g.body.organ=4;g.wave=5;g.body.cured=31;g.body.ending=true;g.story.battleWon=true;g.guest.discovered=true;g.guest.stage=2;g.gold=387;g.maxHp=165;g.hp=165;
         restored=Game.load(new ByteArrayInputStream(LegacySaves.snapshot(g,4)));check(restored.body.cured==31&&!restored.body.ending&&!restored.story.battleWon&&restored.gold==387&&restored.guest.stage==2&&restored.maxHp==165,"Completed v4 migration keeps old rewards and friend while opening expansion");restored.body.enter(restored);check(restored.body.organ==5&&restored.wave==6,"Migrated completed game can enter heart expansion without restarting");
         g=field();Controls controls=new Controls();controls.key(g,"B",true);check(g.mode==Arsenal.MENU,"B opens paused armory");controls.back(g);controls.key(g,"Q",true);check(g.arsenal.selected==1,"Q cycles to another owned combat archetype");
+        // Every resident, including the hidden developer cameos, needs four real frames in the shared atlas.
+        java.awt.image.BufferedImage atlas=null;
+        try{
+            java.net.URL loc=ExpansionTests.class.getProtectionDomain().getCodeSource().getLocation();
+            java.io.File candidate=new java.io.File(new java.io.File(loc.toURI()).getParentFile().getParentFile(),"app/src/main/assets/npcs.png");
+            if(!candidate.isFile())candidate=new java.io.File("app/src/main/assets/npcs.png");
+            atlas=javax.imageio.ImageIO.read(candidate);
+        }catch(Exception ignored){}
+        boolean artOk=atlas!=null;
+        if(artOk)for(Town.Npc npc:Town.NPCS){
+            for(int frame=0;frame<4;frame++){
+                int slot=npc.sprite*4+frame,sx=(slot%8)*32,sy=(slot/8)*32;
+                if(sx+32>atlas.getWidth()||sy+32>atlas.getHeight()){artOk=false;break;}
+                int opaque=0;
+                for(int yy=sy;yy<sy+32;yy++)for(int xx=sx;xx<sx+32;xx++)if((atlas.getRGB(xx,yy)>>>24)>0)opaque++;
+                if(opaque<40){artOk=false;break;}
+            }
+            if(!artOk)break;
+        }
+        check(artOk,"NPC atlas covers all "+Town.NPCS.length+" residents with four non-empty frames each");
+        boolean cameos=true;
+        for(int id=7;id<=9;id++){
+            Game t=new Game();t.startDream();t.story.dialogue=null;t.mode=Game.PLAY;t.x=Town.NPCS[id].x;t.y=Town.NPCS[id].y;
+            if(!t.story.talk(t,id)||t.story.dialogue==null||!Arrays.toString(t.story.dialogue.pages).contains(Town.NPCS[id].name))cameos=false;
+        }
+        check(cameos,"All three developer cameos are talkable in a dream save");
         System.out.println("ALL "+count+" EXPANSION CHECKS PASSED");
     }
 }

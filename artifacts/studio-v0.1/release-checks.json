@@ -1,6 +1,6 @@
 {
-  "version": "0.1.15",
-  "version_code": 23,
+  "version": "0.1.17",
+  "version_code": 25,
   "python": "3.12.7",
   "pyodide": "0.27.7",
   "game_checks": 357,
@@ -14,32 +14,32 @@
   "original_certificate_sha256": "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca",
   "apks": [
     {
-      "file": "Ember-Studio-0.1.15.apk",
+      "file": "Ember-Studio-0.1.17.apk",
       "package": "cn.wuziping.ember",
-      "bytes": 15932922,
-      "sha256": "55bcebbbb3fbb9546277f7c9252059118b89107b1b6a975c46faf7e838689755",
+      "bytes": 16126599,
+      "sha256": "3325d53bc46e45280f39b37d230158216e1ccd0418af9846c296e24d82ca5e7a",
       "certificate_sha256": "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca",
       "upgrade_identity_matches": "WuziPing-Emberbound-0.7.1-debug.apk",
-      "asset_count_verified": 83,
-      "dex_sha256": "91de13edc85477f431bf1e581683b405aa7c76a68d5cc8df9a61901d0688e26f",
+      "asset_count_verified": 96,
+      "dex_sha256": "bf518686163e78512761e47287b98b49efeafcc5393f97bf858d1425b925391c",
       "signature_v2_valid": true,
       "zip_crc_valid": true,
       "alignment_valid": true
     },
     {
-      "file": "Ember-Studio-0.1.15-parallel.apk",
+      "file": "Ember-Studio-0.1.17-parallel.apk",
       "package": "cn.wuziping.ember.preview07",
-      "bytes": 15928826,
-      "sha256": "d323069ff9ceb42e9a8042b3f2e85ec83f43cb097db1fa10221adf32708d9b61",
+      "bytes": 16126599,
+      "sha256": "726f6889e95bd19efead45274371d8c2efb8bfdd2ab6cd0da2b04eea2ee67885",
       "certificate_sha256": "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca",
       "upgrade_identity_matches": "WuziPing-Emberbound-0.7.1-parallel-debug.apk",
-      "asset_count_verified": 83,
-      "dex_sha256": "91de13edc85477f431bf1e581683b405aa7c76a68d5cc8df9a61901d0688e26f",
+      "asset_count_verified": 96,
+      "dex_sha256": "bf518686163e78512761e47287b98b49efeafcc5393f97bf858d1425b925391c",
       "signature_v2_valid": true,
       "zip_crc_valid": true,
       "alignment_valid": true
     }
   ],
   "lecture_checks": 10,
-  "feature_checks": 6
+  "feature_checks": 9
 }

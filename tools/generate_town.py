@@ -138,16 +138,17 @@ for index in range(8):
     props.alpha_composite(im,(index*64,0))
 props.save(out/'town_props.png')
 
-npcs=Image.new('RGBA',(256,128))
-colors=[('#697b9b','#899ab4'),('#456a5a','#709072'),('#8b6247','#b48759'),('#6c8c76','#a6b69a'),('#777095','#aaa1b4'),('#a27554','#d0a376')]
-for kind in range(6):
+npcs=Image.new('RGBA',(256,160))
+colors=[('#697b9b','#899ab4'),('#456a5a','#709072'),('#8b6247','#b48759'),('#6c8c76','#a6b69a'),('#777095','#aaa1b4'),('#a27554','#d0a376'),
+        ('#4d6b8a','#7f9fc0'),('#8a5a44','#c08a5e'),('#7a5a86','#b18cc0'),('#4f7168','#88ac9c')]
+for kind in range(10):
     for frame in range(4):
         im=Image.new('RGBA',(32,32));d=ImageDraw.Draw(im);dy=frame%2;base,hi=colors[kind]
         def r(box,c):d.rectangle(box,fill=c)
         r((9,25,13,29),'#293437');r((19,25,23,29),'#293437');r((8,15+dy,23,26+dy),'#263335');r((10,16+dy,21,25+dy),base);r((12,17+dy,18,23+dy),hi)
         r((7,18+dy,9,23+dy),'#dab48b');r((23,18+dy,25,23+dy),'#dab48b')
         r((10,5+dy,21,15+dy),'#273136');r((11,8+dy,20,15+dy),'#e7c5a0');r((12,11+dy,13,12+dy),'#29353b');r((18,11+dy,19,12+dy),'#29353b')
-        hair=['#b4b5a2','#465b48','#514039','#5c414b','#444454','#83735b'][kind]
+        hair=['#b4b5a2','#465b48','#514039','#5c414b','#444454','#83735b','#3b3f4a','#4a3b32','#5c4756','#37433f'][kind]
         r((10,5+dy,21,9+dy),hair);r((9,7+dy,11,11+dy),hair)
         if kind==0:
             r((12,14+dy,19,17+dy),'#c8c9b5');r((14,17+dy,17,18+dy),'#c8c9b5');r((25,10+dy,26,28),'#bca577');r((24,8+dy,27,11+dy),'#e3c382')
@@ -160,8 +161,24 @@ for kind in range(6):
             r((18,3+dy,22,7+dy),'#60464f');r((11,16+dy,20,18+dy),'#ddd0ac');r((24,20+dy,28,26+dy),'#679e87');r((25,18+dy,27,20+dy),'#d5bd89')
         elif kind==4:
             r((10,10+dy,14,13+dy),'#798b8a');r((17,10+dy,21,13+dy),'#798b8a');r((14,11+dy,17,11+dy),'#697874');r((22,20+dy,29,26+dy),'#bba77c');r((24,21+dy,27,24+dy),'#f0e2b7')
-        else:
+        elif kind==5:
             r((9,5+dy,22,8+dy),'#c6b799');r((11,3+dy,20,6+dy),'#c6b799');r((13,19+dy,20,27),'#ded0ac');r((23,18+dy,27,22+dy),'#ae9872')
+        elif kind==6:
+            # 程理 · 物理学者：细框眼镜与手中的公式板
+            r((11,10+dy,14,12+dy),'#8fb8d1');r((17,10+dy,20,12+dy),'#8fb8d1');r((14,11+dy,17,11+dy),'#596b78')
+            r((24,14+dy,30,25+dy),'#dfe9ef');r((25,16+dy,29,17+dy),'#6f8ba3');r((25,19+dy,28,20+dy),'#6f8ba3');r((25,22+dy,29,23+dy),'#6f8ba3')
+        elif kind==7:
+            # 朱华鸿 · 建造者：工匠帽与卷起来的图纸
+            r((9,3+dy,22,7+dy),'#d9a24f');r((8,6+dy,23,8+dy),'#b68237');r((13,3+dy,18,4+dy),'#f0c877')
+            r((23,16+dy,30,26+dy),'#e6d7ad');r((24,17+dy,29,18+dy),'#9b8160');r((24,21+dy,29,22+dy),'#9b8160');r((26,16+dy,27,26+dy),'#c1a87d')
+        elif kind==8:
+            # 李梓宁 · 画师：画笔与调色板
+            r((24,10+dy,25,22+dy),'#b98a55');r((24,7+dy,26,10+dy),'#6b4a7a');r((22,20+dy,30,27+dy),'#d9c6a0')
+            r((23,22+dy,25,23+dy),'#c4605f');r((27,22+dy,29,23+dy),'#5c86b0');r((25,25+dy,27,26+dy),'#d7b455')
+        else:
+            # 伍子安 · 叙事者：羽毛笔与随身书卷
+            r((24,8+dy,25,19+dy),'#e7e2d2');r((25,7+dy,27,10+dy),'#b9c6c1');r((22,18+dy,30,26+dy),'#e8dcc0')
+            r((23,20+dy,29,21+dy),'#8e7d61');r((23,23+dy,28,24+dy),'#8e7d61')
         slot=kind*4+frame;npcs.alpha_composite(im,((slot%8)*32,slot//8*32))
 npcs.save(out/'npcs.png')
-print('Generated town architecture, paving, street props and six animated NPCs.')
+print('Generated town architecture, paving, street props and ten animated NPCs.')

@@ -8,7 +8,7 @@ if [[ -z "$JDK_ROOT" ]]; then
   else echo "Set JDK_ROOT or JAVA_HOME" >&2; exit 1; fi
 fi
 if ! command -v node >/dev/null 2>&1; then echo "Node.js is required for the Studio web tests" >&2; exit 1; fi
-node --test "$ROOT/studio/web/tests/tts.test.mjs"
+node --test "$ROOT/studio/web/tests/tts.test.mjs" "$ROOT/studio/web/tests/ai.test.mjs"
 CLASSES="$ROOT/build/studio-tests"
 mkdir -p "$CLASSES"
 SOURCES=()
