@@ -1,6 +1,25 @@
 # 天工
 
-一个可安装的 Android 手机工作台原型：启动时用四行选择器（滑动、鼠标滚轮、方向键或点按）选择「写 Python」「普通记事本」「游戏」或「上课」，Python 离线运行，游戏区保留《伍子平 · 星火远征》0.7。不是微软 VS Code 的移植，界面使用 CodeMirror 6，Python 使用随 APK 打包的 Pyodide 0.27.7 / CPython 3.12.7。
+一个可安装的 Android 手机工作台原型：启动时用选择器（滑动、鼠标滚轮、方向键或点按）选择「写 Python」「普通记事本」「游戏」「上课」或「英文朗读」，Python 离线运行，游戏区保留《伍子平 · 星火远征》0.7。不是微软 VS Code 的移植，界面使用 CodeMirror 6，Python 使用随 APK 打包的 Pyodide 0.27.7 / CPython 3.12.7。启动页品牌旁标着当前版本。
+
+## 下载 0.1.15
+
+手机浏览器打开下面的链接就会下载。版本名 **0.1.15**，versionCode **23**。
+
+- **标准包** `cn.wuziping.ember`，桌面名「天工」。用来替换手机上同包名的安装。  
+  [Ember-Studio-0.1.15.apk](https://github.com/ohGGBob/WuziPingRPG/raw/main/dist/Ember-Studio-0.1.15.apk)
+- **共存包** `cn.wuziping.ember.preview07`，桌面名「天工 · 试玩」。和标准包并排安装。  
+  [Ember-Studio-0.1.15-parallel.apk](https://github.com/ohGGBob/WuziPingRPG/raw/main/dist/Ember-Studio-0.1.15-parallel.apk)
+
+已经装着标准包名的选第一个；想保留现有安装再装一份的选第二个。
+
+标准包与 0.1.13、0.1.14、游戏 0.7.1 是同一张开发证书（SHA-256 `0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca`）。直接覆盖安装，**不要先卸载**，游戏存档和工作区都会留着。共存包用同一张证书，可以盖掉已经安装的共存包。外部 0.6 是另一张证书，标准包盖不上去。
+
+### 0.1.15 更新
+
+- 英文朗读：启动页第五个模式。Android 使用 `TextToSpeech`，浏览器使用 `speechSynthesis`。
+- 存档修复：格式 6、7 按写入顺序读取，数学进度、名字和特效可以迁过来。
+- 记事本涂画：按可见图层测量画布，手指笔画能留在画面上，并写进工作区的 `drawStrokes`。
 
 ## 上课模式（录音 · 笔记 · 时间轴）
 
@@ -17,12 +36,7 @@
 
 ## 安装与原游戏进度
 
-| 安装包 | 包名 | 对应旧版 |
-| --- | --- | --- |
-| `dist/Ember-Studio-0.1.12-debug.apk` | `cn.wuziping.ember` | 本地原签名的 0.5 / 0.7 标准版 |
-| `dist/Ember-Studio-0.1.12-parallel-debug.apk` | `cn.wuziping.ember.preview07` | 0.7 共存试玩版 |
-
-版本代码均为 20。选择与手机上已安装的天工或 0.7 直接覆盖安装，编辑器成为应用首页，原 `journey-v1.bin` 游戏存档沿用；**不要先卸载旧版**。签名和包名的一致性已检查，实际 Android 覆盖安装尚未实机验收。外部构建的 0.6 采用另一张证书，不能被标准包覆盖；试玩包可以共存，但不能直接读取外部 0.6 的私有存档。
+0.1.15 标准包的包名是 `cn.wuziping.ember`，共存包是 `cn.wuziping.ember.preview07`。编辑器成为应用首页。标准包与已经安装的 0.1.13、0.1.14 或同证书的 0.7 直接覆盖，**不要先卸载**，原 `journey-v1.bin` 继续留着。外部 0.6 用的是另一张证书，盖不上去。共存包和标准包可以同时留在手机上，但不能读取对方的私有存档。实际 Android 安装还没有在真机上验收。
 
 启动页选择「游戏」后点击「进入游戏」，仍是原生 Canvas 游戏。游戏中按 Android 返回键可选择「保存并返回编辑器」，标题界面按返回键直接回到编辑器。进入后选择「继续旅程」续玩。娱乐区也提供 `.wzpsave` 存档导出、导入；导入先验证格式，再确认替换，并在私有目录保留一份原进度备份。
 
@@ -117,7 +131,16 @@ python .\tools\verify-studio-release.py
 python .\tools\package-studio-source.py
 ```
 
-需要 JDK 17、Android SDK Platform 34 / Build Tools 34.0.0。构建默认复用 `build/manual/debug.keystore`，也可通过 `-SigningKey` 指向自己的 Android 调试密钥。私钥不进入 Git 或源码压缩包；使用新密钥的 APK 不能覆盖旧签名应用。构建在 `zipalign` 和签名前调用 `tools/normalize-apk-assets.py`，修正 Windows 版 aapt2 写入 ZIP 的反斜杠资源名；`verify-studio-release.py` 同时检查原始条目名，不能用 Python 读取时的自动转换来代替。首次重新获取 Python 文件使用 `tools/fetch-python-runtime.ps1`，许可证使用 `tools/fetch-studio-licenses.ps1`。
+```bash
+# Linux：JDK 17，ANDROID_HOME 指向含 platforms/android-34 与 build-tools/34.0.0 的 SDK
+npm --prefix studio/web ci --no-audit --no-fund
+npm --prefix studio/web run build
+./tools/build-studio.sh --skip-web-build
+./tools/build-studio.sh --skip-web-build --parallel
+./tools/verify-studio.sh
+```
+
+两个脚本都写出 `dist/Ember-Studio-0.1.15.apk` 和 `dist/Ember-Studio-0.1.15-parallel.apk`。需要 JDK 17、Android SDK Platform 34 / Build Tools 34.0.0。构建默认复用 `build/manual/debug.keystore`，也可通过 `-SigningKey` 或 `--signing-key` 指向自己的 Android 调试密钥。私钥不进入 Git 或源码压缩包。仓库里的 0.1.15 包用的是原来的开发证书，可以覆盖 0.1.13 / 0.1.14。换一把新密钥打出来的包不能覆盖旧签名应用。构建在 `zipalign` 和签名前调用 `tools/normalize-apk-assets.py`，修正 Windows 版 aapt2 写入 ZIP 的反斜杠资源名；`verify-studio-release.py` 同时检查原始条目名，不能用 Python 读取时的自动转换来代替。它要求两个包的证书 SHA-256 都是 `0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca`，对不上就失败。首次重新获取 Python 文件使用 `tools/fetch-python-runtime.ps1`，许可证使用 `tools/fetch-studio-licenses.ps1`。
 
 前端源文件在 `studio/web/src`，Android 宿主在 `studio/src/main/java`。`app` 仍可独立构建原游戏；`studio` 复用原游戏 Java 代码与素材，未替换已有 0.7 安装包。原生入口仅在带 `editorHost` 参数时显示返回编辑器选项。
 
