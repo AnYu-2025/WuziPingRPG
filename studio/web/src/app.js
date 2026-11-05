@@ -12,11 +12,11 @@ import {java} from '@codemirror/lang-java';
 import {markdown} from '@codemirror/lang-markdown';
 import {HighlightStyle,syntaxHighlighting} from '@codemirror/language';
 import {tags} from '@lezer/highlight';
-import {openSearchPanel} from '@codemirror/search';
+import {closeSearchPanel,openSearchPanel} from '@codemirror/search';
 import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAfterRestore,lectureViewCreated,lectureModeEnter,lectureModeLeave,lectureBusy,lectureStatusText,lectureDebug} from './lecture.js';
 import {initTTS,ttsSerialize,ttsSanitize,ttsAfterRestore,ttsModeEnter,ttsModeLeave,ttsDocumentChanged,ttsStatusText,ttsReceive,ttsDebug} from './tts.js';
 import {initDraw,ensureDrawUI,enterDrawMode,exitDrawMode,isDrawMode,getDrawStrokes,loadDrawStrokes} from './draw.js';
-import {initAI,aiSerialize,aiSanitize,aiRestore,aiModeEnter,aiModeLeave,aiStatusText,aiReceive,aiDebug} from './ai.js';
+import {initAI,aiSerialize,aiSanitize,aiRestore,aiModeEnter,aiModeLeave,aiHidePanel,aiEnterPanel,aiStatusText,aiReceive,aiDebug} from './ai.js';
 
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
 
@@ -172,20 +172,36 @@ const landing=$('landing'),wheel=$('modeWheel'),enterMode=$('enterMode'),enterMo
 const modeItems=[...wheel.querySelectorAll('.wheel-item')];
 const landingLabels={python:'开始写 Python',notepad:'打开记事本',game:'去星火远征',lecture:'开始上课',tts:'开始英文朗读',ai:'打开 AI 助手'};
 const MODE_KEY='ember-studio-mode';
-let landingOpen=true,landingTimer=0,selectedMode='python',workspaceMode='python',lastCodePath='',lastTtsPath='',wheelSelection=0;
+let landingOpen=true,landingTimer=0,lastBackAt=0,selectedMode='python',workspaceMode='python',lastCodePath='',lastTtsPath='',wheelSelection=0;
 try{const savedMode=localStorage.getItem(MODE_KEY);if(['python','notepad','game','lecture','tts','ai'].includes(savedMode))selectedMode=savedMode;}catch(e){}
 function updateEnterLabel(){if(enterModeLabel)enterModeLabel.textContent=ready?landingLabels[selectedMode]:'正在点亮工作台…';}
 function syncWheel(){const index=Math.max(0,Math.min(modeItems.length-1,wheelSelection));wheelSelection=index;selectedMode=modeItems[index].dataset.mode;modeItems.forEach((el,n)=>{el.classList.toggle('active',n===index);el.setAttribute('aria-selected',String(n===index));});if(landing){landing.dataset.mode=selectedMode;landing.style.setProperty('--sel',String(index));}if(modeIndex)modeIndex.textContent=String(index+1).padStart(2,'0')+' / '+String(modeItems.length).padStart(2,'0');updateEnterLabel();}
 function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(landingStatus)landingStatus.textContent='工作台已点亮';enterMode.disabled=false;updateEnterLabel();}
-function hideLanding(){if(!landingOpen)return;landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');},420);}
+function hideLanding(){if(!landingOpen)return;if(workspaceMode==='ai')aiEnterPanel();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');},420);}
 function placeWheel(){const found=modeItems.findIndex(el=>el.dataset.mode===selectedMode);wheelSelection=Math.max(0,found);syncWheel();}
-function openLanding(reopen=false){if(reopen&&workspaceMode==='tts')ttsModeLeave();clearTimeout(landingTimer);landing.hidden=false;if(landingStatus)landingStatus.textContent=ready?'工作台已点亮':'正在点亮工作台';landing.classList.remove('landing-out');landing.removeAttribute('aria-hidden');landingBack.hidden=!reopen;landingOpen=true;if(reopen&&['python','notepad','game','lecture','tts','ai'].includes(workspaceMode))selectedMode=workspaceMode;placeWheel();requestAnimationFrame(()=>{placeWheel();try{wheel.focus({preventScroll:true});}catch(e){}});}
+function openLanding(reopen=false){if(reopen&&workspaceMode==='tts')ttsModeLeave();if(reopen&&workspaceMode==='ai')aiHidePanel();clearTimeout(landingTimer);landing.hidden=false;if(landingStatus)landingStatus.textContent=ready?'工作台已点亮':'正在点亮工作台';landing.classList.remove('landing-out');landing.removeAttribute('aria-hidden');landingBack.hidden=!reopen;landingOpen=true;if(reopen&&['python','notepad','game','lecture','tts','ai'].includes(workspaceMode))selectedMode=workspaceMode;placeWheel();requestAnimationFrame(()=>{placeWheel();try{wheel.focus({preventScroll:true});}catch(e){}});}
+function handleSystemBack(){
+  const openDialog=document.querySelector('dialog[open]');
+  if(openDialog){openDialog.close('cancel');lastBackAt=0;return true;}
+  if(document.body.classList.contains('drawer')){document.body.classList.remove('drawer');lastBackAt=0;return true;}
+  if(isDrawMode()||document.body.classList.contains('drawing')||($('drawLayer')&&!$('drawLayer').hidden)){exitDrawMode();lastBackAt=0;return true;}
+  if(view&&view.dom.querySelector('.cm-search')){closeSearchPanel(view);view.focus();lastBackAt=0;return true;}
+  const lounge=$('lounge');
+  if(lounge&&!lounge.hidden){showCode();lastBackAt=0;return true;}
+  if(landingOpen){hideLanding();return true;}
+  const now=Date.now();
+  if(now-lastBackAt<=2000){lastBackAt=0;return false;}
+  lastBackAt=now;
+  flush();
+  openLanding(true);
+  return true;
+}
 function ensureNote(){let note=state.files.find(f=>f.path==='笔记.txt');if(!note){note=makeFile('笔记.txt','');state.files.push(note);}if(!state.opened.includes(note.path))state.opened.push(note.path);return note;}
 function ensureLectureNote(){let note=state.files.find(f=>f.path==='课堂笔记.md');if(!note){note=makeFile('课堂笔记.md','');state.files.push(note);changed();}if(!state.opened.includes(note.path))state.opened.push(note.path);return note;}
 function ensureEnglishText(){let text=state.files.find(f=>f.path==='English.txt');if(!text){const activeFile=state.files.find(f=>f.path===state.active&&/\.(txt|md)$/i.test(f.path)&&/[A-Za-z]/.test(f.text||''));if(activeFile)text=activeFile;}if(!text){if(state.files.length>=160){notify('工作区已有 160 个文件，请先打开英文文本或腾出一个文件名额。');return null;}text=makeFile('English.txt','Welcome to English Reading.\n\nType or open an English text here. The reader divides long paragraphs at natural sentence boundaries, so you can follow an entire article without losing your place.\n\nChoose an installed English voice, adjust the speaking rate, and use the same controls to pause, continue, or stop at any time.\n');state.files.push(text);changed();}if(!state.opened.includes(text.path))state.opened.push(text.path);lastTtsPath=text.path;return text;}
 function applyMode(mode){
   if(workspaceMode==='lecture'&&mode!=='lecture'&&lectureBusy()){notify('正在上课录音，请先点「⏹ 停止」结束录音，再切换模式。');selectedMode='lecture';syncWheel();return false;}
-  if(mode==='tts'&&worker){notify('Python 或 JavaScript 正在运行，请先停止运行，再进入英文朗读。');return false;}
+  if(worker&&['python','notepad','tts','ai'].includes(mode)){notify('Python 或 JavaScript 正在运行，请先停止运行，再切换模式。');return false;}
   const ttsTarget=mode==='tts'?((lastTtsPath&&state.files.find(x=>x.path===lastTtsPath))||state.files.find(x=>x.path==='English.txt')||ensureEnglishText()):null;
   if(mode==='tts'&&!ttsTarget)return false;
   if(workspaceMode==='tts'&&mode!=='tts')ttsModeLeave();
@@ -195,7 +211,6 @@ function applyMode(mode){
   if(leavingAI)aiModeLeave();
   const aiPanel=$('aiPanel');
   if(mode==='ai'){
-    if(worker){notify('请先停止运行，再进入 AI 助手。');workspaceMode='python';return false;}
     document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('aiview');
     lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
     $('workbench').hidden=true;$('lounge').hidden=true;
@@ -214,7 +229,7 @@ function applyMode(mode){
   setTimeout(()=>{if(view)view.focus();},260);
   return true;
 }
-function enterSelected(){if(!ready||!landingOpen)return;const mode=selectedMode;if(!applyMode(mode)){selectedMode=workspaceMode;syncWheel();return;}try{localStorage.setItem(MODE_KEY,mode);}catch(e){}hideLanding();}
+function enterSelected(){if(!ready||!landingOpen)return;const mode=selectedMode;if(!applyMode(mode)){selectedMode=workspaceMode;syncWheel();return;}lastBackAt=0;try{localStorage.setItem(MODE_KEY,mode);}catch(e){}hideLanding();}
 const moveSelection=step=>{wheelSelection=Math.max(0,Math.min(modeItems.length-1,wheelSelection+step));syncWheel();};
 let wheelTouchY=0,wheelSwiped=false,wheelLock=0;
 wheel.addEventListener('touchstart',event=>{wheelTouchY=event.touches[0]?.clientY||0;wheelSwiped=false;},{passive:true});
@@ -223,7 +238,7 @@ wheel.addEventListener('wheel',event=>{if(Math.abs(event.deltaY)<4)return;event.
 wheel.addEventListener('keydown',event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();moveSelection(event.key==='ArrowDown'?1:-1);}else if(event.key==='Enter'){event.preventDefault();enterSelected();}});
 modeItems.forEach(item=>item.addEventListener('click',()=>{if(wheelSwiped)return;const index=modeItems.indexOf(item);if(index!==wheelSelection){wheelSelection=index;syncWheel();return;}enterSelected();}));
 enterMode.addEventListener('click',enterSelected);
-landingBack.addEventListener('click',hideLanding);
+landingBack.addEventListener('click',()=>{lastBackAt=0;hideLanding();});
 window.__studioLandingReady=true;
 initLecture({
   notify,
@@ -297,5 +312,5 @@ initAI({
  runSnippet:aiRunSnippet
 });
 openLanding(false);
-window.Studio={getState:snapshot,get view(){return view;},run,stop,flush,importFiles,lecture:lectureDebug,tts:ttsDebug,ai:aiDebug};
+window.Studio={getState:snapshot,get view(){return view;},run,stop,flush,importFiles,back:handleSystemBack,lecture:lectureDebug,tts:ttsDebug,ai:aiDebug};
 if(native)send('ready');else{let saved=null;try{saved=JSON.parse(localStorage.getItem('ember-studio-v1'));}catch(e){}restore(saved);}

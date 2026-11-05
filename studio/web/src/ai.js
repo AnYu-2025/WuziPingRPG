@@ -266,7 +266,13 @@ function finish(status){
   if(status==='error')notify('请求未完成，请检查地址与密钥。');
   if(queue.length){const next=queue.shift();renderQueue();startRequest(next);}
 }
-function cancel(){if(currentId)emit('aiCancel',{id:currentId});finish('cancelled');}
+function cancel(dropQueue=false){
+  const dropped=dropQueue?queue.length:0;
+  if(dropQueue)queue=[];
+  if(currentId)emit('aiCancel',{id:currentId});
+  finish('cancelled');
+  if(dropped)notify('离开 AI 助手，'+dropped+' 条未发送的消息已丢弃。');
+}
 
 export function aiReceive(m){
   if(!m||typeof m!=='object')return false;
@@ -281,7 +287,13 @@ export function aiReceive(m){
   return false;
 }
 export function aiModeEnter(){if(dom&&dom.panel){dom.panel.hidden=false;}renderAll();}
-export function aiModeLeave(){if(dom&&dom.panel){dom.panel.hidden=true;}if(busy)cancel();}
+export function aiHidePanel(){if(dom&&dom.panel)dom.panel.hidden=true;}
+export function aiEnterPanel(){if(dom&&dom.panel)dom.panel.hidden=false;renderAll();}
+export function aiModeLeave(){
+  if(dom&&dom.panel)dom.panel.hidden=true;
+  if(busy)cancel(true);
+  else{const dropped=queue.length;queue=[];renderQueue();if(dropped)notify('离开 AI 助手，'+dropped+' 条未发送的消息已丢弃。');}
+}
 
 export function initAI(config){
   env=config;
@@ -314,7 +326,7 @@ export function initAI(config){
     startRequest(text);
   };
   if(el('aiSend'))el('aiSend').onclick=e=>{e.preventDefault();send();};
-  if(dom.aiInput)dom.aiInput.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}};
+  if(dom.aiInput)dom.aiInput.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();e.stopPropagation();send();}};
   if(el('aiStop'))el('aiStop').onclick=()=>cancel();
   if(el('aiFlushQueue'))el('aiFlushQueue').onclick=()=>{if(!queue.length)return;const next=queue.shift();renderQueue();if(busy)cancel();startRequest(next);};
   if(el('aiNewSession'))el('aiNewSession').onclick=()=>{messages=[];renderMessages();save();};
