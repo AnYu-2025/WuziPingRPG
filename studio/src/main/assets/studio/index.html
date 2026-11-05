@@ -29,7 +29,7 @@
 </div>
 </div>
 </section>
-<header class="appbar"><button id="filesToggle" class="icon" aria-label="文件列表" title="文件列表">☰</button><div class="doc"><strong id="activePath">main.py</strong><small id="dirtyFlag">本地草稿</small></div><button id="drawToggle" class="icon drawtoggle" aria-label="绘图模式" title="绘图模式" hidden>🖌️</button><button id="saveButton" class="icon saveicon" aria-label="保存" title="保存">保存</button><button id="runButton" class="primary">▶ 运行</button><button id="stopButton" class="danger" hidden>■ 停止</button><button id="moreButton" class="icon" aria-label="更多操作" title="更多操作">⋯</button></header>
+<header class="appbar"><button id="filesToggle" class="icon" aria-label="文件列表" title="文件列表">☰</button><div class="doc"><strong id="activePath">main.py</strong><small id="dirtyFlag">本地草稿</small></div><button id="drawToggle" class="icon drawtoggle" aria-label="画画" title="画画" aria-pressed="false" hidden>🖌️</button><button id="saveButton" class="icon saveicon" aria-label="保存" title="保存">保存</button><button id="runButton" class="primary">▶ 运行</button><button id="stopButton" class="danger" hidden>■ 停止</button><button id="moreButton" class="icon" aria-label="更多操作" title="更多操作">⋯</button></header>
 <section id="lectureBar" aria-label="上课录音控制" data-state="idle"><span class="recdot" aria-hidden="true"></span><button id="recordBtn" data-role="rec"><span id="recordLabel">🎙 开始录音</span></button><button id="pauseBtn" class="recalt" hidden>⏸ 暂停</button><button id="stopBtn" class="recstop" hidden>⏹ 停止</button><button id="newRecBtn" class="recalt" hidden>🎙 新录音</button><strong id="recordTimer">00:00</strong><label class="rec-translate" id="translateToggle"><input type="checkbox" id="translateCheck"><span class="reccheck"></span><span class="reclabel">翻译</span></label><span class="grow"></span><button id="anchorBtn" class="recanchor" hidden>📌<span class="anchorbtntext"> 标记锚点</span></button></section>
 <section id="ttsBar" aria-label="英文朗读控制" data-state="idle">
 <div class="tts-main"><span class="tts-mark" aria-hidden="true">EN</span><div class="tts-summary"><strong>英文朗读</strong><small id="ttsMeta" aria-live="off">在编辑器里输入或打开英文文本</small></div><button id="ttsPlay" class="tts-play" aria-label="开始英语朗读"><span id="ttsPlayText">朗读</span></button><button id="ttsStop" class="tts-stop" aria-label="停止英语朗读" title="停止">■</button></div>
@@ -40,7 +40,8 @@
 <div id="backdrop" hidden></div><aside id="explorer" aria-label="工作区文件"><div class="sheethead"><strong>文件</strong><button id="closeExplorer" class="icon" aria-label="关闭文件列表">✕</button></div><div class="fileactions"><button id="openFile">打开文件</button><button id="openFolder">导入文件夹</button></div><div id="fileList"></div><div class="explorerfoot">编辑自动保存草稿<br>“保存”写回手机原文件</div><div class="sheetfoot"><button id="newFile" class="newfile">＋ 新建文件</button></div></aside>
 <main class="workspace"><div id="editor" aria-label="代码编辑器"><div id="noteEmpty" aria-hidden="true">从这里开始写点什么…</div></div>
 <div id="drawLayer" hidden>
-  <canvas id="drawCanvas"></canvas>
+  <canvas id="drawCanvas" aria-label="画画画布"></canvas>
+  <p id="drawHint">画画模式 · 用手指在这里涂写</p>
   <div id="drawToolbar">
     <button class="draw-tool active" data-tool="pen" title="画笔">✏️</button>
     <button class="draw-tool" data-tool="eraser" title="橡皮">🧹</button>

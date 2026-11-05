@@ -102,7 +102,7 @@ function renderFiles(){
 }
 function refreshBadges(){
  const f=active();if(!f)return;
- $('activePath').textContent=f.path;$('dirtyFlag').textContent=f.uri?(f.text===f.savedText?'已保存到原文件':'有修改 · 保存写回'):'本地草稿 · 自动保存';$('language').textContent=language(f.path)[0];$('encoding').textContent=f.encoding||'UTF-8';$('runButton').textContent=['html','htm'].includes(extension(f.path))?'↗ 预览':'▶ 运行';
+ $('activePath').textContent=f.path;$('dirtyFlag').textContent=f.uri?(f.text===f.savedText?'已保存到原文件':'有修改 · 保存写回'):'本地草稿 · 自动保存';$('language').textContent=document.body.classList.contains('drawing')?'画画':language(f.path)[0];$('encoding').textContent=f.encoding||'UTF-8';$('runButton').textContent=['html','htm'].includes(extension(f.path))?'↗ 预览':'▶ 运行';
  for(const b of $('tabs').children){const p=b.dataset.path;if(!p)continue;const t=state.files.find(x=>x.path===p);if(!t)continue;const activeNow=p===state.active;b.textContent=p.split('/').pop()+(t.text!==t.savedText?' •':'');b.classList.toggle('active',activeNow);b.setAttribute('aria-selected',String(activeNow));}
  for(const b of $('fileList').querySelectorAll('.fileopen')){const p=b.dataset.path,t=state.files.find(x=>x.path===p);if(!t)continue;const name=b.lastElementChild;if(name)name.textContent=p+(t.text!==t.savedText?' •':'');b.closest('.fileitem').classList.toggle('active',p===state.active);}
 }
@@ -232,9 +232,9 @@ initTTS({
   saveSettings:scheduleSave
 });
 initDraw({
-  scheduleSave:()=>{flush();},
+  scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
   getDrawData:()=>state.drawStrokes||[],
-  saveDrawData:(strokes)=>{state.drawStrokes=strokes;flush();}
+  saveDrawData:(strokes)=>{state.drawStrokes=Array.isArray(strokes)?strokes:[];flush();}
 });
 openLanding(false);
 window.Studio={getState:snapshot,get view(){return view;},run,stop,flush,importFiles,lecture:lectureDebug,tts:ttsDebug};
