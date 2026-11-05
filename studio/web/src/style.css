@@ -376,10 +376,12 @@ body.notepad .statusbar #saveState,body.notepad #noteCount{color:#8b8067}
 body.notepad #language{color:#8b7355}
 body.notepad .landing-hint{color:#a89d84}
 
-/* notepad: drawing layer */
-#drawLayer{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;background:#fdfcf7}
+/* notepad: drawing layer
+   min-width:0 keeps a high-DPR bitmap from stretching this flex item past the page. */
+#drawLayer{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;background:#fdfcf7;touch-action:none;overflow:hidden}
 #drawLayer[hidden]{display:none}
-#drawCanvas{flex:1;min-height:0;width:100%;touch-action:none;cursor:crosshair;background:#fdfcf7}
+#drawCanvas{flex:1 1 auto;align-self:stretch;width:100%;min-width:0;min-height:0;display:block;touch-action:none;cursor:crosshair;background:#fdfcf7;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#drawHint{position:absolute;z-index:2;top:12px;left:50%;transform:translateX(-50%);max-width:calc(100% - 24px);margin:0;padding:5px 12px;border-radius:999px;pointer-events:none;background:rgba(255,252,245,.94);color:#6f6248;border:1px solid #e5ddd0;font-size:12.5px;line-height:1.4;letter-spacing:.02em;white-space:nowrap;box-shadow:0 4px 14px rgba(60,50,30,.06)}
 #drawToolbar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:rgba(253,250,242,.96);border-top:1px solid #ece5d4;flex:none;overflow-x:auto;scrollbar-width:none}
 #drawToolbar::-webkit-scrollbar{display:none}
 .draw-tool,.draw-action{height:36px;min-height:36px;padding:0 12px;border-radius:10px;border:1px solid #e5ddd0;background:#fff;color:#5c5640;font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:4px;transition:background .12s,border-color .12s}
