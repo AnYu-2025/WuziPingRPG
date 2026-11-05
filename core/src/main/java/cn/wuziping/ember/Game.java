@@ -104,7 +104,12 @@ public final class Game {
             invuln=Math.max(0,invuln-dt);dashCd=Math.max(0,dashCd-dt);move(mx*speed*dt,my*speed*dt);math.tick(this,dt);return;
         }
         if(inPhysics()){
-            invuln=Math.max(0,invuln-dt);dashCd=Math.max(0,dashCd-dt);move(mx*speed*dt,my*speed*dt);physics.tick(this,dt);return;
+            // Puzzle interactions consume one attack pulse each; without this the whole
+            // workshop was unreachable because swing was never set outside combat.
+            invuln=Math.max(0,invuln-dt);dashCd=Math.max(0,dashCd-dt);
+            attackCd=Math.max(0,attackCd-dt);swing=Math.max(0,swing-dt);
+            if(in.attack&&attackCd<=0){attackCd=attackDelay;swing=.2f;sound("slash");}
+            move(mx*speed*dt,my*speed*dt);physics.tick(this,dt);return;
         }
         if(body.enabled){body.tick(this,dt);arsenal.tick(this,dt);if(in.ultimate)arsenal.ultimate(this);}
         attackCd=Math.max(0,attackCd-dt);skillCd=Math.max(0,skillCd-dt);dashCd=Math.max(0,dashCd-dt);
@@ -285,7 +290,7 @@ public final class Game {
 
     /** Versioned binary snapshot: no framework dependencies, no Java object deserialization. */
     public void save(OutputStream stream)throws IOException{
-        DataOutputStream o=new DataOutputStream(stream);o.writeInt(0x575A5052);o.writeInt(7);
+        DataOutputStream o=new DataOutputStream(stream);o.writeInt(0x575A5052);o.writeInt(8);
         o.writeInt(totalRuns);o.writeInt(bestWave);o.writeInt(lifetimeKills);o.writeInt(bank);o.writeBoolean(sound);o.writeBoolean(autoAttack);o.writeBoolean(activeRun);
         if(!activeRun){story.write(o);body.write(o);guest.write(o);arsenal.write(o);math.write(o);physics.write(o);o.writeUTF(heroName);o.writeInt(effectsLevel);o.flush();return;}
         int[] ints={wave,level,xp,kills,gold,potions,waveSpawned,waveKilled,pendingUpgrades};for(int n:ints)o.writeInt(n);
@@ -296,8 +301,8 @@ public final class Game {
         o.writeInt(shots.size());for(Shot p:shots){o.writeFloat(p.x);o.writeFloat(p.y);o.writeFloat(p.vx);o.writeFloat(p.vy);o.writeFloat(p.life);o.writeInt(p.damage);}story.write(o);body.write(o);guest.write(o);arsenal.write(o);math.write(o);physics.write(o);o.writeUTF(heroName);o.writeInt(effectsLevel);o.flush();
     }
     public static Game load(InputStream stream)throws IOException{
-        DataInputStream i=new DataInputStream(stream);if(i.readInt()!=0x575A5052)throw new IOException("Unsupported save");int version=i.readInt();if(version<1||version>7)throw new IOException("Unsupported save version");Game g=new Game();
-        g.totalRuns=bounded(i.readInt(),0,1000000);g.bestWave=bounded(i.readInt(),0,8);g.lifetimeKills=bounded(i.readInt(),0,100000000);g.bank=bounded(i.readInt(),0,100000000);g.sound=i.readBoolean();g.autoAttack=i.readBoolean();g.activeRun=i.readBoolean();if(!g.activeRun){if(version>=2)g.story=Story.read(i);if(version>=3)g.body=BodyJourney.read(i,version>=5?8:5);if(version>=4)g.guest=TownGuest.read(i);if(version>=5)g.arsenal=Arsenal.read(i);if(version>=6)g.math=MathJourney.read(i);if(version>=7)g.physics=PhysicsJourney.read(i);else g.physics=new PhysicsJourney();if(version>=6)g.readProfileExtras(i,version);return g;}
+        DataInputStream i=new DataInputStream(stream);if(i.readInt()!=0x575A5052)throw new IOException("Unsupported save");int version=i.readInt();if(version<1||version>8)throw new IOException("Unsupported save version");Game g=new Game();
+        g.totalRuns=bounded(i.readInt(),0,1000000);g.bestWave=bounded(i.readInt(),0,8);g.lifetimeKills=bounded(i.readInt(),0,100000000);g.bank=bounded(i.readInt(),0,100000000);g.sound=i.readBoolean();g.autoAttack=i.readBoolean();g.activeRun=i.readBoolean();if(!g.activeRun){if(version>=2)g.story=Story.read(i);if(version>=3)g.body=BodyJourney.read(i,version>=5?8:5);if(version>=4)g.guest=TownGuest.read(i);if(version>=5)g.arsenal=Arsenal.read(i,version);if(version>=6)g.math=MathJourney.read(i);if(version>=7)g.physics=PhysicsJourney.read(i,version);else g.physics=new PhysicsJourney();g.physics.syncFinaleReward(g);if(version>=6)g.readProfileExtras(i,version);return g;}
         g.wave=bounded(i.readInt(),1,8);g.level=bounded(i.readInt(),1,10000);g.xp=bounded(i.readInt(),0,1000000);g.kills=bounded(i.readInt(),0,100000);g.gold=bounded(i.readInt(),0,10000000);g.potions=bounded(i.readInt(),0,100);g.waveSpawned=bounded(i.readInt(),0,100);g.waveKilled=bounded(i.readInt(),0,100);g.pendingUpgrades=bounded(i.readInt(),0,100);
         float[] f=new float[16];for(int n=0;n<f.length;n++){f[n]=i.readFloat();if(Float.isNaN(f[n])||Float.isInfinite(f[n]))throw new IOException("Nonfinite save");}
         g.x=clamp(f[0],18,WORLD_W-18);g.y=clamp(f[1],18,WORLD_H-18);g.hp=f[2];g.maxHp=f[3];g.attack=f[4];g.speed=f[5];g.attackDelay=f[6];g.attackCd=f[7];g.skillCd=f[8];g.dashCd=f[9];g.potionCd=f[10];g.invuln=f[11];g.elapsed=f[12];g.facing=f[13];g.spawnTimer=f[14];g.intermission=f[15];
@@ -309,11 +314,12 @@ public final class Game {
         if(version>=2)g.story=Story.read(i);else{g.story.enabled=true;g.story.area=Story.FOREST;g.story.chapter=3;g.story.forestX=g.x;g.story.forestY=g.y;}
         if(version>=3){g.body=BodyJourney.read(i,version>=5?8:5);if(g.body.enabled&&(!g.story.enabled||g.wave!=g.body.organ+1))throw new IOException("Mismatched body state");}
         if(version>=4)g.guest=TownGuest.read(i);
-        if(version>=5)g.arsenal=Arsenal.read(i);
+        if(version>=5)g.arsenal=Arsenal.read(i,version);
         else if(g.body.enabled){g.arsenal.unlocked=(1<<Math.min(6,g.body.organ+2))-1;if(g.body.cured==31){g.story.battleWon=false;g.body.ending=false;}}
         if(version>=6)g.math=MathJourney.read(i);
-        if(version>=7)g.physics=PhysicsJourney.read(i);
+        if(version>=7)g.physics=PhysicsJourney.read(i,version);
         else g.physics=new PhysicsJourney();
+        g.physics.syncFinaleReward(g);
         if(version>=6){g.readProfileExtras(i,version);if(g.inMath()){g.x=clamp(f[0],18,MathJourney.WIDTH-18);g.y=clamp(f[1],18,MathJourney.HEIGHT-18);}}
         if(version>=7&&g.inPhysics()){g.x=clamp(f[0],18,PhysicsJourney.WIDTH-18);g.y=clamp(f[1],18,PhysicsJourney.HEIGHT-18);}
         if(g.inTown()){g.x=clamp(f[0],78,Town.WIDTH-78);g.y=clamp(f[1],98,Town.HEIGHT-66);}

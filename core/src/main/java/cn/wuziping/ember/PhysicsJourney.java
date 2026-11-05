@@ -4,7 +4,8 @@ import java.io.*;
 
 /** Physics puzzles: projectile, light reflection, circuit, wave interference, heat flow. */
 public final class PhysicsJourney {
-    public static final int MAP=13,MAPS=5,WIDTH=1536,HEIGHT=1152,SAVE_BYTES=120;
+    public static final int MAP=13,JOURNAL=14,MAPS=5,WIDTH=1536,HEIGHT=1152,SAVE_BYTES=128;
+    public static final float MIN_ANGLE=20,MAX_ANGLE=80,MIN_POWER=20,MAX_POWER=100;
     public static final String[] NAMES={"抛体靶场","光路迷宫","回路工坊","波的干涉","热流迷宫"};
     public static final String[] INSIGHTS={
         "抛体运动可分解为水平匀速与竖直匀加速，轨迹是抛物线。",
@@ -70,6 +71,14 @@ public final class PhysicsJourney {
     
     public boolean cleared(){return (solved&(1<<level))!=0;}
     public String name(){return level>=0&&level<MAPS?NAMES[level]:"";}
+    /** Launch speed is scaled so the 900px target range is reachable by tuning power. */
+    public float launchSpeed(){return 180+launchPower*7;}
+    public String launchLabel(){return "角度 "+(int)launchAngle+"° · 力度 "+(int)launchPower;}
+    public void adjust(Game g,int which,int delta){
+        if(which==0)launchAngle=Game.clamp(launchAngle+delta,MIN_ANGLE,MAX_ANGLE);
+        else launchPower=Game.clamp(launchPower+delta,MIN_POWER,MAX_POWER);
+        g.announce(launchLabel());
+    }
     
     public String objective(Game g){
         if(g.inTown())return solved==31?"物理主题已完成 · 在札记回看发现":"从格物堂继续探索";
@@ -110,10 +119,10 @@ public final class PhysicsJourney {
     }
     
     public void resetState(){
+        // Tuned launch parameters survive a retry; they are the player's chosen setup.
         targetHits=0;
         projectileActive=false;
         projectileX=projectileY=-1;
-        launchAngle=45;launchPower=50;
         mirrorAngles=new int[]{45,135,45};
         lightReachedEnd=false;
         wiresPlaced=new boolean[7];
@@ -183,6 +192,11 @@ public final class PhysicsJourney {
         }
     }
     
+    /** Idempotent: format 7 saves could finish the workshop before the reward weapon existed. */
+    public void syncFinaleReward(Game g){
+        if(solved==(1<<MAPS)-1)g.arsenal.unlock(g,Arsenal.RESONANCE_STAFF_PLUS);
+    }
+    
     private void complete(Game g){
         if(cleared())return;
         solved|=1<<level;
@@ -191,12 +205,14 @@ public final class PhysicsJourney {
         g.maxHp+=10;
         g.hp=Math.min(g.maxHp,g.hp+25);
         g.vfx.ring(g.x,g.y,0xffa5d8f0,32,80);
-        g.announce("发现已记入札记 · "+reward+" 金币 / 体魄 +10");
+        boolean finale=solved==(1<<MAPS)-1;
+        if(finale)syncFinaleReward(g);
+        g.announce("发现已记入札记 · "+reward+" 金币 / 体魄 +10"+(finale?" / 共振法杖·改":""));
         
         String[] pages=new String[]{
             "旁白|物理现象背后藏着简洁的规律。你用观察和实验验证了它。",
             "旅途札记|"+INSIGHTS[level],
-            level==4?"旅途札记|五个谜题全部解开。共振法杖·改已解锁，它能引发连锁共振。":"旅途札记|把这次发现带到下一关。物理规律在不同场景中反复出现。"
+            finale?"旅途札记|五个谜题全部解开。共振法杖·改已经收入武库，去武库装备它，让法弹引发连锁共振。":"旅途札记|把这次发现带到下一关。物理规律在不同场景中反复出现。"
         };
         g.story.begin(g,-1,pages,new String[]{"收好发现 · 继续探索"},new int[]{300});
     }
@@ -213,7 +229,7 @@ public final class PhysicsJourney {
         }
     }
     
-    // 抛体靶场：靠近目标时发射，命中3次通关
+    // 抛体靶场：靠近发射点按操作键发射，命中3次通关
     private void tickProjectile(Game g,float dt){
         if(projectileActive){
             projectileVY+=GRAVITY*dt;
@@ -240,16 +256,17 @@ public final class PhysicsJourney {
                 g.announce("未命中，再试一次");
             }
         }else{
-            // 靠近发射点时，按攻击键发射
+            // 靠近发射点时，按操作键发射
             if(Game.dist(g.x,g.y,300,800)<50&&g.swing>0&&!projectileActive){
                 launchProjectile(g);
+                g.swing=0;
             }
         }
     }
     
     private void launchProjectile(Game g){
         float radians=(float)(launchAngle*Math.PI/180);
-        float speed=100+launchPower*3;
+        float speed=launchSpeed();
         projectileX=300;
         projectileY=800;
         projectileVX=(float)Math.cos(radians)*speed;
@@ -260,7 +277,7 @@ public final class PhysicsJourney {
     
     // 光路迷宫：旋转镜面，使光线到达终点
     private void tickLight(Game g,float dt){
-        // 靠近镜面时，按攻击键旋转
+        // 靠近镜面时，按操作键旋转
         if(g.swing>0){
             for(int i=0;i<3;i++){
                 float mx=MIRRORS[i][0],my=MIRRORS[i][1];
@@ -268,6 +285,7 @@ public final class PhysicsJourney {
                     mirrorAngles[i]=(mirrorAngles[i]+45)%360;
                     g.vfx.ring(mx,my,0xffffff00,12,30);
                     g.announce("旋转镜面");
+                    g.swing=0;
                     break;
                 }
             }
@@ -334,7 +352,7 @@ public final class PhysicsJourney {
     
     // 回路工坊：连接导线，使所有节点通电
     private void tickCircuit(Game g,float dt){
-        // 靠近节点时，按攻击键选择/连接
+        // 靠近节点时，按操作键选择/连接
         if(g.swing>0){
             for(int i=0;i<6;i++){
                 float nx=CIRCUIT_NODES[i][0],ny=CIRCUIT_NODES[i][1];
@@ -459,7 +477,9 @@ public final class PhysicsJourney {
         return x<100+r||x>WIDTH-100-r||y<100+r||y>HEIGHT-100-r;
     }
     
-    public void write(DataOutputStream o)throws IOException{
+    public void write(DataOutputStream o)throws IOException{write(o,true);}
+    /** Format 7 and earlier did not persist tuned launch parameters. */
+    public void write(DataOutputStream o,boolean includeLaunch)throws IOException{
         o.writeBoolean(active);
         o.writeBoolean(failed);
         o.writeInt(level);
@@ -472,9 +492,11 @@ public final class PhysicsJourney {
         o.writeFloat(source1X);o.writeFloat(source1Y);
         o.writeFloat(source2X);o.writeFloat(source2Y);
         for(int i=0;i<HEAT_COLS;i++)for(int j=0;j<HEAT_ROWS;j++)o.writeFloat(temperature[i][j]);
+        if(includeLaunch){o.writeFloat(launchAngle);o.writeFloat(launchPower);}
     }
     
-    public static PhysicsJourney read(DataInputStream in)throws IOException{
+    public static PhysicsJourney read(DataInputStream in)throws IOException{return read(in,8);}
+    public static PhysicsJourney read(DataInputStream in,int version)throws IOException{
         PhysicsJourney p=new PhysicsJourney();
         p.active=in.readBoolean();
         p.failed=in.readBoolean();
@@ -488,6 +510,12 @@ public final class PhysicsJourney {
         p.source1X=in.readFloat();p.source1Y=in.readFloat();
         p.source2X=in.readFloat();p.source2Y=in.readFloat();
         for(int i=0;i<HEAT_COLS;i++)for(int j=0;j<HEAT_ROWS;j++)p.temperature[i][j]=in.readFloat();
+        if(version>=8){
+            p.launchAngle=in.readFloat();p.launchPower=in.readFloat();
+            if(Float.isNaN(p.launchAngle)||Float.isNaN(p.launchPower)||Float.isInfinite(p.launchAngle)||Float.isInfinite(p.launchPower)
+                ||p.launchAngle<MIN_ANGLE||p.launchAngle>MAX_ANGLE||p.launchPower<MIN_POWER||p.launchPower>MAX_POWER)
+                throw new IOException("Invalid launch parameters");
+        }
         
         if(p.level<0||p.level>=MAPS)throw new IOException("Invalid physics level");
         if(p.solved<0||p.solved>=(1<<MAPS))throw new IOException("Invalid physics solved mask");

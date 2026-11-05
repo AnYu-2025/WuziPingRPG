@@ -23,6 +23,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Expansion checks failed' }
     & (Join-Path $JdkRoot 'bin\java.exe') -cp $classes cn.wuziping.ember.tests.MathTests
     if ($LASTEXITCODE -ne 0) { throw 'Mathematics checks failed' }
+    & (Join-Path $JdkRoot 'bin\java.exe') -cp $classes cn.wuziping.ember.tests.PhysicsTests
+    if ($LASTEXITCODE -ne 0) { throw 'Physics workshop checks failed' }
     & (Join-Path $JdkRoot 'bin\java.exe') '-Djava.awt.headless=true' -cp $classes cn.wuziping.ember.desktop.Desktop --screenshots $screens
     if ($LASTEXITCODE -ne 0) { throw 'Screenshot rendering failed' }
     & (Join-Path $JdkRoot 'bin\jar.exe') cfe (Join-Path $dist 'WuziPing-desktop-preview.jar') cn.wuziping.ember.desktop.Desktop -C $classes . -C (Join-Path $projectRoot 'app\src\main\assets') .

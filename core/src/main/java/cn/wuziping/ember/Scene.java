@@ -21,6 +21,7 @@ public final class Scene {
         if(g.mode==8){title();confirmNew();return;}
         if(g.mode==Game.HELP){help();return;}
         if(g.mode==Game.JOURNAL){journal();return;}
+        if(g.mode==PhysicsJourney.JOURNAL){physicsJournal();return;}
         if(g.mode==BodyJourney.MAP){bodyMap();return;}
         if(g.mode==MathJourney.MAP){worldMap();return;}
         if(g.mode==PhysicsJourney.MAP){physicsMap();return;}
@@ -317,7 +318,7 @@ public final class Scene {
         p.rect(834+g.x/g.worldWidth()*98-2,83+g.y/g.worldHeight()*73-2,4,4,0xffb1ead3);
         if(g.story.enabled){float[] target=g.inTown()&&g.math.active?new float[]{1140,620}:g.body.enabled?g.body.target(g):g.story.target();if(target!=null){p.rect(834+target[0]/g.worldWidth()*98-2,83+target[1]/g.worldHeight()*73-2,4,4,GOLD);navigation(target[0],target[1]);}}
         if(g.body.enabled){anchor(1,-1);bodyMini();anchor(-1,-1);
-            panel(18,219,260,65);p.rect(22,226,3,50,Arsenal.COLORS[g.arsenal.selected]);p.image("weapons.png",g.arsenal.selected*32,0,32,32,30,228,34,34,1,false);label(g.arsenal.name(),70,240,14,GOLD);
+            panel(18,219,260,65);p.rect(22,226,3,50,Arsenal.COLORS[g.arsenal.selected]);p.image("weapons.png",Math.min(g.arsenal.selected,5)*32,0,32,32,30,228,34,34,1,false);label(g.arsenal.name(),70,240,14,GOLD);
             p.rect(70,250,128,4,0xff101820);p.rect(70,250,128*g.arsenal.energy/100f,4,g.arsenal.energy>=100?0xffffe7b0:0xffc5a6d9);label(Arsenal.DESCS[g.arsenal.selected],32,273,10,MUTED);smallToggle("武库",207,226,66);
         }
         anchor(0,-1);if(g.banner>0){panel(315,87,420,45);center(g.bannerText,525,115,13,GOLD);}
@@ -344,6 +345,13 @@ public final class Scene {
             p.oval(790,372,114,114,ready?0xffc4a572:0xff677c7d);p.oval(794,376,106,106,0xee233e46);icon(11,825,405,44);
             center(ready?interaction:"靠近人物交谈",847,511,13,ready?GOLD:MUTED);
             anchor(0,1);center("与居民交谈，找到属于你的下一步。",467,508,12,MUTED);return;
+        }
+        if(g.inPhysics()){
+            String action=g.physics.level==0?"发射":g.physics.level==1?"旋转":g.physics.level==2?"接线":"推动";
+            roundButton(866,428,52,0,action,g.attackCd,g.attackDelay,0xffb89a61);
+            anchor(0,1);center("走到机关旁按操作键 · 观察现象",467,508,12,MUTED);
+            if(!g.story.interaction(g).isEmpty()){anchor(0,0);panel(348,281,264,34);center(g.story.interaction(g)+"  [E]",480,303,12,GOLD);}
+            return;
         }
         anchor(1,1);if(g.inBody()){
             if(g.arsenal.energy>=100){float pulse=4+(float)Math.sin(clock*5)*2;p.oval(645-24-pulse,330-24-pulse,(24+pulse)*2,(24+pulse)*2,0x44ffe7b0);}
@@ -405,6 +413,7 @@ public final class Scene {
         button("明白了，出发",340,432,280,42,true);
     }
     private void journal(){
+        if(g.inPhysics()){physicsJournal();return;}
         if(g.math.active){mathJournal();return;}
         if(g.body.enabled){bodyJournal();return;}
         veil();panel(88,42,784,466);label("旅途札记",120,92,29,CREAM);label(g.story.enabled?g.story.chapterName():"旅者档案",121,120,14,GOLD);
@@ -416,6 +425,7 @@ public final class Scene {
         if(g.guest.discovered){label("隐藏相遇 · 奶龙",120,382,13,GOLD);label(g.guest.status(),525,382,11,g.guest.stage==2?0xffa9d4b4:MUTED);}
         label("等级 "+g.level+"  ·  攻击 "+(int)g.attack+"  ·  金币 "+g.gold,120,408,13,MUTED);label("累计击败 "+g.lifetimeKills+"  ·  最高区域 "+g.bestWave+"/5",525,408,12,MUTED);
         button("返回旅程",340,444,280,40,true);
+        if(g.physics.solved!=0)button("物理发现 "+Integer.bitCount(g.physics.solved)+" / 5",620,444,280,40,false);
     }
     private void confirmNew(){veil();panel(265,135,430,285);center("开启新的远征？",480,193,28,CREAM);center("本次未完成的旅程将被替换。",480,236,15,MUTED);button("确认，重新出发",310,294,340,46,true);button("保留原旅程",310,355,340,40,false);}
     private void result(){
@@ -435,15 +445,15 @@ public final class Scene {
         label("任务方向",863,194,11,CREAM);label("距离 "+(int)Game.dist(x,y,g.x,g.y),863,211,10,MUTED);
     }
     private void armory(){
-        veil();panel(88,42,784,466);label("旅者武库",119,91,28,CREAM);label("装备改变普攻与技能 · 击败守卫或拾取武器空投解锁",120,121,12,MUTED);p.text("金币 "+g.gold,827,91,15,GOLD,2);
-        for(int i=0;i<6;i++){
-            float x=120+(i%3)*240,y=146+(i/3)*132;boolean owned=g.arsenal.owned(i);panel(x,y,222,117);if(i==g.arsenal.selected)border(x,y,222,117,GOLD);
+        veil();panel(88,42,784,466);label("旅者武库",119,91,28,CREAM);label("装备改变普攻与技能 · 空投、副本或物理工坊全通解锁",120,121,12,MUTED);p.text("金币 "+g.gold,827,91,15,GOLD,2);
+        for(int i=0;i<Arsenal.COUNT;i++){
+            float x=120+(i%4)*190,y=146+(i/4)*145;boolean owned=g.arsenal.owned(i);panel(x,y,184,117);if(i==g.arsenal.selected)border(x,y,184,117,GOLD);
             p.rect(x+5,y+6,4,105,owned?Arsenal.COLORS[i]:(0x44<<24)|(Arsenal.COLORS[i]&0xffffff));
-            if(i==g.arsenal.selected){float pulse=(float)Math.sin(clock*3)*1.2f;border(x-1-pulse,y-1-pulse,224+pulse*2,119+pulse*2,GOLD);}
-            p.image("weapons.png",i*32,0,32,32,x+14,y+12,37,37,owned?1:.35f,false);label(Arsenal.NAMES[i]+(g.arsenal.forge[i]>0?" +"+g.arsenal.forge[i]:""),x+56,y+29,15,owned?CREAM:MUTED);
+            if(i==g.arsenal.selected){float pulse=(float)Math.sin(clock*3)*1.2f;border(x-1-pulse,y-1-pulse,186+pulse*2,119+pulse*2,GOLD);}
+            p.image("weapons.png",Math.min(i,5)*32,0,32,32,x+14,y+12,37,37,owned?1:.35f,false);label(Arsenal.NAMES[i]+(g.arsenal.forge[i]>0?" +"+g.arsenal.forge[i]:""),x+56,y+29,15,owned?CREAM:MUTED);
             label(Arsenal.DESCS[i],x+12,y+63,11,MUTED);
-            smallToggle(owned?(i==g.arsenal.selected?"已装备":"装备"):"通关/空投解锁",x+10,y+76,96);
-            smallToggle(g.arsenal.forge[i]>=3?"强化已满":"强化 "+g.arsenal.cost(i),x+116,y+76,96);
+            smallToggle(owned?(i==g.arsenal.selected?"已装备":"装备"):(i==Arsenal.RESONANCE_STAFF_PLUS?"工坊全通解锁":"通关/空投解锁"),x+8,y+76,84);
+            smallToggle(g.arsenal.forge[i]>=3?"强化已满":"强化 "+g.arsenal.cost(i),x+96,y+76,84);
         }
         label("Q 快速轮换武器 · R 免疫爆发 · 爆发能量 "+(int)g.arsenal.energy+"%",120,419,12,MUTED);
         p.rect(560,400,250,5,0xff101820);p.rect(560,400,250*g.arsenal.energy/100f,5,g.arsenal.energy>=100?0xffffe7b0:0xffc5a6d9);
@@ -464,6 +474,13 @@ public final class Scene {
         anchor(1,-1);smallToggle("札记",746,19,54);smallToggle("地图",830,19,66);panel(906,75,34,139);center("发现 "+Integer.bitCount(g.physics.solved)+" / 5",923,98,11,GOLD);physicsMinimap();String progress=physicsProgress();center(progress,923,187,11,CREAM);center("光点是你与入口",923,204,8,MUTED);
         // 直接返回城镇按钮
         anchor(-1,1);button("返回城镇",26,375,120,36,false);
+        if(g.physics.level==0){
+            anchor(0,0);panel(350,385,260,120);
+            label("发射参数",362,408,14,GOLD);label(g.physics.launchLabel(),362,432,13,CREAM);
+            smallToggle("角度 −",360,448,58);smallToggle("角度 +",424,448,58);
+            smallToggle("力度 −",488,448,58);smallToggle("力度 +",552,448,58);
+            center("Z/X 调角度 · C/V 调力度 · 虚线是预览轨迹",480,497,10,MUTED);
+        }
     }
     private String physicsProgress(){
         switch(g.physics.level){
@@ -518,6 +535,14 @@ public final class Scene {
         p.text("出口",sx(g.physics.gateX()),sy(g.physics.gateY())-30,10,0xffffffff,1);
     }
     private void drawProjectileRange(){
+        // Dashed preview of the trajectory implied by the current angle and power.
+        float radians=(float)(g.physics.launchAngle*Math.PI/180),speed=g.physics.launchSpeed();
+        float vx=(float)Math.cos(radians)*speed,vy=-(float)Math.sin(radians)*speed,simX=300,simY=800;
+        for(int step=0;step<180;step++){
+            vy+=PhysicsJourney.GRAVITY/60;simX+=vx/60;simY+=vy/60;
+            if(simX<0||simX>PhysicsJourney.WIDTH||simY>PhysicsJourney.HEIGHT)break;
+            if(step%3==0)p.rect(sx(simX)-1,sy(simY)-1,3,3,0x99ffffeb);
+        }
         // Draw targets
         for(int i=0;i<3;i++){
             float tx=PhysicsJourney.TARGETS[i][0],ty=PhysicsJourney.TARGETS[i][1];
@@ -611,8 +636,8 @@ public final class Scene {
         button("进入身体主题",145,365,290,42,true);button("进入数学主题",525,365,290,42,true);center("在中山大学可以切换主题；探索中请先从光门返回。",480,438,11,MUTED);button("返回旅程",340,455,280,37,false);
     }
     private void physicsMap(){
-        veil();panel(88,40,784,468);label("格物堂 · 物理工坊",119,88,27,CREAM);label("五种机关对应不同物理现象，通关可获得奖励。",120,119,12,MUTED);
-        for(int i=0;i<5;i++){
+        veil();panel(88,40,784,468);label("格物堂 · 物理工坊",119,88,27,CREAM);label("五种机关对应不同物理现象。已解开的原理也会写进札记。",120,119,12,MUTED);
+        for(int i=0;i<PhysicsJourney.MAPS;i++){
             boolean done=(g.physics.solved&(1<<i))!=0;
             float px=120+(i%3)*220,py=155+(i/3)*150;
             panel(px,py,200,120);
@@ -620,6 +645,17 @@ public final class Scene {
             wrapped(done?PhysicsJourney.INSIGHTS[i]:"未发现。观察现象，找出规律。",px+100,py+58,11,done?CREAM:MUTED,180,17,2);
         }
         button("返回城镇",340,455,280,37,false);
+    }
+    private void physicsJournal(){
+        veil();panel(88,42,784,466);label("物理 · 发现札记",120,92,29,CREAM);label("只记录已经亲自验证过的规律。",120,122,13,MUTED);
+        boolean rewarded=g.arsenal.owned(Arsenal.RESONANCE_STAFF_PLUS);
+        label("五关全通奖励 · 共振法杖·改 "+(rewarded?"已解锁":"未解锁"),520,122,12,rewarded?GOLD:MUTED);
+        for(int i=0;i<PhysicsJourney.MAPS;i++){
+            boolean done=(g.physics.solved&(1<<i))!=0;
+            label((done?"◆ ":"◇ ")+PhysicsJourney.NAMES[i],122,160+i*54,17,done?GOLD:MUTED);
+            wrapped(done?PhysicsJourney.INSIGHTS[i]:"未发现。观察现象，再动手试一试。",150,184+i*54,12,done?CREAM:MUTED,650,18,2);
+        }
+        button("返回旅程",340,444,280,40,true);
     }
     private void mathJournal(){
         veil();panel(88,42,784,466);label("数学 · 发现札记",120,92,29,CREAM);label("只记录已经亲自找到的规律。",120,122,13,MUTED);
@@ -664,6 +700,7 @@ public final class Scene {
         if(g.guest.discovered){label("隐藏相遇 · 奶龙",120,382,13,GOLD);label(g.guest.status(),275,382,11,g.guest.stage==2?0xffa9d4b4:MUTED);}
         label(g.body.ending?"终章奖励已领取 · 远征完成":"完成全部副本，再找沈砚领取终章武器。",120,409,12,MUTED);
         button("返回旅程",340,444,280,40,true);
+        if(g.physics.solved!=0)button("物理发现 "+Integer.bitCount(g.physics.solved)+" / 5",620,444,280,40,false);
     }
     private void bodyHelp(){
         veil();panel(150,48,660,444);label("双境远征 · 旅者手册",184,98,27,CREAM);

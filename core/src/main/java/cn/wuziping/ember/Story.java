@@ -74,7 +74,7 @@ public final class Story {
     }
     public boolean talk(Game g,int id){
         if(id==TownGuest.NPC)return g.guest.talk(g);
-        if(id==6&&g.inTown()&&g.mode==Game.PLAY&&Game.dist(g.x,g.y,Town.NPCS[6].x,Town.NPCS[6].y)<43){begin(g,6,new String[]{"程理|格物堂是新开的物理工坊。这里有五种机关，分别对应不同的物理现象。","程理|抛体靶场练习弹道计算，光路迷宫学习反射定律，回路工坊理解电路连接。","程理|波的干涉展示叠加原理，热流迷宫模拟热传导。每通过一关，你都会获得新的发现。","程理|全部通关后，你会获得丰厚的奖励。准备好探索物理的奥秘了吗？"},new String[]{"进入物理工坊","稍后再来"},new int[]{310,300});return true;}
+        if(id==6&&g.inTown()&&g.mode==Game.PLAY&&Game.dist(g.x,g.y,Town.NPCS[6].x,Town.NPCS[6].y)<43){begin(g,6,new String[]{"程理|格物堂是新开的物理工坊。这里有五种机关，分别对应不同的物理现象。","程理|抛体靶场练习弹道计算，光路迷宫学习反射定律，回路工坊理解电路连接。","程理|波的干涉展示叠加原理，热流迷宫模拟热传导。每通过一关，你都会获得新的发现。","程理|五关全部解开后，共振法杖·改会收进武库，它的法弹能引发连锁共振。准备好探索物理的奥秘了吗？"},new String[]{"进入物理工坊","稍后再来"},new int[]{310,300});return true;}
         if(id==4&&g.inTown()&&g.mode==Game.PLAY&&Game.dist(g.x,g.y,Town.NPCS[4].x,Town.NPCS[4].y)<43){begin(g,4,new String[]{"知夏|东庭新开了一道数学之门。那里的路会记住脚印，机关会回应不同的走法。","知夏|先观察，再试一试。你的发现会写进札记，那里不会提前写好走法。"},new String[]{"带我去东庭","我自己走过去"},new int[]{303,300});return true;}
         if(g.body.enabled)return g.body.talk(g,id);
         if(!g.inTown()||g.mode!=Game.PLAY||id<0||id>=Town.NPCS.length||Game.dist(g.x,g.y,Town.NPCS[id].x,Town.NPCS[id].y)>43)return false;
@@ -116,7 +116,7 @@ public final class Story {
                 begin(g,5,new String[]{"阿满|路过是客，回来也是客。旅舍还有热汤和空床，赶路的人总得好好睡一觉。","阿满|住一晚十枚金币，恢复全部生命。外面的战斗会停在你离开的地方，不必急着赶路。"},new String[]{"休息一晚 · 10 金币","再去镇上走走"},new int[]{REST,CLOSE});
                 break;
             case 6:
-                begin(g,6,new String[]{"程理|格物堂是新开的物理工坊。这里有五种机关，分别对应不同的物理现象。","程理|抛体靶场练习弹道计算，光路迷宫学习反射定律，回路工坊理解电路连接。","程理|波的干涉展示叠加原理，热流迷宫模拟热传导。每通过一关，你都会获得新的发现。","程理|全部通关后，你会获得丰厚的奖励。准备好探索物理的奥秘了吗？"},new String[]{"进入物理工坊","稍后再来"},new int[]{310,300});
+                begin(g,6,new String[]{"程理|格物堂是新开的物理工坊。这里有五种机关，分别对应不同的物理现象。","程理|抛体靶场练习弹道计算，光路迷宫学习反射定律，回路工坊理解电路连接。","程理|波的干涉展示叠加原理，热流迷宫模拟热传导。每通过一关，你都会获得新的发现。","程理|五关全部解开后，共振法杖·改会收进武库，它的法弹能引发连锁共振。准备好探索物理的奥秘了吗？"},new String[]{"进入物理工坊","稍后再来"},new int[]{310,300});
                 break;
             case 7:
                 begin(g,7,new String[]{"朱华鸿|嘘——你居然找到我了。我是这个世界的建造者之一。","朱华鸿|每一块砖、每一盏灯，都从我手里经过。不过我最得意的，还是那些藏在角落里的彩蛋。","朱华鸿|你能走到这里，说明你是个细心的旅人。这份好奇心，比星火还珍贵。"},new String[]{"谢谢你的创造"},new int[]{CLOSE});

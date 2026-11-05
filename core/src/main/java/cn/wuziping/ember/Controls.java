@@ -13,7 +13,7 @@ public final class Controls {
         if(g.mode!=Game.PLAY){x-=layout.centerX;y-=layout.centerY;}
         if(g.mode==Arsenal.MENU){
             if(box(x,y,340,444,280,40)){g.mode=Game.PLAY;clear();return;}
-            for(int i=0;i<6;i++){float a=120+(i%3)*240,b=146+(i/3)*132;if(box(x,y,a+10,b+76,96,31))g.arsenal.equip(g,i);else if(box(x,y,a+116,b+76,96,31))g.arsenal.upgrade(g,i);}return;
+            for(int i=0;i<Arsenal.COUNT;i++){float a=120+(i%4)*190,b=146+(i/4)*145;if(box(x,y,a+8,b+76,84,31))g.arsenal.equip(g,i);else if(box(x,y,a+96,b+76,84,31))g.arsenal.upgrade(g,i);}return;
         }
         if(g.mode==Game.DIALOGUE){
             Story.Dialogue d=g.story.dialogue;if(d==null){g.mode=Game.PLAY;return;}
@@ -44,7 +44,12 @@ public final class Controls {
             }return;
         }
         if(g.mode==PhysicsJourney.MAP){if(box(x,y,340,455,280,37)){g.mode=mapReturn;clear();}return;}
-        if(g.mode==Game.JOURNAL){if(box(x,y,340,444,280,40)){g.mode=journalReturn;clear();}return;}
+        if(g.mode==Game.JOURNAL){
+            if(box(x,y,340,444,280,40)){g.mode=journalReturn;clear();return;}
+            if(box(x,y,620,444,280,40)&&g.physics.solved!=0){journalReturn=Game.JOURNAL;g.mode=PhysicsJourney.JOURNAL;clear();return;}
+            return;
+        }
+        if(g.mode==PhysicsJourney.JOURNAL){if(box(x,y,340,444,280,40)){g.mode=journalReturn;clear();}return;}
         if(g.mode==Game.HELP){if(box(x,y,340,432,280,42)){g.mode=helpReturn;clear();}return;}
         if(g.mode==Game.UPGRADE){for(int i=0;i<3;i++)if(box(x,y,120+i*246,181,228,240)){g.choose(i);clear();return;}return;}
         if(g.mode==Game.PAUSE){
@@ -66,11 +71,16 @@ public final class Controls {
         if(g.inPhysics()&&box(x,y,layout.left+26,layout.bottom+375,120,36)){g.physics.returnTown(g);clear();return;}
         if(g.inMath()&&box(rx,by,741,337,132,31)){g.math.retry(g);clear();return;}
         if(box(rx,ty,862,19,78,38)){g.pause();clear();return;}
-        if(box(rx,ty,716,19,58,38)||box(x-layout.left,ty,18,107,286,83)){journalReturn=Game.PLAY;g.mode=Game.JOURNAL;clear();return;}
+        if(box(rx,ty,716,19,58,38)||box(x-layout.left,ty,18,107,286,83)){journalReturn=Game.PLAY;g.mode=g.inPhysics()?PhysicsJourney.JOURNAL:Game.JOURNAL;clear();return;}
         if(box(rx,ty,780,19,76,38)){g.autoAttack=!g.autoAttack;return;}
         if(x-layout.left<350&&by>300&&movePointer==-1){movePointer=pointer;move(g,pointer,x,y);}
-        else if((g.inTown()||g.inMath()||g.inPhysics())&&circle(rx,by,847,429,57)){g.story.interact(g);clear();}
-        else if(g.inMath()||g.inPhysics())return;
+        else if((g.inTown()||g.inMath())&&circle(rx,by,847,429,57)){g.story.interact(g);clear();}
+        else if(g.inMath())return;
+        else if(g.inPhysics()){
+            if(g.physics.level==0&&launchTune(g,cx,cy))return;
+            if(circle(rx,by,866,428,55)){attackPointer=pointer;input.attack=true;}
+            return;
+        }
         else if(g.inTown()){
             float camX=Game.clamp(g.x-layout.width/4,0,Math.max(0,Town.WIDTH-layout.width/2)),camY=Game.clamp(g.y-layout.height/4,0,Math.max(0,Town.HEIGHT-layout.height/2));
             if(circle(x,y,(g.guest.x-camX)*2,(g.guest.y-camY)*2-26,32)){if(g.guest.near(g))g.story.talk(g,TownGuest.NPC);clear();return;}
@@ -89,6 +99,14 @@ public final class Controls {
         else if(circle(rx,by,860,330,38))input.dash=true;
         else if(circle(rx,by,748,345,33))input.potion=true;
     }
+    /** Four on-screen buttons for the projectile launch parameters (virtual centre coordinates). */
+    private boolean launchTune(Game g,float x,float y){
+        if(box(x,y,360,448,58,30)){g.physics.adjust(g,0,-5);return true;}
+        if(box(x,y,424,448,58,30)){g.physics.adjust(g,0,5);return true;}
+        if(box(x,y,488,448,58,30)){g.physics.adjust(g,1,-5);return true;}
+        if(box(x,y,552,448,58,30)){g.physics.adjust(g,1,5);return true;}
+        return false;
+    }
     public void move(Game g,int pointer,float x,float y){
         if(g.mode!=Game.PLAY)return;
         if(pointer==movePointer){float dx=(x-layout.left-92)/54,dy=(y-layout.bottom-435)/54,n=(float)Math.sqrt(dx*dx+dy*dy);if(n>.12){input.mx=dx/Math.max(1,n);input.my=dy/Math.max(1,n);}else input.mx=input.my=0;}
@@ -97,7 +115,7 @@ public final class Controls {
     public void pulsesConsumed(){input.skill=input.dash=input.potion=input.ultimate=false;}
     public void back(Game g){
         dirty=true;clear();
-        if(g.mode==Game.PLAY)g.pause();else if(g.mode==Game.PAUSE)g.resume();else if(g.mode==Game.HELP)g.mode=helpReturn;else if(g.mode==Game.JOURNAL)g.mode=journalReturn;else if(g.mode==BodyJourney.MAP||g.mode==MathJourney.MAP||g.mode==PhysicsJourney.MAP)g.mode=mapReturn;else if(g.mode==Arsenal.MENU)g.mode=Game.PLAY;else if(g.mode==8)g.title();else if(g.mode==Game.DIALOGUE){g.story.dialogue=null;g.mode=Game.PLAY;}
+        if(g.mode==Game.PLAY)g.pause();else if(g.mode==Game.PAUSE)g.resume();else if(g.mode==Game.HELP)g.mode=helpReturn;else if(g.mode==Game.JOURNAL||g.mode==PhysicsJourney.JOURNAL)g.mode=journalReturn;else if(g.mode==BodyJourney.MAP||g.mode==MathJourney.MAP||g.mode==PhysicsJourney.MAP)g.mode=mapReturn;else if(g.mode==Arsenal.MENU)g.mode=Game.PLAY;else if(g.mode==8)g.title();else if(g.mode==Game.DIALOGUE){g.story.dialogue=null;g.mode=Game.PLAY;}
     }
     public void key(Game g,String key,boolean pressed){
         if("ESCAPE".equals(key)){if(pressed)back(g);return;}
@@ -105,12 +123,20 @@ public final class Controls {
         if(g.mode==Game.UPGRADE&&pressed){if("1".equals(key))g.choose(0);if("2".equals(key))g.choose(1);if("3".equals(key))g.choose(2);clear();return;}
         if(g.mode!=Game.PLAY)return;
         if(pressed&&"B".equals(key)&&g.body.enabled){g.mode=Arsenal.MENU;dirty=true;clear();return;}
-        if(pressed&&"Q".equals(key)&&g.body.enabled){for(int i=1;i<=6;i++){int next=(g.arsenal.selected+i)%6;if(g.arsenal.owned(next)){g.arsenal.equip(g,next);break;}}dirty=true;return;}
+        if(pressed&&"Q".equals(key)&&g.body.enabled){for(int i=1;i<Arsenal.COUNT;i++){int next=(g.arsenal.selected+i)%Arsenal.COUNT;if(g.arsenal.owned(next)){g.arsenal.equip(g,next);break;}}dirty=true;return;}
         if(pressed&&"R".equals(key))input.ultimate=true;
         if(pressed&&("M".equals(key)||"N".equals(key))&&g.story.enabled){mapReturn=Game.PLAY;g.mode=g.inBody()&&!"N".equals(key)?BodyJourney.MAP:g.inPhysics()?PhysicsJourney.MAP:MathJourney.MAP;dirty=true;clear();return;}
         if(pressed&&"T".equals(key)&&g.inMath()){g.math.retry(g);dirty=true;clear();return;}
         if(pressed&&"E".equals(key)){g.story.interact(g);dirty=true;clear();return;}
-        if(pressed&&"L".equals(key)){journalReturn=Game.PLAY;g.mode=Game.JOURNAL;dirty=true;clear();return;}
+        if(pressed&&"L".equals(key)){journalReturn=Game.PLAY;g.mode=g.inPhysics()?PhysicsJourney.JOURNAL:Game.JOURNAL;dirty=true;clear();return;}
+        if(pressed&&g.inPhysics()&&g.physics.level==0){
+            if("Z".equals(key))g.physics.adjust(g,0,-5);
+            else if("X".equals(key))g.physics.adjust(g,0,5);
+            else if("C".equals(key))g.physics.adjust(g,1,-5);
+            else if("V".equals(key))g.physics.adjust(g,1,5);
+            else return;
+            dirty=true;return;
+        }
         if("A".equals(key)||"LEFT".equals(key))left=pressed;if("D".equals(key)||"RIGHT".equals(key))right=pressed;
         if("W".equals(key)||"UP".equals(key))up=pressed;if("S".equals(key)||"DOWN".equals(key))down=pressed;
         input.mx=(right?1:0)-(left?1:0);input.my=(down?1:0)-(up?1:0);
