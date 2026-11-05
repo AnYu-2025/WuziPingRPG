@@ -376,7 +376,9 @@ public final class EditorActivity extends Activity {
         else if(request==GAME_IN&&data.getData()!=null){Uri uri=data.getData();io.execute(()->{try(InputStream in=getContentResolver().openInputStream(uri)){byte[] bytes=TextFiles.read(in,8*1024*1024);Game g=Game.load(new ByteArrayInputStream(bytes));runOnUiThread(()->new AlertDialog.Builder(this).setTitle("导入游戏存档？").setMessage("存档角色："+g.heroName+"\n等级："+g.level+"\n会替换当前游戏进度，替换前保留一份本地备份。").setNegativeButton("取消",null).setPositiveButton("导入",(d,w)->io.execute(()->{try{backupGame();atomic(gameSave,bytes);notice("游戏存档已导入。");}catch(Exception e){notice("导入失败："+e.getMessage());}})).show());}catch(Exception e){notice("这不是可用的游戏存档："+e.getMessage());}});}
         else if(request==SLIDE){final ArrayList<Uri> uris=pickedUris(data);resolveSlideChooser(uris.toArray(new Uri[0]));}
         else if(request==SLIDES){final ArrayList<Uri> uris=pickedUris(data);if(uris.isEmpty()){notice("没有选择照片。");return;}io.execute(()->stageSlideFiles(uris));}
-        else if(request==PPTX&&data.getData()!=null){Uri uri=data.getData();persistGrant(uri,data.getFlags());trust(uri);io.execute(()->stagePptxFile(uri));}
+        /* PPTX 只在导入时读一次、复制进 slide-cache，不需要持久化授权，
+           更不能要写权限（用户原文件不该被这个应用拿到写权限）。 */
+        else if(request==PPTX&&data.getData()!=null){final Uri uri=data.getData();io.execute(()->stagePptxFile(uri));}
     }
     private String fileName(Uri uri){try(Cursor c=getContentResolver().query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(c!=null&&c.moveToFirst())return c.getString(0);}catch(Exception ignored){}return "untitled.txt";}
     private JSONObject readDocument(Uri uri,String path)throws Exception{if(!TextFiles.validPath(path))throw new IOException("文件名不受支持");try(InputStream in=getContentResolver().openInputStream(uri)){if(in==null)throw new IOException("无法打开文件");TextFiles.Decoded file=TextFiles.decode(TextFiles.read(in,TextFiles.LIMIT));JSONObject o=new JSONObject();put(o,"path",path);put(o,"text",file.text);put(o,"encoding",file.encoding);put(o,"uri",uri.toString());trust(uri);return o;}}

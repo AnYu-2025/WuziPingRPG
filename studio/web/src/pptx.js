@@ -5,6 +5,10 @@
    渲染目标是「课堂笔记里认得出这一页」，不追求像素级还原：
    - 文本：字号 / 加粗 / 颜色 / 对齐 / 自动换行 / 垂直居中都支持；
      艺术字、渐变、图表等复杂效果降级为普通文本或占位框。
+   - 占位符（标题 / 内容等 p:ph）不写坐标时，从 slideLayout 继承位置，
+     布局也没有再退到 slideMaster。
+   - 填充与描边只看 spPr/a:ln 的直接子节点：没声明填充就不填，
+     避免把「只有边框」的形状涂成色块。
    - 图片：png/jpg/gif/bmp/webp 直接绘制；wmf/emf 无法解码则跳过。
    - 主题色从 theme1.xml 读取，缺省回落到 Office 经典配色。
 
@@ -50,18 +54,26 @@ function parseXml(text){
 
 /* ---------------- 颜色 / 主题 ---------------- */
 
-function solidFillOf(node,theme){
-  if(!node)return null;
-  if(findFirst(node,'noFill'))return null;
-  const sf=findFirst(node,'solidFill');
-  if(!sf)return null;
-  const srgb=findFirst(sf,'srgbClr');
-  if(srgb)return '#'+(srgb.getAttribute('val')||'000000');
-  const sys=findFirst(sf,'sysClr');
-  if(sys)return '#'+(sys.getAttribute('lastClr')||'000000');
-  const scheme=findFirst(sf,'schemeClr');
-  if(scheme&&scheme.getAttribute('val'))return schemeColor(scheme.getAttribute('val'),theme);
-  return null;
+/* 只看 node 的【直接子节点】判断填充。递归查找会把 a:ln（边框）里的
+   solidFill 误当成形状填充——「只有红边框、没有填充」的矩形就是这样被
+   画成一整块红色的。
+   返回 undefined 表示“没声明”，null 表示“显式无填充”，字符串为颜色。 */
+function directFillOf(node,theme){
+  if(!node)return undefined;
+  for(const child of kids(node)){
+    const t=tag(child);
+    if(t==='noFill')return null;
+    if(t==='solidFill'){
+      const srgb=findFirst(child,'srgbClr');
+      if(srgb)return '#'+(srgb.getAttribute('val')||'000000');
+      const sys=findFirst(child,'sysClr');
+      if(sys)return '#'+(sys.getAttribute('lastClr')||'000000');
+      const scheme=findFirst(child,'schemeClr');
+      if(scheme&&scheme.getAttribute('val'))return schemeColor(scheme.getAttribute('val'),theme);
+      return null;
+    }
+  }
+  return undefined;
 }
 function schemeColor(name,theme){
   const key=String(name||'');
@@ -157,7 +169,8 @@ async function drawPicture(ctx,zip,node,relMap,baseDir,transform){
   const blip=findFirst(node,'blip');
   const embed=attrR(blip,'embed');
   if(!embed)return;
-  const target=relMap[embed];
+  const rel=relMap[embed];
+  const target=rel&&rel.target;
   if(!target)return;
   const path=resolveRelPath(baseDir,target);
   const entry=zip.file(path);
@@ -180,7 +193,8 @@ function xfrmRect(node){
 function runProps(rPr,theme){
   const size=rPr&&rPr.getAttribute('sz')?Number(rPr.getAttribute('sz'))/100:null;
   const bold=rPr?rPr.getAttribute('b')==='1':false;
-  const color=rPr?solidFillOf(rPr,theme):null;
+  /* rPr 的填充也在直接子节点上（避免拿到文本描边 a:ln 的颜色） */
+  const color=rPr?(directFillOf(rPr,theme)||null):null;
   return {size,bold,color};
 }
 function shapeText(ctx,txBody,rect,theme){
@@ -260,20 +274,56 @@ function wrapTokens(ctx,tokens,box,lines,algn){
   if(current.length||!lines.length)flush();
 }
 
+/* ---------------- 占位符（版式继承） ---------------- */
+
+/* 幻灯片里使用版式占位符（p:ph）的形状经常不写 a:xfrm，位置/大小要从
+   slideLayout 继承（布局缺的时候再退回 slideMaster）。不继承的话，
+   最常见的「标题和内容」版式会渲染成一整页空白。 */
+function phKeyOf(node){
+  const ph=findFirst(node,'ph');   // p:nvSpPr/p:nvPr/p:ph
+  if(!ph)return null;
+  return {type:ph.getAttribute('type')||'body',idx:ph.getAttribute('idx')||''};
+}
+function collectPlaceholders(doc,map){
+  for(const sp of findAll(doc,'sp')){
+    const key=phKeyOf(sp);
+    if(!key)continue;
+    const spPr=findFirst(sp,'spPr');
+    const xf=spPr?readXfrm(spPr):null;
+    if(!xf||(!xf.w&&!xf.h))continue;
+    const exact=key.type+'|'+key.idx;
+    if(!map[exact])map[exact]=xf;
+    /* body 类占位符允许按类型兜底（版式里 idx 写法不一致很常见） */
+    const typeOnly=key.type+'|';
+    if(!map[typeOnly])map[typeOnly]=xf;
+  }
+}
+function inheritXfrm(node,xf,placeholders){
+  if(xf&&xf.w>0&&xf.h>0)return xf;
+  if(!placeholders)return xf;
+  const key=phKeyOf(node);
+  if(!key)return xf;
+  const from=placeholders[key.type+'|'+key.idx]||placeholders[key.type+'|'];
+  if(!from)return xf;
+  if(!xf)return {x:from.x,y:from.y,w:from.w,h:from.h,chX:0,chY:0,chW:0,chH:0};
+  return {x:xf.x||from.x,y:xf.y||from.y,w:xf.w||from.w,h:xf.h||from.h,chX:0,chY:0,chW:0,chH:0};
+}
+
 /* ---------------- 形状绘制 ---------------- */
 
-function drawShape(ctx,node,transform,theme){
+function drawShape(ctx,node,transform,theme,placeholders){
   const spPr=findFirst(node,'spPr');
-  const xf=spPr?readXfrm(spPr):null;
+  const xf=inheritXfrm(node,spPr?readXfrm(spPr):null,placeholders);
   if(!xf)return;
   const rect=transform.apply({x:xf.x,y:xf.y,w:xf.w,h:xf.h});
   rect.__scale=transform.sx;
   if(rect.w<=0||rect.h<=0)return;
-  const fill=solidFillOf(spPr,theme);
+  /* 填充只看 spPr 的直接子节点：没有声明就不填，避免把边框颜色涂满整块 */
+  const fill=directFillOf(spPr,theme);
   if(fill){ctx.fillStyle=fill;ctx.fillRect(rect.x,rect.y,rect.w,rect.h);}
-  /* 线条：细描边即可（渐变线等忽略） */
-  const ln=findFirst(spPr,'ln');
-  const lnFill=ln?solidFillOf(ln,theme):null;
+  /* 线条：细描边即可（渐变线等忽略）；同样只看 a:ln 的直接子节点 */
+  const ln=spPr?kids(spPr).find(c=>tag(c)==='ln'):null;
+  const lnFill=ln?directFillOf(ln,theme):undefined;
   if(lnFill){ctx.strokeStyle=lnFill;ctx.lineWidth=Math.max(0.5,(ln.getAttribute('w')?Number(ln.getAttribute('w')):9525)*transform.sx);ctx.strokeRect(rect.x+0.25,rect.y+0.25,rect.w-0.5,rect.h-0.5);}
   const txBody=findFirst(node,'txBody');
   if(txBody)shapeText(ctx,txBody,rect,theme);
@@ -311,55 +361,82 @@ function drawTable(ctx,node,transform,theme){
     if(y>rect.y+rect.h)break;
   }
 }
-async function drawNode(ctx,zip,node,relMap,baseDir,transform,theme){
+async function drawNode(ctx,zip,node,relMap,baseDir,transform,theme,placeholders){
   const name=tag(node);
   if(name==='pic'){await drawPicture(ctx,zip,node,relMap,baseDir,transform);return;}
-  if(name==='sp'){drawShape(ctx,node,transform,theme);return;}
+  if(name==='sp'){drawShape(ctx,node,transform,theme,placeholders);return;}
   if(name==='graphicFrame'||name==='txbx'){drawTable(ctx,node,transform,theme);return;}
   if(name==='grpSp'){
     const grpSpPr=findFirst(node,'grpSpPr');
     const xf=grpSpPr?readXfrm(grpSpPr):null;
     const inner=xf&&xf.chW>0?transformFor(xf,transform):transform;
     for(const child of kids(node)){
-      await drawNode(ctx,zip,child,relMap,baseDir,inner,theme);
+      await drawNode(ctx,zip,child,relMap,baseDir,inner,theme,placeholders);
     }
     return;
   }
   /* 兜底：任意节点里嵌着的 pic/sp（如 mc:AlternateContent） */
   for(const child of kids(node)){
     const t=tag(child);
-    if(t==='pic'||t==='sp'||t==='grpSp'||t==='graphicFrame')await drawNode(ctx,zip,child,relMap,baseDir,transform,theme);
+    if(t==='pic'||t==='sp'||t==='grpSp'||t==='graphicFrame')await drawNode(ctx,zip,child,relMap,baseDir,transform,theme,placeholders);
   }
 }
 
 /* ---------------- 单页 / 整个文件 ---------------- */
+
+/* 读取 slide 的版式（slideLayout）占位符位置表；布局缺 xfrm 的再退回母版。 */
+async function loadPlaceholders(zip,relMap,baseDir){
+  const map={};
+  const layoutRel=Object.values(relMap).find(r=>/\/slideLayout$/.test(r.type||''))
+    ||Object.values(relMap).find(r=>/slideLayout\d*\.xml$/i.test(r.target||''));
+  if(!layoutRel)return map;
+  const layoutPath=resolveRelPath(baseDir,layoutRel.target);
+  const entry=zip.file(layoutPath);
+  if(!entry)return map;
+  try{
+    collectPlaceholders(parseXml(await entry.async('string')),map);
+    /* 母版兜底：布局里同样可能只有 p:ph 没有坐标 */
+    const layoutRelPath=layoutPath.replace(/([^/]+)$/,'_rels/$1.rels');
+    const layoutRelEntry=zip.file(layoutRelPath);
+    if(layoutRelEntry){
+      const relDoc=parseXml(await layoutRelEntry.async('string'));
+      const master=findAll(relDoc,'Relationship').find(r=>/slideMaster/.test(r.getAttribute('Type')||''));
+      if(master){
+        const masterPath=resolveRelPath(layoutPath.slice(0,layoutPath.lastIndexOf('/')+1),master.getAttribute('Target'));
+        const mEntry=zip.file(masterPath);
+        if(mEntry)collectPlaceholders(parseXml(await mEntry.async('string')),map);
+      }
+    }
+  }catch(e){/* 版式解析失败就按无继承处理 */}
+  return map;
+}
 
 async function renderSlide(ctx,zip,path,width,height,scale,theme){
   const entry=zip.file(path);
   if(!entry)throw new Error('缺少幻灯片 '+path);
   const doc=parseXml(await entry.async('string'));
   const relPath=path.replace(/([^/]+)$/,'_rels/$1.rels');
-  const relMap={};
+  const relMap={};   // Id -> {target,type}
   const relEntry=zip.file(relPath);
   if(relEntry){
     const relDoc=parseXml(await relEntry.async('string'));
     for(const rel of findAll(relDoc,'Relationship')){
-      relMap[rel.getAttribute('Id')]=rel.getAttribute('Target');
+      relMap[rel.getAttribute('Id')]={target:rel.getAttribute('Target'),type:rel.getAttribute('Type')||''};
     }
   }
+  const baseDir=path.includes('/')?path.slice(0,path.lastIndexOf('/')+1):'';
+  const placeholders=await loadPlaceholders(zip,relMap,baseDir);
   ctx.fillStyle='#ffffff';ctx.fillRect(0,0,width,height);
-  /* 页面背景 */
+  /* 页面背景：p:bg > p:bgPr > a:solidFill */
   const cSld=findFirst(doc,'cSld');
   const bg=cSld&&findFirst(cSld,'bg');
-  if(bg){
-    const fill=solidFillOf(bg,theme);
-    if(fill){ctx.fillStyle=fill;ctx.fillRect(0,0,width,height);}
-  }
-  const baseDir=path.includes('/')?path.slice(0,path.lastIndexOf('/')+1):'';
+  const bgPr=bg&&findFirst(bg,'bgPr');
+  const bgFill=bgPr?directFillOf(bgPr,theme):undefined;
+  if(bgFill){ctx.fillStyle=bgFill;ctx.fillRect(0,0,width,height);}
   const spTree=findFirst(doc,'spTree');
   const transform={sx:scale,sy:scale,apply:r=>({x:r.x*scale,y:r.y*scale,w:r.w*scale,h:r.h*scale,__scale:scale})};
   for(const node of kids(spTree)){
-    await drawNode(ctx,zip,node,relMap,baseDir,transform,theme);
+    await drawNode(ctx,zip,node,relMap,baseDir,transform,theme,placeholders);
   }
 }
 function slideNumber(path){
