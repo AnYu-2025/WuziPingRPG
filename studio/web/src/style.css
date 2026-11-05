@@ -307,6 +307,7 @@ dialog.menu::before{content:"";display:block;width:38px;height:4px;border-radius
 .landing-brand strong{font-size:13px;font-weight:600;color:var(--landing-ink);letter-spacing:.08em}
 .brandspark{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:7px;background:linear-gradient(135deg,#34d399,#38bdf8 60%,#2563eb);color:#fff;font-size:10px;line-height:1;box-shadow:0 4px 10px rgba(56,189,248,.3)}
 .brandsub{font-size:10px;letter-spacing:.16em;color:var(--landing-muted)}
+.brandver{font-size:10px;letter-spacing:.06em;padding:1px 6px;border-radius:999px;border:1px solid rgba(255,255,255,.18);color:var(--landing-muted)}
 .landing-back{min-height:32px;height:32px;padding:0 13px;border:1px solid rgba(255,255,255,.15);border-radius:999px;font-size:12px;font-weight:400;color:var(--landing-muted);background:rgba(255,255,255,.08)}
 .landing-main{position:relative;z-index:2;flex:1;min-height:0;width:min(100%,440px);margin:0 auto;display:flex;flex-direction:column;justify-content:center;gap:22px;padding:8px 0}
 .landing-copy{flex:none;animation:landing-rise .55s cubic-bezier(.22,.8,.28,1) both}
