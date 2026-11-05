@@ -211,6 +211,15 @@ landingBack.addEventListener('click',hideLanding);
 window.__studioLandingReady=true;
 initLecture({
   notify,
+  send:(type,payload)=>send(type,payload),
+  native:()=>native,
+  /* 上课模式的异常要在真机上留痕：写到 logcat 的同时在界面提示。 */
+  reportError:text=>{if(native)send('jsError',{kind:'lecture',detail:String(text).slice(0,300)});},
+  /* 安装包里 PPT 照片交给原生相册选择器（压缩后只用同源 URL 回传），
+     浏览器预览没有桥时返回 false，退回 <input type="file">。 */
+  pickSlides:()=>{if(!native)return false;send('pickSlides');return true;},
+  /* 整个 PPT 文件交给原生文档选择器：复制进缓存后以同源 URL 回传给页面解析。 */
+  pickPptx:()=>{if(!native)return false;send('pickPptx');return true;},
   scheduleSave,
   flush,
   activePath:()=>state.active,

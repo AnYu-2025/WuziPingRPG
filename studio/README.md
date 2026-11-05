@@ -23,22 +23,50 @@
 
 ## 上课模式（录音 · 笔记 · 时间轴）
 
-课堂三件事一次完成：录音、记笔记、拍 PPT，三者按时间轴自动对齐；复习时点任意一行笔记，音频跳到对应位置并显示当时的 PPT 页。全程离线。
+课堂三件事一次完成：录音、记笔记、拍或导入 PPT，三者按时间轴自动对齐；复习时点任意一行笔记，音频跳到对应位置并显示当时的 PPT 页。全程离线。
 
 - **录音**：WebView `getUserMedia` + `MediaRecorder`（webm/opus 16kbps），开始 / 暂停 / 继续 / 停止，2 小时上限自动停止；Android 侧为 `RECORD_AUDIO` 危险权限，首次点击录音时经 `WebChromeClient.onPermissionRequest` 运行时授权，拒绝后有引导提示。
 - **自动锚点（能量 VAD）**：每 500ms 采样 RMS，动态阈值（10 秒滚动平均 × 1.5，含 0.012 绝对下限）；语音段超过 1s 在段中点记 `speech` 锚点，语音结束后沉默超过 3s 在沉默起点记 `silence` 锚点。录音中随时可点「📌 标记锚点」生成 `manual` 锚点，并自动关联最近一张未标记的 PPT 照片。
 - **时间戳笔记**：上课模式的笔记写在 `课堂笔记.md`；录音期间新建的每一行通过 CodeMirror StateField 记录创建时刻，在行首 gutter 显示 `MM:SS` / `HH:MM:SS` 徽章，编辑（插入、删除、换行合并）时随文档自动重映射。
 - **同步回放**：点击笔记行或时间戳徽章 → 音频跳到对应时刻并播放；播放中当前笔记行高亮（行背景 + 徽章点亮）。时间轴 Canvas 绘制 RMS 波形包络、三类彩色锚点与红色播放头，支持点击定位与围绕播放头的窗口缩放（×1–×32）。
-- **PPT 照片**：拍照或从相册导入，最长边压缩到 1024px（JPEG 0.8），最多 50 张；点缩略图放大预览，点时间标签跳到该页开始时刻；锚点可编辑标签 / 时间（支持 `1:23` 写法）或删除。
+- **PPT 照片**：拍照或从相册导入，最长边压缩到 1024px（JPEG 0.8），最多 50 张；点缩略图放大预览，点时间标签跳到该页开始时刻；锚点可编辑标签 / 时间（支持 `1:23` 写法）或删除。Android 上走原生相册选择器：原图先复制到应用缓存目录，页面再按同源 URL 读入并压缩，不经过 WebView 的 `content://`，也不再把照片塞进 `evaluateJavascript`。
+- **整个 PPT 文件**：除拍照外还能直接导入 `.pptx`。`pptx.js` 用 JSZip 解开包体（PPTX 就是 ZIP），读 `presentation.xml` 拿页序与页面尺寸，逐页解析 `slideN.xml`：文本框（字号 / 加粗 / 颜色 / 对齐 / 自动换行 / 垂直居中）、图片（`p:pic` + 关系表定位）、表格与组合形状都画到 Canvas 上，再按 1024px 宽转成 JPEG 进入同一个照片库，因此锚点、时间轴、预览这些能力完全复用。占位符（`p:ph`，如「标题和内容」版式）不在 slide 里写坐标时，会从 `slideLayout` 继承位置和大小，布局也没有再退回 `slideMaster`。填充与描边只看 `spPr` / `a:ln` 的直接子节点：没有声明填充的形状不会被涂色（避免「只有红边框」变成一整块红）。主题色从 `theme1.xml` 读取。旧版二进制 `.ppt`、WMF/EMF 图元、图表会降级或跳过，并在提示里说明。原生只负责把文件复制进缓存（只读、不取持久授权），页面用同源 URL 读取，同样不走 base64。
 - **存储**：音频 base64、波形包络（0.5s 间距 RMS 序列）、锚点、照片与笔记时间戳全部保存在工作区 JSON（`state.lecture`），随草稿自动保存 / 恢复；宿主侧沿用 32MB 快照上限，2 小时录音约 19MB，超出建议及时整理。
 
 前端实现：`studio/web/src/audio-engine.js`（录制 + VAD + 播放）、`timeline.js`（Canvas 时间轴）、`lecture.js`（模式逻辑 + CodeMirror 扩展）、`lecture.css`（三栏布局）；启动页第四个选项、录音控制栏与移动端「笔记 / 时间轴 / PPT」底部 Tab 见 `index.html`。录音时长上限、锚点检测参数与存储预算集中在 `audio-engine.js` 顶部常量。
 
 ## 安装与原游戏进度
 
+仓库里可以直接下载的安装包仍是文首的 **0.1.15**（versionCode 23）。当前源码是 **0.1.17**（versionCode 25），上课录音修复和 PPTX 导入都在源码里，需要本地重新构建才会进入安装包。本地构建运行 `tools/build-studio.ps1` 或 `tools/build-studio.sh`（JDK 17、Android SDK 34、`build/manual/debug.keystore`），产物写到 `dist/Ember-Studio-0.1.17.apk` 和 `dist/Ember-Studio-0.1.17-parallel.apk`。这两个 0.1.17 包目前不在仓库里。
+
 0.1.15 标准包的包名是 `cn.wuziping.ember`，共存包是 `cn.wuziping.ember.preview07`。编辑器成为应用首页。标准包与已经安装的 0.1.13、0.1.14 或同证书的 0.7 直接覆盖，**不要先卸载**，原 `journey-v1.bin` 继续留着。外部 0.6 用的是另一张证书，盖不上去。共存包和标准包可以同时留在手机上，但不能读取对方的私有存档。实际 Android 安装还没有在真机上验收。
 
 启动页选择「游戏」后点击「进入游戏」，仍是原生 Canvas 游戏。游戏中按 Android 返回键可选择「保存并返回编辑器」，标题界面按返回键直接回到编辑器。进入后选择「继续旅程」续玩。娱乐区也提供 `.wzpsave` 存档导出、导入；导入先验证格式，再确认替换，并在私有目录保留一份原进度备份。
+
+## 0.1.17 更新
+
+- 修复 PPTX 渲染「标题和内容」版式整页空白：占位符（`p:ph`）通常不在 slide 里写 `a:xfrm`，现在会从 `slideLayout` 继承位置 / 大小，布局也没有时退回 `slideMaster`。
+- 修复「只有边框、没有填充」的形状被涂成一整块颜色：填充判断此前递归查找 `spPr` 下的 `solidFill`，会把 `a:ln`（边框）里的颜色误当成形状填充；现在只看直接子节点，未声明填充就不填。
+- PPTX 导入不再对原文件申请写权限 / 持久授权：文件在导入时只读一次并复制进 `slide-cache`，去掉了 `persistGrant` / `trust`。
+- 仓库不再收录 `dist/lecture-fix-*.patch`。0.1.17 安装包需要本地重新构建；已经放进 `dist/` 的下载仍是 0.1.15。
+- 版本号 0.1.17（versionCode 25）。
+
+## 0.1.16 录音加固（含在 0.1.17 源码中，不在已发布的 0.1.15 安装包里）
+
+- 录音健壮性再加固：`startRecording` 全函数体 try/catch（async 函数里 try 之外的同步异常会变成静默的 unhandledrejection，真机上表现为“点一下闪一下就没反应”）；录音按钮点击处理器也包了兜底。
+- 上课模式安装全局错误钩子：任何脚本异常 / 未处理的 Promise 拒绝都会显示在录音条下方提示条，并写入 logcat（`EmberStudio`），真机排查不再抓瞎。
+- 落地页直接显示构建版本号，用于确认手机上装的是不是最新包。当前源码显示 `v0.1.17`。
+- 这些改动当时标成 0.1.16（versionCode 24），合并进主线后随 0.1.17 源码一起进入。
+
+## 上课录音与 PPTX 导入（含在 0.1.17 源码中，不在已发布的 0.1.15 安装包里）
+
+- 修复上课模式「开始录音」和「导入 PPT 照片」点了没反应：`lecture.js` 里的提示函数叫 `notify`，但打包后 app.js 的同名函数被压缩改名，模块里剩下的是对全局 `notify` 的裸引用，真机上一调用就抛 `ReferenceError`；由于它发生在 `catch` 与 Promise 里，界面既不录音也不报错。现在提示统一走宿主钩子并保留 DOM 兜底，任何失败都会在录音条下方常驻显示原因。
+- 录音失败不再无声：按钮变成「⚠ 录音失败 · 重试」，并分别说明权限被拒、麦克风被占用、缺少 `MediaRecorder`、WebView 不支持等情况；麦克风获取增加约束回退（带降噪失败就退回 `audio:true`）与旧版 `getUserMedia` 兜底。
+- PPT 照片改为原生相册选择：选中后由宿主把原图复制进应用缓存目录，页面按同源 URL 读取再压缩入库。不再依赖 WebView 的 `content://` 访问，也不再通过 `evaluateJavascript` 传多 MB 的 base64（旧实现会因字符串过长而静默失败），同时消除了「WebView 回调 + 原生导入」造成的重复导入。
+- `onShowFileChooser` 补上兜底：任何分支都会回调 `onReceiveValue`，不会再让照片入口一直挂住；Android 13 起优先使用系统照片选择器。
+- 上课模式新增「📄 导入 PPT 文件」：直接选 `.pptx`，页面内解包并把每页渲染成图片入库，最多仍保留 50 页；单页渲染失败不影响其余页，界面会提示「有 N 页无法渲染」，原因同时写入 logcat。旧版 `.ppt` 会明确提示先另存为 `.pptx`。
+- 前端新增 `studio/web/src/pptx.js`（JSZip + Canvas 渲染），依赖增加 `jszip`；原生新增 `pickPptx` 消息与 `PPTX` 请求码，文件按 ZIP 魔数校验后复制进 `slide-cache/`。
+- 这些改动在分叉上曾标成 0.1.15（versionCode 23）。主线已经发布的 0.1.15 是英文朗读、存档修复和记事本涂画，不含本节。合并后它们随 0.1.17 源码进入。
 
 ## 0.1.12 更新
 
@@ -110,7 +138,7 @@ Python 是 WebAssembly 环境，支持常用标准库，不是手机系统级 CP
 
 ## 验证与剩余验收
 
-游戏核心 354 项回归、文件/资源服务 34 项 Java 检查、0.1.x 浏览器集成套件 30 项（本轮未重跑）、0.1.9 启动兜底与交互复测 11 项、0.1.10 打包资源启动与交互复测 5 项、0.1.11 启动页与三模式复测 21 项、0.1.12 启动页重绘与编辑器视觉复测 23 项，0.1.12 上课模式发布检查 10 项（APK 内启动页第四选项、录音控制栏、时间轴 Canvas、锚点 / 照片面板、`lecture.css` 样式、bundle 中的录制与 VAD 代码标记，以及 dex 中的 `onPermissionRequest` / `RECORD_AUDIO`）。旧套件在浏览器中执行随 APK 打包的真实 Python WASM，包含中文输入、语法/运行错误、项目导入、文件回收、重启恢复、停止与超时、打印上限和四组屏幕尺寸；原生桥检查使用协议模拟，不等于 Android 文件选择器实测。0.1.11 的 21 项检查直接读取最终 APK 内的 `studio/*` 与 `studio-game.png`，并经与 `AssetServer` 相同的 CSP/MIME 提供：启动页 logo、标语与三个滚轮选项，按钮就绪状态，Python/记事本/游戏三种模式，输入回写，字体与样式，三种手机宽度无横向溢出，全程无脚本错误。0.1.12 的 23 项检查同样从签名 APK 解包资源，在 390×844 与 360×640、2 倍像素密度下复测：三行选择器全部可见、方向键/滚轮/滑动手势切换模式、三种模式配色、Python 真实键盘输入与离线运行、记事本空状态与字数统计、游戏大厅、菜单与浮动终端样式，以及无横向溢出和无脚本错误。上课模式另有桌面 Chromium 冒烟复测：四选项启动页、三栏 / 单栏布局、笔记时间戳渲染、点击行与锚点跳转、播放高亮跟随、时间轴点击定位（25%→15s / 75%→45s）、锚点编辑与 PPT 预览对话框、手动标记自动关联照片、保存-重启后时间戳与会话恢复、360 宽度无横向溢出；真实麦克风录音与 Android 权限弹窗仍待真机验收。
+游戏核心 354 项回归、文件/资源服务 34 项 Java 检查、0.1.x 浏览器集成套件 30 项（本轮未重跑）、0.1.9 启动兜底与交互复测 11 项、0.1.10 打包资源启动与交互复测 5 项、0.1.11 启动页与三模式复测 21 项、0.1.12 启动页重绘与编辑器视觉复测 23 项，0.1.12 上课模式发布检查 10 项（APK 内启动页第四选项、录音控制栏、时间轴 Canvas、锚点 / 照片面板、`lecture.css` 样式、bundle 中的录制与 VAD 代码标记，以及 dex 中的 `onPermissionRequest` / `RECORD_AUDIO`）。旧套件在浏览器中执行随 APK 打包的真实 Python WASM，包含中文输入、语法/运行错误、项目导入、文件回收、重启恢复、停止与超时、打印上限和四组屏幕尺寸；原生桥检查使用协议模拟，不等于 Android 文件选择器实测。0.1.11 的 21 项检查直接读取最终 APK 内的 `studio/*` 与 `studio-game.png`，并经与 `AssetServer` 相同的 CSP/MIME 提供：启动页 logo、标语与三个滚轮选项，按钮就绪状态，Python/记事本/游戏三种模式，输入回写，字体与样式，三种手机宽度无横向溢出，全程无脚本错误。0.1.12 的 23 项检查同样从签名 APK 解包资源，在 390×844 与 360×640、2 倍像素密度下复测：三行选择器全部可见、方向键/滚轮/滑动手势切换模式、三种模式配色、Python 真实键盘输入与离线运行、记事本空状态与字数统计、游戏大厅、菜单与浮动终端样式，以及无横向溢出和无脚本错误。上课模式另有桌面 Chromium 冒烟复测：四选项启动页、三栏 / 单栏布局、笔记时间戳渲染、点击行与锚点跳转、播放高亮跟随、时间轴点击定位（25%→15s / 75%→45s）、锚点编辑与 PPT 预览对话框、手动标记自动关联照片、保存-重启后时间戳与会话恢复、360 宽度无横向溢出；真实麦克风录音与 Android 权限弹窗仍待真机验收。0.1.15 复测：录音点击不再出现 `ReferenceError`，麦克风不可用时按钮变为「⚠ 录音失败 · 重试」并在录音条下方给出原因；同源相对路径导入照片与浏览器 `<input type="file">` 两条路径都能入库并渲染缩略图；用合成的 MediaStream 冒充麦克风可进入录制状态、计时器正常走动、控制台无异常；Java 源码用 JDK 17 `--release 8` 对照 android-34 全量编译通过。真机仍未复测录音与相册选择。0.1.17 复测：python-pptx 的「标题和内容」页在 slide 和 slideLayout 上都不写 `a:xfrm`，坐标来自 slideMaster，标题与正文都能画出来；仅声明红边框、无填充的矩形保持空心；`.pptx` 导入链路不再申请写权限。
 
 `artifacts/studio-v0.1/` 保存检查结果、构建日志与 APK 验证记录。**尚未进行 Android 真机安装、覆盖升级、输入法、多点触控、SAF 文件提供器、游戏返回及音频的设备验收。** 0.1.8 的浅色界面、文件抽屉、底部菜单、运行/停止、设置与快捷符号键已在桌面 Chromium 的 412×915 触摸模拟中复测；0.1.9 又在 665×705 手机布局中复测了 appassets 打包页启动、CodeMirror 输入、游戏入口、脚本错误上报、内联兜底页和损坏脚本的诊断提示；0.1.10 从最终 APK 抽出的资源复测到样式生效（308 条规则）、输入回写与游戏入口，但该次浏览器会话没有可用的可视视口，点击使用 DOM 事件而不是真实指针。0.1.11 改用 Chrome DevTools Protocol 的真实手机视口与 2 倍像素密度，在 390×844、375×667 和 360×640 下完成截图与布局测量；启动页、滚轮、三种模式和输入均可用，控制台无错误。0.1.12 从签名 APK 解包资源，在 390×844 与 360×640 下复测三行选择器、方向键/鼠标滚轮/合成触摸滑动、记事本字数和离线 Python 运行，仍未进行真机软键盘、真实触控和 Android WebView 验收。需要系统 WebView 支持现代 JavaScript、Web Worker 与 WebAssembly；前端已按 Chrome 64 语法编译，更旧的 WebView 会直接显示更新提示。
 
@@ -140,7 +168,7 @@ npm --prefix studio/web run build
 ./tools/verify-studio.sh
 ```
 
-两个脚本都写出 `dist/Ember-Studio-0.1.15.apk` 和 `dist/Ember-Studio-0.1.15-parallel.apk`。需要 JDK 17、Android SDK Platform 34 / Build Tools 34.0.0。构建默认复用 `build/manual/debug.keystore`，也可通过 `-SigningKey` 或 `--signing-key` 指向自己的 Android 调试密钥。私钥不进入 Git 或源码压缩包。仓库里的 0.1.15 包用的是原来的开发证书，可以覆盖 0.1.13 / 0.1.14。换一把新密钥打出来的包不能覆盖旧签名应用。构建在 `zipalign` 和签名前调用 `tools/normalize-apk-assets.py`，修正 Windows 版 aapt2 写入 ZIP 的反斜杠资源名；`verify-studio-release.py` 同时检查原始条目名，不能用 Python 读取时的自动转换来代替。它要求两个包的证书 SHA-256 都是 `0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca`，对不上就失败。首次重新获取 Python 文件使用 `tools/fetch-python-runtime.ps1`，许可证使用 `tools/fetch-studio-licenses.ps1`。
+两个脚本现在写出 `dist/Ember-Studio-0.1.17.apk` 和 `dist/Ember-Studio-0.1.17-parallel.apk`（versionName 0.1.17、versionCode 25）。仓库里已经提交的安装包仍是 0.1.15，这次合并没有替换它们。需要 JDK 17、Android SDK Platform 34 / Build Tools 34.0.0。构建默认复用 `build/manual/debug.keystore`，也可通过 `-SigningKey` 或 `--signing-key` 指向自己的 Android 调试密钥。私钥不进入 Git 或源码压缩包。仓库里的 0.1.15 包用的是原来的开发证书，可以覆盖 0.1.13 / 0.1.14。换一把新密钥打出来的包不能覆盖旧签名应用。构建在 `zipalign` 和签名前调用 `tools/normalize-apk-assets.py`，修正 Windows 版 aapt2 写入 ZIP 的反斜杠资源名；`verify-studio-release.py` 同时检查原始条目名，不能用 Python 读取时的自动转换来代替。它要求两个包的证书 SHA-256 都是 `0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca`，对不上就失败。首次重新获取 Python 文件使用 `tools/fetch-python-runtime.ps1`，许可证使用 `tools/fetch-studio-licenses.ps1`。
 
 前端源文件在 `studio/web/src`，Android 宿主在 `studio/src/main/java`。`app` 仍可独立构建原游戏；`studio` 复用原游戏 Java 代码与素材，未替换已有 0.7 安装包。原生入口仅在带 `editorHost` 参数时显示返回编辑器选项。
 

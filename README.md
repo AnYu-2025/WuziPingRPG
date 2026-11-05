@@ -21,7 +21,7 @@
 - 存档修复：格式 6、7 的读取和写入对齐。数学进度、名字和特效能按原样迁过来；格式 6 的物理工坊按未开始处理，格式 7 去掉后来新增的字段后，发射参数回到初始。
 - 记事本涂画：手指能在画布上画出笔画。画布按已经显示出来的图层量尺寸，不再把隐藏时的 0 宽度写进样式。
 
-当前源码版本：游戏 `app/build.gradle` 为 **0.7.1**（versionCode 8），天工 `studio/build.gradle` 为 **0.1.15**（versionCode 23）。游戏 0.7.1 的标准包和共存包仍在 `dist/`。校验和：`dist/SHA256SUMS.txt` 是游戏 0.7.1，`dist/STUDIO-SHA256SUMS.txt` 是天工 0.1.15。`tools/package-source.py` 的目标是 `dist/WuziPingRPG-0.7.0-source.zip`，`tools/package-studio-source.py` 的目标是 `dist/Ember-Studio-0.1.15-source.zip`，这两个压缩包目前都不在仓库里。
+当前源码版本：游戏 `app/build.gradle` 为 **0.7.1**（versionCode 8），天工 `studio/build.gradle` 为 **0.1.17**（versionCode 25）。仓库里可以直接下载的天工安装包仍是文首的 **0.1.15**（versionCode 23）；0.1.17 还没有打进 `dist/`。游戏 0.7.1 的标准包和共存包仍在 `dist/`。校验和：`dist/SHA256SUMS.txt` 是游戏 0.7.1，`dist/STUDIO-SHA256SUMS.txt` 是天工 0.1.15。`tools/package-source.py` 的目标是 `dist/WuziPingRPG-0.7.0-source.zip`，`tools/package-studio-source.py` 的目标是 `dist/Ember-Studio-0.1.15-source.zip`，这两个压缩包目前都不在仓库里。
 
 [下载游戏 v0.7.1](dist/WuziPing-Emberbound-0.7.1-debug.apk) · [下载仓库源码 ZIP](https://github.com/ohGGBob/WuziPingRPG/archive/refs/heads/main.zip)
 
@@ -70,7 +70,7 @@
 | 上课 | 录音、时间戳笔记和 PPT 照片放在同一条时间轴上。点一行笔记，音频跳到当时，并显示对应的 PPT。详见 `studio/README.md` |
 | 英文朗读 | 朗读编辑器里的英文。Android 使用系统 `TextToSpeech`，浏览器里没有这个接口时改用 `speechSynthesis`。长文按句子分段，可以选择已安装的英语语音、调节语速，并暂停、继续或停止 |
 
-上课模式用 WebView 的 `getUserMedia` 和 `MediaRecorder`（webm/opus），单次最长 2 小时。Android 端在第一次录音时申请 `RECORD_AUDIO`。能量 VAD 会自动记语音锚点和沉默锚点，也可以手动「📌 标记锚点」并关联最近一张还没标记的 PPT 照片。照片最长边压到 1024 像素，最多 50 张。音频、波形、锚点、照片和笔记时间戳写在工作区 JSON 的 `state.lecture` 里。0.1.13 补上了系统选图（`onShowFileChooser`，`image/*`，可多选）和麦克风权限请求的时机。宿主快照上限仍是 32MB。
+上课模式用 WebView 的 `getUserMedia` 和 `MediaRecorder`（webm/opus），单次最长 2 小时。Android 端在第一次录音时申请 `RECORD_AUDIO`。能量 VAD 会自动记语音锚点和沉默锚点，也可以手动「📌 标记锚点」并关联最近一张还没标记的 PPT 照片。照片最长边压到 1024 像素，最多 50 张。0.1.17 源码还可以直接导入 `.pptx`，在页面里逐页画成图片再放进同一照片库；已发布的 0.1.15 安装包还没有这一项。音频、波形、锚点、照片和笔记时间戳写在工作区 JSON 的 `state.lecture` 里。0.1.13 补上了系统选图（`onShowFileChooser`，`image/*`，可多选）和麦克风权限请求的时机。宿主快照上限仍是 32MB。
 
 英文朗读是启动页上的第五个模式，0.1.15 的两个安装包里都有。手机上由 Android `TextToSpeech` 出声，选择已安装的英语语音，语速在 0.75 到 1.5 倍之间。长文按句子切成小节，可以暂停、继续或停止。同一套页面在浏览器里打开时，改用浏览器的 `speechSynthesis`。新建工作区仍然只有 `main.py`、`geometry.py`、`data.json` 和 `index.html`。进入英文朗读时，如果当时没有可朗读的英文文本，才会创建 `English.txt`；已经存在的工作区文件保持原样。
 
@@ -78,9 +78,9 @@
 
 - 上课录音栏有一枚「翻译」勾选。勾上或取消都会写入课堂会话，并提示「已开启实时翻译」或「已关闭实时翻译」。它只保存这个开关，没有把语音或笔记送去翻译。
 - 普通记事本可以自由涂画：画笔、橡皮、深色 / 棕色 / 蓝色 / 红色 / 绿色、撤销、清空，以及回到文字。笔画放在工作区快照的 `drawStrokes`，按钮只在记事本模式出现。0.1.15 按可见图层测量画布，手指画的笔画会留在画布上。
-- 启动页是深色的，背景用 CSS 动画画了几道下落的流星，品牌旁标着 `0.1.15`。
+- 启动页是深色的，背景用 CSS 动画画了几道下落的流星。已发布的 0.1.15 安装包品牌旁标着 `0.1.15`；当前源码标着 `0.1.17`。
 
-构建脚本 `tools/build-studio.ps1`（Linux 用 `tools/build-studio.sh`）写出 `dist/Ember-Studio-0.1.15.apk`，共存包是 `dist/Ember-Studio-0.1.15-parallel.apk`，versionName 0.1.15、versionCode 23。脚本每次构建会重写 `dist/STUDIO-SHA256SUMS.txt`。
+构建脚本 `tools/build-studio.ps1`（Linux 用 `tools/build-studio.sh`）现在会写出 `dist/Ember-Studio-0.1.17.apk`，共存包是 `dist/Ember-Studio-0.1.17-parallel.apk`，versionName 0.1.17、versionCode 25。仓库里现有的包仍是 0.1.15；重新构建才会改写 `dist/STUDIO-SHA256SUMS.txt`。
 
 ## 物理工坊
 
@@ -224,7 +224,7 @@ python .\tools\package-source.py
 
 Linux 上 `tools/verify-desktop.sh` 对应桌面检查。`tools/build-apk.sh` 的步骤相同，但版本戳还停在 0.7.0 / versionCode 7，输出文件名是 `WuziPing-Emberbound-0.7.0-*.apk`，并会用这些文件重写 `dist/SHA256SUMS.txt`。要得到 0.7.1，用上面的 PowerShell 脚本。可用 `SDK_ROOT` / `JDK_ROOT` 指定工具目录。
 
-天工用 `tools/build-studio.ps1`，Linux 上用 `tools/build-studio.sh`。版本戳是 0.1.15 / versionCode 23，输出 `dist/Ember-Studio-0.1.15.apk` 和 `dist/Ember-Studio-0.1.15-parallel.apk`。前端和检查步骤见 `studio/README.md` 的构建一节。
+天工用 `tools/build-studio.ps1`，Linux 上用 `tools/build-studio.sh`。源码版本戳是 0.1.17 / versionCode 25，重新构建会输出 `dist/Ember-Studio-0.1.17.apk` 和 `dist/Ember-Studio-0.1.17-parallel.apk`。仓库里已经提交的安装包仍是 0.1.15。前端和检查步骤见 `studio/README.md` 的构建一节。
 
 可用 `-SdkRoot` / `-JdkRoot` 指定工具目录。打包复用 `build/manual/debug.keystore`，源码包排除签名私钥、缓存和本地存档。用于真实发布前应配置专门的发布签名。
 

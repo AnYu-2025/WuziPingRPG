@@ -8,6 +8,7 @@ import {StateField,StateEffect} from '@codemirror/state';
 import {gutter,GutterMarker,Decoration,EditorView} from '@codemirror/view';
 import {AudioEngine,Playback,blobToBase64,fmt} from './audio-engine.js';
 import {Timeline} from './timeline.js';
+import {renderPptx} from './pptx.js';
 
 const NOTES_PATH='课堂笔记.md';
 const MAX_SLIDES=50,SLIDE_MAX_W=1024,SLIDE_QUALITY=0.8;
@@ -112,11 +113,51 @@ export {lectureExtensions};
 
 let env=null;                    // app.js 注入的钩子
 let engine=null,playback=null,timeline=null;
-let barState='idle';             // idle|starting|recording|recpaused|stopping|stopped|playing|playpaused
+let barState='idle';             // idle|starting|recording|recpaused|stopping|stopped|playing|playpaused|error
 let persist={audio:null,anchors:[],slides:[],notes:[],translate:false};
 let pendingStamps=[];
-let slideSeq=0,uiReady=false,animRaf=0,editAnchorId=null,previewSlideId=null;
+let slideSeq=0,uiReady=false,animRaf=0,editAnchorId=null,previewSlideId=null,lastPlayPos=-1;
+let toastTimer=0;
 let ui={};
+
+/* 提示统一走这里：打包后模块内的函数名会被压缩，直接裸调用 notify 在真机上是
+   undefined（这是录音、PPT 导入“点了没反应”的根因），所以只经 env 钩子调用，
+   并保留一个不依赖宿主的兜底，保证任何失败都有可见反馈。 */
+function notify(text){
+  const message=String(text==null?'':text);
+  if(env&&typeof env.notify==='function'){env.notify(message);return;}
+  const el=document.getElementById('toast');
+  if(!el)return;
+  el.textContent=message;el.hidden=false;
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>{el.hidden=true;},3500);
+}
+/* 录音条下方的常驻提示：用于展示“为什么没录上”，不随 toast 消失。 */
+function hint(text){
+  const el=ui.hint||document.getElementById('lectureHint');
+  if(!el)return;
+  el.textContent=text||'';
+  el.hidden=!text;
+}
+/* 真机没有控制台：任何脚本异常（包括未来回归的 ReferenceError）都必须
+   变成可见提示 + logcat 记录，否则又是“点了没反应”。 */
+let globalHookInstalled=false;
+function installGlobalErrorHook(){
+  if(globalHookInstalled)return;
+  globalHookInstalled=true;
+  const show=(where,msg)=>{
+    const text='脚本异常（'+where+'）：'+String(msg||'未知').slice(0,160);
+    hint(text);reportError(text);
+  };
+  window.addEventListener('error',e=>show('js',(e&&e.message)||''));
+  window.addEventListener('unhandledrejection',e=>{
+    const r=e&&e.reason;
+    show('async',(r&&(r.stack||r.message))||r);
+  });
+}
+function reportError(text){
+  try{console.error('[lecture] '+text);}catch(e){/* 无控制台 */}
+  if(env&&typeof env.reportError==='function')env.reportError(String(text));
+}
 
 function recActive(){return !!(engine&&(engine.state==='recording'||engine.state==='paused'));}
 function currentElapsed(){return engine?engine.elapsedSec():0;}
@@ -131,11 +172,12 @@ function ensureUI(){
   if(uiReady)return;
   uiReady=true;
   ui={
-    bar:$('lectureBar'),timer:$('recordTimer'),label:$('recordLabel'),
+    bar:$('lectureBar'),timer:$('recordTimer'),label:$('recordLabel'),hint:$('lectureHint'),
     record:$('recordBtn'),pause:$('pauseBtn'),stop:$('stopBtn'),newRec:$('newRecBtn'),anchor:$('anchorBtn'),
     translateToggle:$('translateToggle'),translateCheck:$('translateCheck'),
     canvas:$('timelineCanvas'),zoomIn:$('zoomIn'),zoomOut:$('zoomOut'),range:$('tlRange'),
     anchors:$('anchorList'),slides:$('slideList'),import:$('importSlide'),slideInput:$('slideInput'),
+    importPptx:$('importPptx'),pptxInput:$('pptxInput'),
     tabs:$('lectureTabs'),
     anchorDialog:$('anchorDialog'),anchorLabel:$('anchorLabel'),anchorTime:$('anchorTime'),anchorSlide:$('anchorSlide'),
     slideDialog:$('slideDialog'),slideImage:$('slideImage'),slideTitle:$('slideTitle'),slideSeek:$('slideSeek')
@@ -145,9 +187,14 @@ function ensureUI(){
     onAnchor:a=>{seekTo(a.time,false);openAnchorDialog(a);}
   });
   ui.record.addEventListener('click',()=>{
-    if(barState==='idle'||barState==='starting')startRecording();
-    else if(barState==='playing')pauseAudio();
-    else if(barState==='stopped'||barState==='playpaused')playAudio();
+    try{
+      if(barState==='idle'||barState==='starting'||barState==='error')startRecording();
+      else if(barState==='playing')pauseAudio();
+      else if(barState==='stopped'||barState==='playpaused')playAudio();
+    }catch(e){
+      hint('按钮处理出错：'+((e&&e.message)||e));
+      reportError('record click: '+((e&&(e.stack||e.message))||e));
+    }
   });
   ui.pause.addEventListener('click',()=>{
     if(barState==='recording')pauseRecording();
@@ -176,8 +223,20 @@ function ensureUI(){
       if(timeline)timeline.schedule();
     });
   }
-  ui.import.addEventListener('click',()=>ui.slideInput.click());
+  /* PPT 照片入口：安装包里交给原生相册选择器（无需 WebView 文件选择器与超大 base64），
+     浏览器预览时退回 <input type="file">。 */
+  ui.import.addEventListener('click',()=>{
+    if(env&&typeof env.pickSlides==='function'&&env.pickSlides())return;
+    ui.slideInput.click();
+  });
   ui.slideInput.addEventListener('change',()=>importSlides(ui.slideInput.files));
+  /* 整个 PPT 文件：安装包走原生文档选择器（文件复制进缓存，同源 URL 回传），
+     浏览器预览退回隐藏 input。两者最终都进 importSlides / importPptxUrls。 */
+  if(ui.importPptx)ui.importPptx.addEventListener('click',()=>{
+    if(env&&typeof env.pickPptx==='function'&&env.pickPptx())return;
+    if(ui.pptxInput)ui.pptxInput.click();
+  });
+  if(ui.pptxInput)ui.pptxInput.addEventListener('change',()=>importSlides(ui.pptxInput.files));
   ui.anchorDialog.addEventListener('close',onAnchorDialogClose);
   ui.slideDialog.addEventListener('close',()=>{previewSlideId=null;});
   ui.slideSeek.addEventListener('click',()=>{
@@ -188,12 +247,13 @@ function ensureUI(){
 function setBar(state){
   barState=state;
   if(!uiReady)return;
-  const rec=state==='recording',recPause=state==='recpaused';
+  const rec=state==='recording',recPause=state==='recpaused',failed=state==='error';
   const stopped=state==='stopped'||state==='playing'||state==='playpaused';
   ui.bar.dataset.state=state;
   ui.record.hidden=rec||recPause||state==='stopping';
-  ui.record.dataset.role=stopped?'play':'rec';
-  ui.label.textContent=stopped?(state==='playing'?'⏸ 暂停':'▶ 播放'):(state==='starting'?'启动中…':'🎙 开始录音');
+  ui.record.dataset.role=stopped?'play':(failed?'error':'rec');
+  ui.label.textContent=stopped?(state==='playing'?'⏸ 暂停':'▶ 播放')
+    :(state==='starting'?'启动中…':(failed?'⚠ 录音失败 · 重试':'🎙 开始录音'));
   ui.pause.hidden=!rec&&!recPause;
   ui.pause.textContent=recPause?'▶ 继续':'⏸ 暂停';
   ui.stop.hidden=!rec&&!recPause&&state!=='stopping';
@@ -257,7 +317,7 @@ function renderSlides(){
   }
   if(!persist.slides.length){
     const empty=document.createElement('p');empty.className='slidempty';
-    empty.textContent='还没有 PPT 照片。点下方按钮导入，拍到的每一页都会记录在时间轴旁。';
+    empty.textContent='还没有 PPT 页面。下方可以拍照片，也可以导入整个 PPT 文件，每一页都会记录在时间轴旁。';
     list.append(empty);
   }
 }
@@ -279,25 +339,43 @@ function refreshAll(){
 
 async function startRecording(){
   if(engine)return;
-  if(!AudioEngine.supported()){notify('此设备的 WebView 不支持录音。请更新 Android System WebView 后重试。');return;}
-  ensureUI();
-  stopAudio();
-  persist.audio=null;persist.anchors=[];
-  engine=new AudioEngine(()=>{notify('已达 2 小时录音上限，已自动停止。');stopRecording();});
-  setBar('starting');
+  /* 整个函数体包一层 try/catch：async 函数里 try 之外的同步异常会变成
+     静默的 unhandledrejection——在真机上就是“点一下闪一下就没反应”。 */
   try{
-    engine.anchors=persist.anchors;   // 共享引用：录音期间 persist.anchors 始终可见
-    await engine.start();
-  }catch(err){
-    setBar('idle');engine=null;
-    notify(micMessage(err));
-    return;
+    ensureUI();
+    if(!AudioEngine.supported()){
+      setBar('error');
+      const reason='此设备的 WebView 不支持录音：缺少 MediaRecorder 或 getUserMedia。请更新 Android System WebView 后重试。';
+      hint(reason);notify(reason);reportError(reason);
+      return;
+    }
+    stopAudio();
+    persist.audio=null;persist.anchors=[];
+    engine=new AudioEngine(()=>{notify('已达 2 小时录音上限，已自动停止。');stopRecording();});
+    setBar('starting');
+    hint('');
+    try{
+      engine.anchors=persist.anchors;   // 共享引用：录音期间 persist.anchors 始终可见
+      await engine.start();
+    }catch(err){
+      setBar('error');engine=null;
+      const message=micMessage(err);
+      hint(message);notify(message);
+      reportError('录音启动失败：'+(err&&err.name||'Error')+' '+(err&&err.message||''));
+      return;
+    }
+    setBar('recording');
+    lastPlayPos=-1;
+    updateTimer();
+    ensureAnim();
+    notify('录音已开始。每一行笔记都会自动记录时间戳。');
+  }catch(fatal){
+    engine=null;
+    setBar('error');
+    const message='录音启动失败：'+((fatal&&(fatal.message||fatal.name))||'未知错误');
+    hint(message);notify(message);
+    reportError('startRecording fatal: '+((fatal&&(fatal.stack||fatal.message))||fatal));
   }
-  setBar('recording');
-  lastPlayPos=-1;
-  updateTimer();
-  ensureAnim();
-  notify('录音已开始。每一行笔记都会自动记录时间戳。');
 }
 function pauseRecording(){
   if(!engine)return;
@@ -365,10 +443,13 @@ function linkSlideAt(slide,time,anchor){
 }
 function micMessage(err){
   const name=err&&err.name||'';
-  if(name==='NotAllowedError'||name==='SecurityError')return '麦克风权限被拒绝。请在系统设置 → 应用 → 天工 中允许麦克风，然后重试。';
+  if(name==='NotAllowedError'||name==='SecurityError')return '麦克风权限被拒绝。请在系统设置 → 应用 → 天工 → 权限中允许麦克风，然后点「重试」。';
   if(name==='NotFoundError'||name==='DevicesNotFound')return '没有找到可用的麦克风设备。';
-  if(name==='NotReadableError')return '麦克风被其他应用占用，请关闭后重试。';
-  return '录音启动失败：'+(err&&err.message||name||'未知错误');
+  if(name==='NotReadableError'||name==='TrackStartError')return '麦克风被其他应用占用，请关闭其他录音/通话应用后重试。';
+  if(name==='OverconstrainedError'||name==='ConstraintNotSatisfiedError')return '麦克风不支持所需的录音参数，请重试一次。';
+  if(name==='NotSupportedError')return '当前 WebView 不支持这段录音，请更新 Android System WebView。';
+  if(name==='AbortError')return '录音被系统中断，请重试。';
+  return '录音启动失败：'+((err&&(err.message||err.name))||'未知错误');
 }
 
 /* ---------------- 播放与同步 ---------------- */
@@ -463,64 +544,147 @@ function updateTimer(){
 
 /* ---------------- PPT 照片 ---------------- */
 
+/* 原生把选中的照片压缩成 JPEG 写进 slide-cache/ 后只回传文件名，
+   JS 用页面同源 URL 读取：既不需要 content:// 权限，也不用把几 MB 的 base64
+   塞进 evaluateJavascript。 */
+/* 资源命名空间根路径：页面固定是 <base>studio/index.html，剥掉这段就是
+   slide-cache/ 所在的位置（appassets 源是 /，本机资源服务是 /<token>/）。 */
+function assetBase(){
+  const path=location.pathname||'/';
+  const tail='studio/index.html';
+  if(path.length>tail.length&&path.endsWith(tail))return location.origin+path.slice(0,path.length-tail.length);
+  const cut=path.lastIndexOf('/');
+  return location.origin+(cut>=0?path.slice(0,cut+1):'/');
+}
+function slideUrl(name){
+  const text=String(name||'');
+  if(/^(?:https?:|data:|blob:)/i.test(text))return text;
+  return assetBase()+text.replace(/^\/+/,'');
+}
 function loadImage(url){
   return new Promise((resolve,reject)=>{
     const img=new Image();
     img.onload=()=>resolve(img);
-    img.onerror=()=>reject(new Error('图片解码失败'));
+    img.onerror=()=>reject(new Error('图片解码失败：'+url));
     img.src=url;
   });
+}
+async function compressSlide(source,label){
+  const img=await loadImage(source);
+  const scale=Math.min(1,SLIDE_MAX_W/(img.width||SLIDE_MAX_W));
+  const w=Math.max(1,Math.round((img.width||SLIDE_MAX_W)*scale)),h=Math.max(1,Math.round((img.height||SLIDE_MAX_W*0.75)*scale));
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  cv.getContext('2d').drawImage(img,0,0,w,h);
+  const data=cv.toDataURL('image/jpeg',SLIDE_QUALITY);
+  if(!data.startsWith('data:image/'))throw new Error('压缩失败');
+  return {id:'s'+(slideSeq++),name:String(label||('slide_'+slideSeq)).slice(0,60),data,w,h,anchorTime:null,createdAt:Date.now()};
 }
 async function importSlides(files){
   ensureUI();
   const list=[...files||[]];
-  ui.slideInput.value='';
+  if(ui.slideInput)ui.slideInput.value='';
+  if(ui.pptxInput)ui.pptxInput.value='';
   if(!list.length)return;
-  const room=MAX_SLIDES-persist.slides.length;
-  if(room<=0){notify('最多保留 '+MAX_SLIDES+' 张 PPT 照片。');return;}
-  let added=0,skipped=0;
-  for(const file of list.slice(0,room)){
+  let added=0,firstError='',skippedPages=0;
+  for(const file of list){
+    const room=MAX_SLIDES-persist.slides.length;
+    if(room<=0){notify('PPT 库已满（最多 '+MAX_SLIDES+' 张），后面的文件没有导入。');break;}
+    const name=String(file.name||'');
+    /* 整个 PPT 文件：浏览器预览走这里（原生渠道走 importPptxUrls）。 */
+    if(/\.pptx$/i.test(name)||file.type==='application/vnd.openxmlformats-officedocument.presentationml.presentation'){
+      try{
+        notify('正在解析《'+name+'》，页数多时需要几秒…');
+        const r=await addPptxSlides(await file.arrayBuffer(),name,room);
+        added+=r.added;skippedPages+=r.skippedPages;
+        if(r.total>r.added)notify('《'+name+'》共 '+r.total+' 页，剩余空间只装下了 '+r.added+' 页。');
+      }catch(e){if(!firstError)firstError=e.message||String(e);}
+      continue;
+    }
+    if(/\.ppt$/i.test(name)){
+      if(!firstError)firstError='《'+name+'》是旧版 .ppt 格式：请先在 WPS/PowerPoint 里另存为 .pptx 再导入。';
+      continue;
+    }
     const url=URL.createObjectURL(file);
     try{
-      const img=await loadImage(url);
-      const scale=Math.min(1,SLIDE_MAX_W/(img.width||SLIDE_MAX_W));
-      const w=Math.max(1,Math.round((img.width||SLIDE_MAX_W)*scale)),h=Math.max(1,Math.round((img.height||SLIDE_MAX_W*0.75)*scale));
-      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-      cv.getContext('2d').drawImage(img,0,0,w,h);
-      const data=cv.toDataURL('image/jpeg',SLIDE_QUALITY);
-      if(!data.startsWith('data:image/'))throw new Error('压缩失败');
-      persist.slides.push({id:'s'+(slideSeq++),name:String(file.name||('slide_'+slideSeq)).slice(0,60),data,w,h,anchorTime:null,createdAt:Date.now()});
+      persist.slides.push(await compressSlide(url,name));
       added++;
-    }catch(e){skipped++;}
+    }catch(e){if(!firstError)firstError=e.message||String(e);}
     finally{URL.revokeObjectURL(url);}
   }
-  renderSlides();renderTimeline();
-  env.scheduleSave();
-  notify(added?('已导入 '+added+' 张 PPT 照片'+(skipped?'，跳过 '+skipped+' 张无法识别的文件':'')+'。录音中点「📌 标记锚点」即可关联当前页。'):'没有可识别的图片文件。');
+  finishImport(added,firstError,skippedPages);
 }
-async function importSlideUrls(urls){
+async function importSlideUrls(items){
   ensureUI();
-  const list=[...urls||[]];
+  const list=[...items||[]].map(it=>typeof it==='string'?{url:it}:it);
   if(!list.length)return;
-  const room=MAX_SLIDES-persist.slides.length;
-  if(room<=0){notify('最多保留 '+MAX_SLIDES+' 张 PPT 照片。');return;}
-  let added=0,skipped=0;
-  for(const url of list.slice(0,room)){
+  let added=0,firstError='',skippedPages=0;
+  for(const item of list){
+    const room=MAX_SLIDES-persist.slides.length;
+    if(room<=0){notify('PPT 库已满（最多 '+MAX_SLIDES+' 张），后面的文件没有导入。');break;}
+    const name=String(item.name||item.url||'');
+    if(/\.pptx$/i.test(name)){
+      try{
+        const r=await addPptxSlides(await fetchBuffer(slideUrl(item.url)),name,room);
+        added+=r.added;skippedPages+=r.skippedPages;
+        if(r.total>r.added)notify('该 PPT 共 '+r.total+' 页，剩余空间只装下了 '+r.added+' 页。');
+      }catch(e){if(!firstError)firstError=e.message||String(e);}
+      continue;
+    }
     try{
-      const img=await loadImage(url);
-      const scale=Math.min(1,SLIDE_MAX_W/(img.width||SLIDE_MAX_W));
-      const w=Math.max(1,Math.round((img.width||SLIDE_MAX_W)*scale)),h=Math.max(1,Math.round((img.height||SLIDE_MAX_W*0.75)*scale));
-      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-      cv.getContext('2d').drawImage(img,0,0,w,h);
-      const data=cv.toDataURL('image/jpeg',SLIDE_QUALITY);
-      if(!data.startsWith('data:image/'))throw new Error('压缩失败');
-      persist.slides.push({id:'s'+(slideSeq++),name:'slide_'+slideSeq,data,w,h,anchorTime:null,createdAt:Date.now()});
+      persist.slides.push(await compressSlide(slideUrl(item.url),name.split('/').pop()||('slide_'+(slideSeq+1))));
       added++;
-    }catch(e){skipped++;}
+    }catch(e){if(!firstError)firstError=e.message||String(e);}
   }
+  finishImport(added,firstError,skippedPages);
+}
+/* 原生渠道导入整个 PPT 文件：原生已把 .pptx 复制进 slide-cache 并回传同源相对路径。 */
+async function importPptxUrls(items){
+  ensureUI();
+  const list=[...items||[]].map(it=>typeof it==='string'?{url:it}:it);
+  if(!list.length)return;
+  if(MAX_SLIDES-persist.slides.length<=0){
+    const message='PPT 库已满（最多 '+MAX_SLIDES+' 张），请先删除一些页面。';
+    hint(message);notify(message);
+    return;
+  }
+  let added=0,firstError='',skippedPages=0;
+  for(const item of list){
+    const room=MAX_SLIDES-persist.slides.length;
+    if(room<=0)break;
+    const name=String(item.name||item.url||'PPT');
+    try{
+      notify('正在解析《'+name+'》，页数多时需要几秒…');
+      const r=await addPptxSlides(await fetchBuffer(slideUrl(item.url)),name,room);
+      added+=r.added;skippedPages+=r.skippedPages;
+      if(r.total>r.added)notify('《'+name+'》共 '+r.total+' 页，剩余空间只装下了 '+r.added+' 页。');
+    }catch(e){if(!firstError)firstError=e.message||String(e);}
+  }
+  finishImport(added,firstError,skippedPages);
+}
+async function fetchBuffer(url){
+  const res=await fetch(url);
+  if(!res.ok)throw new Error('读取失败（HTTP '+res.status+'）');
+  return res.arrayBuffer();
+}
+async function addPptxSlides(buffer,label,room){
+  const result=await renderPptx(buffer,{maxW:SLIDE_MAX_W,quality:SLIDE_QUALITY});
+  if(result.warnings&&result.warnings.length)reportError('PPT 部分页面渲染失败：'+result.warnings.join('；'));
+  const base=(String(label||'PPT').split('/').pop().replace(/\.pptx?$/i,'').trim()||'PPT').slice(0,40);
+  const take=result.images.slice(0,Math.max(0,room));
+  take.forEach((data,i)=>{
+    persist.slides.push({id:'s'+(slideSeq++),name:(base+' · 第'+(i+1)+'页').slice(0,60),data,w:result.width,h:result.height,anchorTime:null,createdAt:Date.now()});
+  });
+  return {added:take.length,total:result.images.length,skippedPages:result.warnings&&result.warnings.length||0};
+}
+function finishImport(added,firstError,skippedPages){
   renderSlides();renderTimeline();
   env.scheduleSave();
-  notify(added?('已导入 '+added+' 张 PPT 照片'+(skipped?'，跳过 '+skipped+' 张':'')+'。录音中点「📌 标记锚点」即可关联当前页。'):'没有可识别的图片文件。');
+  if(!added){
+    const message='PPT 导入失败：'+(firstError||'没有可识别的文件');
+    hint(message);notify(message);reportError(message);
+    return;
+  }
+  notify('已导入 '+added+' 张 PPT 页面'+(skippedPages?'（有 '+skippedPages+' 页无法渲染）':'')+'。录音中点「📌 标记锚点」即可关联当前页。');
 }
 function openSlidePreview(slide){
   ensureUI();
@@ -577,16 +741,19 @@ export function initLecture(hooks){
   env=hooks;
 }
 export function lectureModeEnter(){
+  installGlobalErrorHook();
   ensureUI();
   document.body.dataset.lectureTab=document.body.dataset.lectureTab||'notes';
   setBar(hasAudio()?'stopped':'idle');
   refreshAll();
+  hint('');
   if(persist.audio&&!playback){ensurePlayback().load(persist.audio.data,persist.audio.mime);}
   ensureAnim();
 }
 export function lectureModeLeave(){
   if(playback&&!playback.audio.paused)playback.audio.pause();
   setBar('idle');
+  hint('');
   dispatchPlayLine(null);
   if(timeline){timeline.setPlayhead(null);timeline.setData(0,[],[]);}
   updateTimer();
@@ -693,5 +860,6 @@ export const lectureDebug={
   time:()=>playTime(),
   anchors:()=>persist.anchors.slice(),
   importSlideUrls:urls=>importSlideUrls(urls),
+  importPptxUrls:urls=>importPptxUrls(urls),
   info(){return {bar:barState,audio:!!(persist.audio&&persist.audio.data),duration:playDur(),anchors:persist.anchors.length,slides:persist.slides.length};}
 };
