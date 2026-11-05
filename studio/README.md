@@ -13,14 +13,7 @@
 
 已经装着标准包名的选第一个；想保留现有安装再装一份的选第二个。
 
-**签名和已安装的 0.1.13 / 0.1.14 / 游戏 0.7.1 不同，不能覆盖安装。** 必须先卸载旧版，卸载会丢掉应用私有存档。先导出 `.wzpsave` 和工作区，再卸载。
-
-| | 证书 SHA-256 |
-| --- | --- |
-| 已安装的 0.1.13、0.1.14、0.7.1 | `0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca` |
-| 这次的 0.1.15 | `d5dfe92e1d410c6fca014c3309bafba32e8ead34c8f3e385da0d15ca455b3d2a` |
-
-仓库里没有原来的 `build/manual/debug.keystore`。这次用新生成的调试密钥签名，证书名字相同，指纹不同。
+标准包与 0.1.13、0.1.14、游戏 0.7.1 是同一张开发证书（SHA-256 `0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca`）。直接覆盖安装，**不要先卸载**，游戏存档和工作区都会留着。共存包用同一张证书，可以盖掉已经安装的共存包。外部 0.6 是另一张证书，标准包盖不上去。
 
 ### 0.1.15 更新
 
@@ -43,7 +36,7 @@
 
 ## 安装与原游戏进度
 
-0.1.15 标准包的包名是 `cn.wuziping.ember`，共存包是 `cn.wuziping.ember.preview07`。编辑器成为应用首页。因为签名证书换过，**不能覆盖**手机上用旧证书安装的天工或 0.7；先导出存档再卸载，否则 `journey-v1.bin` 和工作区会一起被系统删掉。外部 0.6 用的是另一张证书，同样盖不上去。共存包和标准包可以同时留在手机上，但不能读取对方的私有存档。实际 Android 安装还没有在真机上验收。
+0.1.15 标准包的包名是 `cn.wuziping.ember`，共存包是 `cn.wuziping.ember.preview07`。编辑器成为应用首页。标准包与已经安装的 0.1.13、0.1.14 或同证书的 0.7 直接覆盖，**不要先卸载**，原 `journey-v1.bin` 继续留着。外部 0.6 用的是另一张证书，盖不上去。共存包和标准包可以同时留在手机上，但不能读取对方的私有存档。实际 Android 安装还没有在真机上验收。
 
 启动页选择「游戏」后点击「进入游戏」，仍是原生 Canvas 游戏。游戏中按 Android 返回键可选择「保存并返回编辑器」，标题界面按返回键直接回到编辑器。进入后选择「继续旅程」续玩。娱乐区也提供 `.wzpsave` 存档导出、导入；导入先验证格式，再确认替换，并在私有目录保留一份原进度备份。
 
@@ -147,7 +140,7 @@ npm --prefix studio/web run build
 ./tools/verify-studio.sh
 ```
 
-两个脚本都写出 `dist/Ember-Studio-0.1.15.apk` 和 `dist/Ember-Studio-0.1.15-parallel.apk`。需要 JDK 17、Android SDK Platform 34 / Build Tools 34.0.0。构建默认复用 `build/manual/debug.keystore`，也可通过 `-SigningKey` 或 `--signing-key` 指向自己的 Android 调试密钥。私钥不进入 Git 或源码压缩包。**仓库里没有 0.1.13 那张私钥；用新密钥打出来的包不能覆盖旧签名应用，安装前必须先卸载，存档会丢失。** 构建在 `zipalign` 和签名前调用 `tools/normalize-apk-assets.py`，修正 Windows 版 aapt2 写入 ZIP 的反斜杠资源名；`verify-studio-release.py` 同时检查原始条目名，不能用 Python 读取时的自动转换来代替。它还会核对证书是不是 `0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca`，对不上就直接失败。首次重新获取 Python 文件使用 `tools/fetch-python-runtime.ps1`，许可证使用 `tools/fetch-studio-licenses.ps1`。
+两个脚本都写出 `dist/Ember-Studio-0.1.15.apk` 和 `dist/Ember-Studio-0.1.15-parallel.apk`。需要 JDK 17、Android SDK Platform 34 / Build Tools 34.0.0。构建默认复用 `build/manual/debug.keystore`，也可通过 `-SigningKey` 或 `--signing-key` 指向自己的 Android 调试密钥。私钥不进入 Git 或源码压缩包。仓库里的 0.1.15 包用的是原来的开发证书，可以覆盖 0.1.13 / 0.1.14。换一把新密钥打出来的包不能覆盖旧签名应用。构建在 `zipalign` 和签名前调用 `tools/normalize-apk-assets.py`，修正 Windows 版 aapt2 写入 ZIP 的反斜杠资源名；`verify-studio-release.py` 同时检查原始条目名，不能用 Python 读取时的自动转换来代替。它要求两个包的证书 SHA-256 都是 `0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca`，对不上就失败。首次重新获取 Python 文件使用 `tools/fetch-python-runtime.ps1`，许可证使用 `tools/fetch-studio-licenses.ps1`。
 
 前端源文件在 `studio/web/src`，Android 宿主在 `studio/src/main/java`。`app` 仍可独立构建原游戏；`studio` 复用原游戏 Java 代码与素材，未替换已有 0.7 安装包。原生入口仅在带 `editorHost` 参数时显示返回编辑器选项。
 
