@@ -461,10 +461,10 @@ public final class Scene {
     }
     private void mathHud(){
         anchor(-1,-1);panel(18,16,269,82);label(g.heroName,35,43,Math.min(18,145f/Math.max(1,g.heroName.codePointCount(0,g.heroName.length()))),CREAM);label("数学行者",190,42,12,GOLD);p.rect(34,59,235,7,0xff293847);p.rect(34,59,235*g.hp/g.maxHp,7,0xff88bcad);label("体魄 "+(int)g.hp+" / "+(int)g.maxHp,35,86,11,MUTED);
-        panel(18,107,286,96);label("数学 · "+g.math.name(),35,133,15,GOLD);wrapped(g.quest(),35,160,12,CREAM,250,19,2);label("先观察，再尝试",35,191,10,MUTED);
+        panel(18,107,286,96);label("数学 · "+g.math.name(),35,133,15,GOLD);wrapped(g.quest(),35,160,12,CREAM,250,19,2);label(g.math.level==0?"按序贴圆 · 别切弦":g.math.level==1?"奇数度起步 · 每桥一次":"避开幻影 · 别超限",35,191,10,MUTED);
         anchor(0,-1);panel(325,16,310,56);center(g.math.name(),480,40,18,CREAM);center("脚步会让隐藏的规律显形",480,61,11,MUTED);
         if(g.banner>0){panel(313,88,424,45);center(g.bannerText,525,116,12,GOLD);}
-        anchor(1,-1);smallToggle("札记",746,19,54);smallToggle("Ⅱ",902,19,38);panel(813,75,127,139);center("发现 "+Integer.bitCount(g.math.solved)+" / 3",876,98,12,GOLD);MathRenderer.minimap(p,g,824,106,105,62);String progress=g.math.level==0?"灯光 "+Integer.bitCount(g.math.circle)+" / 3":g.math.level==1?"桥梁 "+Integer.bitCount(g.math.bridges)+" / 7":"路标 "+Integer.bitCount(g.math.ribbon)+" / 3";center(progress,876,187,12,CREAM);center("光点是你与入口",876,204,9,MUTED);panel(813,226,127,37);center("主题地图 · 点击查看",876,250,10,GOLD);
+        anchor(1,-1);smallToggle("札记",746,19,54);smallToggle("Ⅱ",902,19,38);panel(813,75,127,139);center("发现 "+Integer.bitCount(g.math.solved)+" / 3",876,98,12,GOLD);MathRenderer.minimap(p,g,824,106,105,62);String progress=g.math.level==0?"顺序 "+(g.math.nextBeacon()+1)+" · "+Integer.bitCount(g.math.circle)+"/3":g.math.level==1?"桥 "+Integer.bitCount(g.math.bridges)+"/7 · 奇数度":"路标 "+Integer.bitCount(g.math.ribbon)+"/3 · 缝 "+g.math.crossings()+"/"+MathJourney.MAX_CROSSINGS;center(progress,876,187,12,CREAM);center("光点是你与入口",876,204,9,MUTED);panel(813,226,127,37);center("主题地图 · 点击查看",876,250,10,GOLD);
     }
     private void physicsHud(){
         anchor(-1,-1);panel(18,16,269,82);label(g.heroName,35,43,Math.min(18,145f/Math.max(1,g.heroName.codePointCount(0,g.heroName.length()))),CREAM);label("物理学者",190,42,12,GOLD);p.rect(34,59,235,7,0xff293847);p.rect(34,59,235*g.hp/g.maxHp,7,0xff88bcad);label("体魄 "+(int)g.hp+" / "+(int)g.maxHp,35,86,11,MUTED);

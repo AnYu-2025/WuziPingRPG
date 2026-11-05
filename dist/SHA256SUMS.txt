@@ -1,2 +1,2 @@
-3311f67da3e04656a678faceda112335560eef3498dcf01f6f216ec302a711c6  WuziPing-Emberbound-0.7.1-debug.apk
-824cbc6fdede70f7e2e7eb3597f686e37a985f4a763b4b1f7bdcdf280c2a2357  WuziPing-Emberbound-0.7.1-parallel-debug.apk
+38ae11a94aebe8c1b762427df791e912229cf2acc794b84ed1eff76579037c87  WuziPing-Emberbound-0.7.1-debug.apk
+6d64a967aedf53a650434d8339bdf237fb413b40889fe620417e94756865d50a  WuziPing-Emberbound-0.7.1-parallel-debug.apk

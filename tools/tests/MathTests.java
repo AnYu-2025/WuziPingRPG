@@ -93,6 +93,24 @@ public final class MathTests {
         Game graduate=new Game();graduate.startDream();graduate.physics.active=true;graduate.physics.level=4;graduate.physics.solved=31;
         byte[] format7=LegacySaves.snapshot(graduate,7);Game upgraded=Game.load(new ByteArrayInputStream(format7));
         check(format7[7]==7&&upgraded.physics.solved==31&&upgraded.physics.launchAngle==45&&upgraded.physics.launchPower==50&&upgraded.arsenal.forge[6]==0&&upgraded.arsenal.owned(Arsenal.RESONANCE_STAFF_PLUS),"Format 7 workshop graduates receive the reward weapon and default launch setup on migration");
+        // Harder puzzle rules: ordered beacons, degree-gated start, phantom marks and seam budget.
+        g=garden();walk(g,678,420);check(g.math.circle==0&&g.math.nextBeacon()==0,"Out-of-order beacon never lights");
+        g.math.retry(g);walk(g,948,576);check(g.math.circle==1&&g.math.nextBeacon()==1,"First beacon advances the required order");
+        g=garden();g.math.level=1;g.math.solved=1;g.math.resetState();close(g);
+        g.x=1000;g.y=780;g.math.tick(g,1f/60);check(g.math.node==-1,"Even-degree node cannot start an Euler trail");
+        g.x=460;g.y=780;g.math.tick(g,1f/60);check(g.math.node==0,"Odd-degree node opens the seven bridges");
+        g=garden();g.math.level=2;g.math.solved=3;g.math.resetState();close(g);
+        g.math.ribbon=1;g.x=700;g.y=700;g.math.tick(g,1f/60);check(g.math.ribbon==0,"Phantom marker clears recorded marks");
+        g.math.resetState();g.math.ribbon=3;g.math.node=MathJourney.MAX_CROSSINGS;g.x=1180;g.y=600;g.math.tick(g,1f/60);
+        check(g.math.ribbon==0&&g.math.crossings()==0,"Exceeding the seam budget resets the ribbon");
+        Capture mathCapture=new Capture();
+        for(int lv=0;lv<3;lv++){
+            Game t=garden();t.math.level=lv;t.math.solved=lv==0?0:lv==1?1:3;t.math.resetState();
+            new Scene().draw(mathCapture,t,1);
+        }
+        check(mathCapture.words.contains("r = 180")&&mathCapture.words.contains("欧拉路径 · 奇数度顶点只能有 0 或 2 个"),"All three themed math scenes render without throwing");
+        g=garden();g.math.level=2;g.math.solved=3;g.math.resetState();g.math.node=4;g.math.ribbon=5;
+        restored=round(g);check(restored.math.crossings()==4&&restored.math.ribbon==5,"Reused save fields survive a round trip");
         System.out.println("ALL "+count+" MATHEMATICS AND V0.7 CHECKS PASSED");
     }
 }
