@@ -43,10 +43,16 @@
 <main class="workspace"><div id="editor" aria-label="代码编辑器"><div id="noteEmpty" aria-hidden="true">从这里开始写点什么…</div></div>
 <div id="drawLayer" hidden>
   <canvas id="drawCanvas" aria-label="画画画布"></canvas>
-  <p id="drawHint">画画模式 · 用手指在这里涂写</p>
+  <p id="drawHint">画画模式 · 手指涂写，双指捏合或滚轮缩放</p>
   <div id="drawToolbar">
     <button class="draw-tool active" data-tool="pen" title="画笔">✏️</button>
     <button class="draw-tool" data-tool="eraser" title="橡皮">🧹</button>
+    <button class="draw-tool" data-tool="hand" title="手型 · 拖动平移">✋</button>
+    <span class="draw-sep"></span>
+    <button class="draw-action draw-zoom-btn" id="drawZoomOut" title="缩小">−</button>
+    <span class="draw-zoom" id="drawZoomLabel" aria-live="off">100%</span>
+    <button class="draw-action draw-zoom-btn" id="drawZoomIn" title="放大">＋</button>
+    <button class="draw-action" id="drawZoomReset" title="恢复 100%">复位</button>
     <span class="draw-sep"></span>
     <button class="draw-color active" data-color="#3c3a32" style="background:#3c3a32" title="深色"></button>
     <button class="draw-color" data-color="#b45309" style="background:#b45309" title="棕色"></button>

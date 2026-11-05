@@ -114,6 +114,8 @@ for filename, package, label, old_name in variants:
             'data-mode="ai"' in page and 'id="aiPanel"' in page and 'id="aiShareCanvas"' in page,
             b'aiRequest' in bundle and b'aiToolResult' in bundle,
             b'scanFiles' in bundle and b'deleteFiles' in bundle and b'scheduleTask' in bundle,
+            'data-tool="hand"' in page and 'id="drawZoomIn"' in page and 'id="drawZoomReset"' in page,
+            b'drawZoomLabel' in bundle,
         ]
         assert all(feature_checks), '0.1.17 read-aloud, drawing or assistant bundle incomplete: %r' % [i for i, ok in enumerate(feature_checks) if not ok]
         dex = z.read('classes.dex')

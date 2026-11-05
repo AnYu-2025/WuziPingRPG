@@ -394,6 +394,10 @@ body.notepad .landing-hint{color:#a89d84}
 .draw-color:active{transform:scale(.9)}
 .draw-color.active{border-color:#8b7355;box-shadow:0 0 0 2px rgba(139,115,85,.3)}
 .draw-sep{width:1px;height:24px;background:#e5ddd0;margin:0 2px;flex:none}
+.draw-zoom{min-width:48px;text-align:center;font:500 12px/1 ui-monospace,Menlo,Consolas,monospace;color:#6f6248;flex:none}
+.draw-zoom-btn{min-width:36px;padding:0 8px;font-size:16px}
+#drawCanvas[data-cursor="grab"]{cursor:grab}
+#drawCanvas[data-cursor="grabbing"]{cursor:grabbing}
 body.notepad .drawtoggle{color:#8b7355;border:1px solid #e5ddd0;background:#fff8ee}
 body.notepad .drawtoggle:active{background:#f0e6cf}
 body.drawing #drawToggle{background:#f0e6cf;border-color:#b08d57;color:#8b7355}

@@ -16,8 +16,8 @@
     {
       "file": "Ember-Studio-0.1.17.apk",
       "package": "cn.wuziping.ember",
-      "bytes": 16126599,
-      "sha256": "3325d53bc46e45280f39b37d230158216e1ccd0418af9846c296e24d82ca5e7a",
+      "bytes": 16134791,
+      "sha256": "9f04c24125b44bf494ec6e3d430b59aa9c4674ff1b2af9292bcf59ba8d8299e5",
       "certificate_sha256": "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca",
       "upgrade_identity_matches": "WuziPing-Emberbound-0.7.1-debug.apk",
       "asset_count_verified": 96,
@@ -29,8 +29,8 @@
     {
       "file": "Ember-Studio-0.1.17-parallel.apk",
       "package": "cn.wuziping.ember.preview07",
-      "bytes": 16126599,
-      "sha256": "726f6889e95bd19efead45274371d8c2efb8bfdd2ab6cd0da2b04eea2ee67885",
+      "bytes": 16134791,
+      "sha256": "575460ea11fdcbda77335aa9a213e8018f7153f58dc9a17e9d874427bf5b129f",
       "certificate_sha256": "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca",
       "upgrade_identity_matches": "WuziPing-Emberbound-0.7.1-parallel-debug.apk",
       "asset_count_verified": 96,
@@ -41,5 +41,5 @@
     }
   ],
   "lecture_checks": 10,
-  "feature_checks": 9
+  "feature_checks": 11
 }
