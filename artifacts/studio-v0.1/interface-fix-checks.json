@@ -1,0 +1,20 @@
+{
+  "checks": 10,
+  "passed": [
+    "game lobby back returns to editor",
+    "landing back collapses picker",
+    "third back exits after picker toggle",
+    "draw mode back closes drawing layer",
+    "search back closes search panel",
+    "AI queue survives picker",
+    "TTS is not stopped by picker",
+    "running code blocks notepad switch",
+    "Ctrl+Enter sends AI only",
+    "flush happens before landing"
+  ],
+  "failed": [],
+  "env": {
+    "viewport": "412x915",
+    "mode": "browser"
+  }
+}
