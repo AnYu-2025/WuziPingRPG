@@ -84,6 +84,12 @@ body.lecture #lectureSlides{display:flex;flex-direction:column;width:200px;flex:
 .slidename{font-size:10px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #importSlide{margin:6px 8px 2px;height:38px;min-height:38px;flex:none;border:1px dashed #fda4af;color:#be123c;border-radius:10px;font-size:12.5px;background:#fffafb}
 #importPptx{margin:2px 8px 10px;height:38px;min-height:38px;flex:none;border:1px dashed #93c5fd;color:#1d4ed8;border-radius:10px;font-size:12.5px;background:#f8faff}
+.demoire-row{flex:none;margin:0 8px 10px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:12px;color:var(--muted)}
+.demoire-row label{display:flex;align-items:center;gap:6px;color:var(--text);cursor:pointer}
+.demoire-slider{display:flex;align-items:center;gap:8px;margin:8px 0 6px}
+.demoire-slider input[type="range"]{flex:1;min-width:0}
+.demoire-slider output{font:600 11px/1 ui-monospace,Menlo,Consolas,monospace;color:var(--accent-strong);min-width:34px;text-align:right}
+.demoire-row p{margin:0;font-size:10.5px;line-height:1.6;color:var(--faint)}
 
 /* 手机：单栏 + 底部 Tab */
 @media(max-width:599px){

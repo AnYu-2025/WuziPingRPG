@@ -9,6 +9,7 @@ import {gutter,GutterMarker,Decoration,EditorView} from '@codemirror/view';
 import {AudioEngine,Playback,blobToBase64,fmt} from './audio-engine.js';
 import {Timeline} from './timeline.js';
 import {renderPptx} from './pptx.js';
+import {demoireCanvas,demoireSanitize} from './demoire.js';
 
 const NOTES_PATH='课堂笔记.md';
 const MAX_SLIDES=50,SLIDE_MAX_W=1024,SLIDE_QUALITY=0.8;
@@ -114,9 +115,9 @@ export {lectureExtensions};
 let env=null;                    // app.js 注入的钩子
 let engine=null,playback=null,timeline=null;
 let barState='idle';             // idle|starting|recording|recpaused|stopping|stopped|playing|playpaused|error
-let persist={audio:null,anchors:[],slides:[],notes:[],translate:false};
+let persist={audio:null,anchors:[],slides:[],notes:[],translate:false,demoire:demoireSanitize(null)};
 let pendingStamps=[];
-let slideSeq=0,uiReady=false,animRaf=0,editAnchorId=null,previewSlideId=null,lastPlayPos=-1;
+let slideSeq=0,uiReady=false,animRaf=0,editAnchorId=null,previewSlideId=null,lastPlayPos=-1,showingRaw=false;
 let toastTimer=0;
 let ui={};
 
@@ -180,7 +181,8 @@ function ensureUI(){
     importPptx:$('importPptx'),pptxInput:$('pptxInput'),
     tabs:$('lectureTabs'),
     anchorDialog:$('anchorDialog'),anchorLabel:$('anchorLabel'),anchorTime:$('anchorTime'),anchorSlide:$('anchorSlide'),
-    slideDialog:$('slideDialog'),slideImage:$('slideImage'),slideTitle:$('slideTitle'),slideSeek:$('slideSeek')
+    slideDialog:$('slideDialog'),slideImage:$('slideImage'),slideTitle:$('slideTitle'),slideSeek:$('slideSeek'),
+    slideToggleRaw:$('slideToggleRaw'),demoireEnabled:$('demoireEnabled'),demoireStrength:$('demoireStrength'),demoireValue:$('demoireValue')
   };
   timeline=new Timeline(ui.canvas,{
     onSeek:t=>{if(hasAudio())seekTo(t,true);},
@@ -214,6 +216,29 @@ function ensureUI(){
       notify(persist.translate?'已开启实时翻译':'已关闭实时翻译');
     });
   }
+  if(ui.demoireEnabled&&ui.demoireStrength){
+    ui.demoireEnabled.checked=persist.demoire.enabled;
+    ui.demoireStrength.value=Math.round(persist.demoire.strength*100);
+    if(ui.demoireValue)ui.demoireValue.textContent=ui.demoireStrength.value+'%';
+    ui.demoireEnabled.addEventListener('change',()=>{
+      persist.demoire=demoireSanitize({enabled:ui.demoireEnabled.checked,strength:persist.demoire.strength});
+      env.scheduleSave();
+      notify(persist.demoire.enabled?'已开启拍后去摩尔纹（对新导入的照片生效）':'已关闭拍后去摩尔纹');
+    });
+    ui.demoireStrength.addEventListener('input',()=>{
+      const pct=Number(ui.demoireStrength.value)||0;
+      persist.demoire=demoireSanitize({enabled:persist.demoire.enabled,strength:pct/100});
+      if(ui.demoireValue)ui.demoireValue.textContent=pct+'%';
+      env.scheduleSave();
+    });
+  }
+  if(ui.slideToggleRaw)ui.slideToggleRaw.addEventListener('click',()=>{
+    const slide=persist.slides.find(s=>s.id===previewSlideId);
+    if(!slide||!slide.raw)return;
+    showingRaw=!showingRaw;
+    ui.slideImage.src=showingRaw?slide.raw:slide.data;
+    ui.slideToggleRaw.textContent=showingRaw?'看修复后':'对比原图';
+  });
   ui.zoomIn.addEventListener('click',()=>{timeline.zoom(1);ui.range.textContent=timeline.rangeLabel();});
   ui.zoomOut.addEventListener('click',()=>{timeline.zoom(-1);ui.range.textContent=timeline.rangeLabel();});
   for(const tab of ui.tabs.querySelectorAll('.lecture-tab')){
@@ -578,10 +603,19 @@ async function compressSlide(source,label){
   const scale=Math.min(1,SLIDE_MAX_W/(img.width||SLIDE_MAX_W));
   const w=Math.max(1,Math.round((img.width||SLIDE_MAX_W)*scale)),h=Math.max(1,Math.round((img.height||SLIDE_MAX_W*0.75)*scale));
   const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-  cv.getContext('2d').drawImage(img,0,0,w,h);
-  const data=cv.toDataURL('image/jpeg',SLIDE_QUALITY);
-  if(!data.startsWith('data:image/'))throw new Error('压缩失败');
-  return {id:'s'+(slideSeq++),name:String(label||('slide_'+slideSeq)).slice(0,60),data,w,h,anchorTime:null,createdAt:Date.now()};
+  const ctx=cv.getContext('2d');ctx.drawImage(img,0,0,w,h);
+  const raw=cv.toDataURL('image/jpeg',SLIDE_QUALITY);
+  if(!raw.startsWith('data:image/'))throw new Error('压缩失败');
+  /* 拍后即时去摩尔纹：只压色度、保留亮度，PPT 文字不会被磨糊。
+     raw 只留在内存里供「对比原图」，不写进工作区快照。 */
+  const setting=demoireSanitize(persist.demoire);
+  let data=raw,cleaned=false;
+  if(setting.enabled){
+    try{cleaned=demoireCanvas(cv,setting.strength).changed;}catch(e){cleaned=false;}
+    if(cleaned)data=cv.toDataURL('image/jpeg',SLIDE_QUALITY);
+  }
+  return {id:'s'+(slideSeq++),name:String(label||('slide_'+slideSeq)).slice(0,60),data,w,h,width:w,height:h,
+    anchorTime:null,createdAt:Date.now(),raw:cleaned?raw:null,demoire:cleaned};
 }
 async function importSlides(files){
   ensureUI();
@@ -693,7 +727,9 @@ function finishImport(added,firstError,skippedPages){
 function openSlidePreview(slide){
   ensureUI();
   previewSlideId=slide.id;
+  showingRaw=false;
   ui.slideImage.src=slide.data;
+  if(ui.slideToggleRaw){ui.slideToggleRaw.hidden=!slide.raw;ui.slideToggleRaw.textContent='对比原图';}
   ui.slideTitle.textContent=slide.name;
   ui.slideSeek.disabled=slide.anchorTime==null;
   ui.slideSeek.textContent=slide.anchorTime!=null?('跳到此页开始（'+fmt(slide.anchorTime)+'）'):'跳到此页开始';
@@ -803,7 +839,7 @@ export function lectureSanitize(data){
     .filter(n=>n&&typeof n.pos==='number'&&isFinite(n.pos)&&n.pos>=0&&typeof n.time==='number'&&isFinite(n.time)&&n.time>=0)
     .slice(0,5000)
     .map(n=>({pos:Math.round(n.pos),time:Math.round(n.time*10)/10})):[];
-  return {audio,anchors,slides,notes,translate:!!d.translate,active:!!d.active};
+  return {audio,anchors,slides,notes,translate:!!d.translate,active:!!d.active,demoire:demoireSanitize(d.demoire)};
 }
 export function lectureSerialize(){
   let stamps=persist.notes;
@@ -818,19 +854,25 @@ export function lectureSerialize(){
     anchors:persist.anchors,
     slides:persist.slides,
     notes:stamps,
-    translate:!!persist.translate
+    translate:!!persist.translate,
+    demoire:persist.demoire
   };
 }
 export function lectureAfterRestore(){
   const state=env?env.getState():null;
   const data=(state&&state.lecture)||{};
-  persist={audio:data.audio||null,anchors:data.anchors||[],slides:data.slides||[],notes:[],translate:!!data.translate};
+  persist={audio:data.audio||null,anchors:data.anchors||[],slides:data.slides||[],notes:[],translate:!!data.translate,demoire:demoireSanitize(data.demoire)};
   pendingStamps=(data.notes||[]).slice();
   persist.anchors.sort((a,b)=>a.time-b.time);
   if(playback){playback.release();playback=null;}
   if(uiReady){
     if(persist.audio)ensurePlayback().load(persist.audio.data,persist.audio.mime);
     if(ui.translateCheck)ui.translateCheck.checked=!!persist.translate;
+    if(ui.demoireEnabled&&ui.demoireStrength){
+      ui.demoireEnabled.checked=persist.demoire.enabled;
+      ui.demoireStrength.value=Math.round(persist.demoire.strength*100);
+      if(ui.demoireValue)ui.demoireValue.textContent=ui.demoireStrength.value+'%';
+    }
     refreshAll();
   }
   /* restore() 中 createEditor 先于本函数执行，此时补一次注入，
@@ -851,7 +893,7 @@ export function lectureViewCreated(){
 export const lectureDebug={
   load(session){
     const clean=lectureSanitize(session);
-    persist={audio:clean.audio,anchors:clean.anchors,slides:clean.slides,notes:[]};
+    persist={audio:clean.audio,anchors:clean.anchors,slides:clean.slides,notes:[],demoire:clean.demoire};
     persist.anchors.sort((a,b)=>a.time-b.time);
     ensureUI();
     if(persist.audio)ensurePlayback().load(persist.audio.data,persist.audio.mime);
