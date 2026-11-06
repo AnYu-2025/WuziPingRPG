@@ -114,6 +114,11 @@ export function requestBody(settings,messages){
   return {model:s.model,temperature:s.temperature,stream:true,
     messages:[{role:'system',content:s.system},...trimMessages(messages).map(m=>({role:m.role==='tool'?'user':m.role,content:m.content}))]};
 }
+export function aiLeavePlan({busy=false,queueLength=0}={}){
+  const queued=Math.max(0,Math.floor(Number(queueLength)||0));
+  if(queued>0)return {cancel:busy,dropQueue:true,notice:queued};
+  return {cancel:busy,dropQueue:false,notice:0};
+}
 
 /* ---- runtime state (DOM access is confined to initAI and its handlers) ---- */
 let env=null,settings=aiSanitize(null),messages=[],busy=false,currentId='',queue=[],streamBuffer='',dom=null,handledTs=0;
@@ -253,20 +258,42 @@ function startRequest(text){
   emit('aiRequest',{id:currentId,url,key:settings.apiKey,body:requestBody(settings,messages.slice(0,-1))});
   applyAppearance();
 }
-function finish(status){
+function markInterrupted(){
+  const last=messages[messages.length-1];
+  if(last&&last.role==='assistant'){
+    if(!last.content.includes('（已中断）'))
+      last.content=last.content?last.content+'\n\n（已中断）':'（已中断）';
+    handledTs=last.ts;
+  }else{
+    messages.push({role:'tool',content:'（已中断）',ts:Date.now(),kind:'status',name:'interrupted'});
+  }
+  messages=trimMessages(messages);
+  renderMessages();
+  save();
+}
+function finish(status,notifyCancelled=true){
+  const wasBusy=busy;
   busy=false;currentId='';applyAppearance();
   const last=messages[messages.length-1];
-  if(last&&last.role==='assistant'&&last.ts!==handledTs){
+  if(status==='done'&&last&&last.role==='assistant'&&last.ts!==handledTs){
     handledTs=last.ts;
     for(const call of parseToolCalls(last.content)){
       const def=AI_TOOLS.find(t=>t.name===call.tool);
       if(def&&!def.write&&settings.autoApprove)runTool(call);
     }
   }
+  if(status==='cancelled'&&wasBusy){
+    markInterrupted();
+    if(notifyCancelled)notify('回答已中断。');
+  }
   if(status==='error')notify('请求未完成，请检查地址与密钥。');
   if(queue.length){const next=queue.shift();renderQueue();startRequest(next);}
 }
-function cancel(){if(currentId)emit('aiCancel',{id:currentId});finish('cancelled');}
+function cancel(dropQueue=false,notifyCancelled=true){
+  if(dropQueue)queue=[];
+  if(currentId)emit('aiCancel',{id:currentId});
+  finish('cancelled',notifyCancelled);
+}
 
 export function aiReceive(m){
   if(!m||typeof m!=='object')return false;
@@ -281,7 +308,16 @@ export function aiReceive(m){
   return false;
 }
 export function aiModeEnter(){if(dom&&dom.panel){dom.panel.hidden=false;}renderAll();}
-export function aiModeLeave(){if(dom&&dom.panel){dom.panel.hidden=true;}if(busy)cancel();}
+export function aiHidePanel(){if(dom&&dom.panel)dom.panel.hidden=true;}
+export function aiEnterPanel(){if(dom&&dom.panel)dom.panel.hidden=false;renderAll();}
+export function aiModeLeave(){
+  if(dom&&dom.panel)dom.panel.hidden=true;
+  const plan=aiLeavePlan({busy,queueLength:queue.length});
+  if(plan.cancel)cancel(plan.dropQueue,false);
+  else if(plan.dropQueue){queue=[];renderQueue();}
+  if(plan.notice)notify((plan.cancel?'回答已中断，':'')+'已丢弃 '+plan.notice+' 条未发送的消息。');
+  else if(plan.cancel)notify('回答已中断。');
+}
 
 export function initAI(config){
   env=config;
@@ -314,7 +350,7 @@ export function initAI(config){
     startRequest(text);
   };
   if(el('aiSend'))el('aiSend').onclick=e=>{e.preventDefault();send();};
-  if(dom.aiInput)dom.aiInput.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}};
+  if(dom.aiInput)dom.aiInput.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();e.stopPropagation();send();}};
   if(el('aiStop'))el('aiStop').onclick=()=>cancel();
   if(el('aiFlushQueue'))el('aiFlushQueue').onclick=()=>{if(!queue.length)return;const next=queue.shift();renderQueue();if(busy)cancel();startRequest(next);};
   if(el('aiNewSession'))el('aiNewSession').onclick=()=>{messages=[];renderMessages();save();};
