@@ -13,10 +13,13 @@ import {markdown} from '@codemirror/lang-markdown';
 import {HighlightStyle,syntaxHighlighting} from '@codemirror/language';
 import {tags} from '@lezer/highlight';
 import {openSearchPanel} from '@codemirror/search';
-import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAfterRestore,lectureViewCreated,lectureModeEnter,lectureModeLeave,lectureBusy,lectureStatusText,lectureDebug} from './lecture.js';
+import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAfterRestore,lectureViewCreated,lectureModeEnter,lectureModeLeave,lectureBusy,lectureStatusText,lectureMediaMessage,lectureDebug} from './lecture.js';
 import {initDraw,ensureDrawUI,enterDrawMode,exitDrawMode,isDrawMode,getDrawStrokes,loadDrawStrokes} from './draw.js';
 
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
+/* 原生工作区快照的硬上限（EditorActivity 里是同一个数）。
+   以前超限是静默丢弃整份草稿，现在先在页面里算清楚再明确报错。 */
+const WORKSPACE_LIMIT=30*1024*1024;
 
 /* Light editor surface: calm paper background, quiet gutters, GitHub-like syntax colours. */
 const codeTheme=EditorView.theme({
@@ -52,6 +55,17 @@ const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
 const defaults=()=>({version:1,files:[makeFile('main.py','# 天工 · 离线 Python\n# 标准输入在下方面板填写，每行一项\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\nfor i in range(1, 4):\n    print("让想法运行起来", "✦" * i)\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这是手机上写出的第一个页面。</p>\n<button onclick="this.textContent=\'想法变成了现实 ✦\'">试着点一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15},drawStrokes:[]});
 let state=defaults(),view,restoring=false,worker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
+/* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
+const micWaiters=new Map();let micSeq=0;
+function requestMic(){
+  if(!native)return Promise.resolve(true);
+  return new Promise(resolve=>{
+    const id=++micSeq;
+    micWaiters.set(id,resolve);
+    send('micPermission',{id});
+    setTimeout(()=>{if(micWaiters.has(id)){micWaiters.delete(id);resolve(true);}},20000);
+  });
+}
 const langConfig=new Compartment(),wrapConfig=new Compartment(),editConfig=new Compartment();
 let editorStates=new Map();
 function active(){return state.files.find(f=>f.path===state.active)||state.files[0];}
@@ -59,7 +73,30 @@ function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
 function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,lecture:lectureSerialize(),drawStrokes:state.drawStrokes||[]};}
-function flush(){clearTimeout(saveTimer);if(!ready)return;state.stdin=$('stdin').value;const data=snapshot(),id=++revision;$('saveState').textContent='正在保存草稿…';if(native)send('snapshot',{data,id});else try{localStorage.setItem('ember-studio-v1',JSON.stringify(data));latestSaved=id;$('saveState').textContent='草稿已保存';}catch(e){$('saveState').textContent='草稿保存失败';notify('空间不足，请先另存重要文件。');}}
+/* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
+   不再让原生静默 return 掉整份草稿。 */
+function mb(bytes){return (bytes/1048576).toFixed(1);}
+function flush(){
+  clearTimeout(saveTimer);
+  if(!ready)return;
+  state.stdin=$('stdin').value;
+  const data=snapshot(),id=++revision;
+  $('saveState').textContent='正在保存草稿…';
+  if(native){
+    let text='';
+    try{text=JSON.stringify(data);}
+    catch(e){$('saveState').textContent='草稿保存失败';notify('草稿序列化失败：'+(e.message||e));return;}
+    if(text.length>WORKSPACE_LIMIT){
+      $('saveState').textContent='草稿过大，未保存';
+      notify('草稿体积 '+mb(text.length)+' MB，超过 '+mb(WORKSPACE_LIMIT)+' MB 上限，这次改动没有写入。请到「上课」里删掉一些 PPT 页面，或把重要内容另存后再清理。');
+      return;
+    }
+    window.StudioBridge.postMessage('{"type":"snapshot","id":'+id+',"data":'+text+'}');
+    return;
+  }
+  try{localStorage.setItem('ember-studio-v1',JSON.stringify(data));latestSaved=id;$('saveState').textContent='草稿已保存';}
+  catch(e){$('saveState').textContent='草稿保存失败';notify('空间不足，请先另存重要文件。');}
+}
 function scheduleSave(){if(restoring)return;$('saveState').textContent='草稿待保存';clearTimeout(saveTimer);saveTimer=setTimeout(flush,450);}
 function changed(){renderFiles();scheduleSave();}
 function loadState(data){
@@ -127,7 +164,29 @@ function preview(){flush();if(native){send('preview',{path:active().path,files:s
 function saveFile(as=false){flush();const f=active(),id=String(Date.now())+'-'+Math.random();if(native){pendingSaves.set(id,{path:f.path,text:f.text});send(as||!f.uri?'export':'save',{id,path:f.path,text:f.text,uri:f.uri,encoding:f.encoding});}else{const blob=new Blob([f.text],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=f.path.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);f.savedText=f.text;changed();notify('已导出文件。');}}
 function importFiles(files){if(worker){notify('请停止运行后再导入。');return null;}let first='',backups=0,accepted=0;for(const file of files){if(!validPath(file.path)||typeof file.text!=='string'||file.text.length>MAX_FILE)continue;let path=file.path;const existing=state.files.find(f=>f.path===path);if(existing&&existing.uri!==file.uri){if(state.files.length>=159){notify('文件过多，请先另存草稿后重试。');break;}const backup='_草稿备份/'+Date.now()+'_'+path.split('/').pop().slice(-140);existing.path=backup;existing.uri='';state.opened=state.opened.map(p=>p===path?backup:p);editorStates.delete(path);backups++;}else if(existing){if(existing.text!==existing.savedText){notify('文件存在未写回的编辑，已保留草稿。');continue;}Object.assign(existing,makeFile(path,file.text,file.uri,file.encoding));accepted++;if(!first)first=path;continue;}if(state.files.length>=160)break;state.files.push(makeFile(path,file.text,file.uri||'',file.encoding||'UTF-8'));accepted++;if(!first)first=path;}if(first)switchFile(first);changed();if(backups)notify('导入文件保留原名；同名旧稿已移到 _草稿备份。');return {accepted,backups};}
 async function browserImport(event){const files=[];let skipped=0;for(const f of [...event.target.files].slice(0,160)){if(f.size>MAX_FILE){skipped++;continue;}try{const bytes=new Uint8Array(await f.arrayBuffer());if(bytes.includes(0))throw Error('binary');const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);files.push({path:f.webkitRelativePath||f.name,text,uri:'browser:'+f.name});}catch(e){skipped++;}}const result=importFiles(files);notify(`已接收 ${result?.accepted||0} / ${files.length} 个文本文件${skipped?'，另跳过 '+skipped+' 个非文本或过大文件':''}`);event.target.value='';}
-window.StudioNative={receive(m){if(m.type==='restore'){restore(m.data);if(m.error)notify(m.error);}else if(m.type==='snapshotSaved'){if(m.id>=latestSaved){latestSaved=m.id;if(m.id===revision)$('saveState').textContent=m.ok?'草稿已保存':'草稿保存失败';}}else if(m.type==='imported'){const result=importFiles(m.files||[]);if(result&&result.accepted<(m.files||[]).length)notify('工作区接收 '+result.accepted+' / '+m.files.length+' 个文件，其余因容量或未保存草稿冲突未导入；原文件保留。');else notify((m.message||'导入完成')+(result?.backups?'；同名旧稿已备份':''));}else if(m.type==='saved'){const pending=pendingSaves.get(m.id);pendingSaves.delete(m.id);if(m.ok&&pending){const f=state.files.find(f=>f.path===pending.path);if(f){f.savedText=pending.text;f.uri=m.uri||f.uri;f.encoding=m.encoding||f.encoding;changed();}notify('已保存到手机文件。');}else notify(m.message||'保存未完成，草稿仍保留。');}else if(m.type==='notice')notify(m.message);else if(m.type==='gameState')$('gameSaveInfo').textContent=m.exists?'发现游戏存档 · 进入后点击“继续旅程”。':'尚无游戏存档 · 开始后会自动保存。';}};
+window.StudioNative={receive(m){
+  if(!m)return;
+  /* 课堂模式的媒体回执（mediaPut / mediaGc）先交给 lecture 处理。 */
+  if(lectureMediaMessage(m))return;
+  /* 上课前预热麦克风权限的回执（见 EditorActivity.micPermission）。 */
+  if(m.type==='micPermission'){const done=micWaiters.get(m.id);if(done){micWaiters.delete(m.id);done(!!m.granted);}return;}
+  if(m.type==='restore'){restore(m.data);if(m.error)notify(m.error);}
+  /* 草稿保存失败（体积超限、磁盘满、旧工作区只读）必须让用户看见，
+     不能只在状态栏留一句“草稿保存失败”。 */
+  else if(m.type==='snapshotSaved'){
+    if(m.id>=latestSaved){
+      latestSaved=m.id;
+      if(m.id===revision){
+        $('saveState').textContent=m.ok?'草稿已保存':'草稿保存失败';
+        if(!m.ok&&m.message)notify(m.message);
+      }
+    }
+  }
+  else if(m.type==='imported'){const result=importFiles(m.files||[]);if(result&&result.accepted<(m.files||[]).length)notify('工作区接收 '+result.accepted+' / '+m.files.length+' 个文件，其余因容量或未保存草稿冲突未导入；原文件保留。');else notify((m.message||'导入完成')+(result?.backups?'；同名旧稿已备份':''));}
+  else if(m.type==='saved'){const pending=pendingSaves.get(m.id);pendingSaves.delete(m.id);if(m.ok&&pending){const f=state.files.find(f=>f.path===pending.path);if(f){f.savedText=pending.text;f.uri=m.uri||f.uri;f.encoding=m.encoding||f.encoding;changed();}notify('已保存到手机文件。');}else notify(m.message||'保存未完成，草稿仍保留。');}
+  else if(m.type==='notice')notify(m.message);
+  else if(m.type==='gameState')$('gameSaveInfo').textContent=m.exists?'发现游戏存档 · 进入后点击“继续旅程”。':'尚无游戏存档 · 开始后会自动保存。';
+}};
 /* One activation path per control. pointerup used to fire before click and let the
    interface change underneath the finger (drawer opening, Run becoming Stop), which
    made 0.1.7 buttons feel broken on phones. */
@@ -213,6 +272,23 @@ initLecture({
   pickPptx:()=>{if(!native)return false;send('pickPptx');return true;},
   scheduleSave,
   flush,
+  /* 录音前先在原生层拿到 RECORD_AUDIO 运行时权限：WebView 的采集如果等到
+     onPermissionRequest 里才弹系统权限框，授权回来时音频源往往已经初始化失败。 */
+  requestMic,
+  /* 开始新一节录音时把上一节课的笔记正文另存一份，
+     时间戳会被清空，正文不能跟着丢。 */
+  archiveNote:text=>{
+    const value=String(text||'');
+    if(!value.trim())return '';
+    if(state.files.length>=160){notify('工作区文件已满，上节课笔记没有单独归档，正文仍保留在当前笔记里。');return '';}
+    const now=new Date(),p=n=>String(n).padStart(2,'0');
+    const stamp=now.getFullYear()+p(now.getMonth()+1)+p(now.getDate())+'-'+p(now.getHours())+p(now.getMinutes());
+    let name='课堂笔记-'+stamp+'.md',seq=2;
+    while(state.files.some(f=>f.path===name))name='课堂笔记-'+stamp+'-'+(seq++)+'.md';
+    state.files.push(makeFile(name,value));
+    changed();
+    return name;
+  },
   activePath:()=>state.active,
   view:()=>view,
   editorState:path=>editorStates.get(path)||null,

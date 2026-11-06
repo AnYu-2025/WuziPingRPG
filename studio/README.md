@@ -22,12 +22,23 @@ APK 不进仓库，本地构建：运行 `tools/build-studio.ps1`（需要 JDK 1
 
 | 构建产物 | 包名 | 对应旧版 |
 | --- | --- | --- |
-| `dist/Ember-Studio-0.1.17-debug.apk` | `cn.wuziping.ember` | 本地原签名的 0.5 / 0.7 标准版 |
-| `dist/Ember-Studio-0.1.17-parallel-debug.apk` | `cn.wuziping.ember.preview07` | 0.7 共存试玩版 |
+| `dist/Ember-Studio-0.1.18-debug.apk` | `cn.wuziping.ember` | 本地原签名的 0.5 / 0.7 标准版 |
+| `dist/Ember-Studio-0.1.18-parallel-debug.apk` | `cn.wuziping.ember.preview07` | 0.7 共存试玩版 |
 
-版本代码均为 25。选择与手机上已安装的天工或 0.7 直接覆盖安装，编辑器成为应用首页，原 `journey-v1.bin` 游戏存档沿用；**不要先卸载旧版**。签名和包名的一致性已检查，实际 Android 覆盖安装尚未实机验收。外部构建的 0.6 采用另一张证书，不能被标准包覆盖；试玩包可以共存，但不能直接读取外部 0.6 的私有存档。
+版本代码均为 26。选择与手机上已安装的天工或 0.7 直接覆盖安装，编辑器成为应用首页，原 `journey-v1.bin` 游戏存档沿用；**不要先卸载旧版**。签名和包名的一致性已检查，实际 Android 覆盖安装尚未实机验收。外部构建的 0.6 采用另一张证书，不能被标准包覆盖；试玩包可以共存，但不能直接读取外部 0.6 的私有存档。
 
 启动页选择「游戏」后点击「进入游戏」，仍是原生 Canvas 游戏。游戏中按 Android 返回键可选择「保存并返回编辑器」，标题界面按返回键直接回到编辑器。进入后选择「继续旅程」续玩。娱乐区也提供 `.wzpsave` 存档导出、导入；导入先验证格式，再确认替换，并在私有目录保留一份原进度备份。
+
+## 0.1.18 更新
+
+- 修掉真机上「后台没有别的应用，却提示麦克风被其他应用占用」的根因。提示文字来自 `NotReadableError` 的旧映射，而 Android WebView 报这个错其实多半与别的应用无关：
+  - `AndroidManifest.xml` 缺 `MODIFY_AUDIO_SETTINGS`：WebView 的采集由 Chromium 的 AudioRecord 实现，初始化时要调整音频参数，缺这条普通权限时系统音频服务直接拒绝分配麦克风，页面侧只能收到 `NotReadableError`。已补上，并加了 `uses-feature microphone(required=false)`。
+  - 授权顺序反了：原来要等 WebView 的 `onPermissionRequest` 回调里才弹系统权限框，用户点完「允许」再 `grant()` 时音频源往往已经初始化失败。现在页面在调 `getUserMedia` **之前**先通过 `micPermission` 消息在原生层拿到 `RECORD_AUDIO`（新增请求码 `MIC_WARM`），WebView 授权时权限已就绪。
+  - 只授予音频采集资源：`grant()` 不再把页面请求的其它资源（如摄像头）一并放行，避免 Chromium 去开不存在的设备导致整条采集链路失败。
+- 修掉「自己占住麦克风」的泄漏：`AudioEngine.start()` 在拿到流之后任何一步抛错（`MediaRecorder`/`AudioContext` 构造失败等）都不会停轨道，流对象被丢弃但麦克风仍被本进程打开，用户点「重试」只会继续看到"被占用"。新增 `abortStart()` / `stopStream()`，所有失败与停止路径都会真正释放；录音失败后无需重启应用即可重新开录。
+- `NotReadableError` 不再直接判死刑：改为三轮退避重试（0 / 250 / 700 ms，每轮带降噪约束与 `audio:true` 两个档位），这类错误在 WebView 上常是音频服务尚未释放的瞬时状态。
+- 错误提示改成实情并带诊断信息：不再让用户去关别的应用，改为「系统没有把麦克风交给页面（NotReadableError）」，提示条附上错误名与系统暴露的麦克风输入数量（枚举带 800 ms 上限，避免个别 WebView 挂死）。
+- 版本号 0.1.18（versionCode 26）。
 
 ## 0.1.17 更新
 

@@ -45,6 +45,13 @@ body.lecture #lectureHint:not([hidden]){
 body.lecture .appbar{background:rgba(255,247,248,.92);border-bottom-color:#fbe0e5}
 body.lecture #activePath{color:#9f1239}
 body.lecture #runButton,body.lecture #stopButton,body.lecture .console,body.lecture .quickkeys{display:none!important}
+/* 全模式统一顶栏：更多按钮一律用黑白线框齿轮，文件标签栏一律收起。
+   Python 模式切文件走左上角 ☰ 文件抽屉；＋新建 / 进入游戏在齿轮菜单里。 */
+.tabbar{display:none!important}
+#moreButton{display:inline-flex;align-items:center;justify-content:center;color:#374151}
+#moreButton:active{color:#111827}
+.more-dots{display:none}
+.more-gear{display:block;color:#374151}
 body.lecture #editor{padding-bottom:0}
 body.lecture #noteCount{display:inline}
 
