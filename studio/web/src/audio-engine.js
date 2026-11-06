@@ -17,17 +17,23 @@ const BITS_PER_SECOND=16000;  // opus 语音码率：1 小时 ≈ 7MB，2 小时
 /* 拿麦克风：先要带降噪的约束，失败后逐级退回，最后走旧版 getUserMedia。
    某些 WebView 不支持 echoCancellation/noiseSuppression 这类约束，会直接抛
    OverconstrainedError；层级回退可以避免“点了没反应”。 */
-async function requestStream(){
+export async function requestStream(){
   const attempts=[{audio:{echoCancellation:true,noiseSuppression:true,channelCount:1}},{audio:true}];
-  let lastError=null;
+  let lastError=null,attempted=0;
   const modern=navigator.mediaDevices&&navigator.mediaDevices.getUserMedia;
   if(modern){
     for(const constraints of attempts){
+      attempted++;
       try{return await navigator.mediaDevices.getUserMedia(constraints);}
       catch(e){
         lastError=e;
         const name=e&&e.name;
-        if(name==='NotAllowedError'||name==='SecurityError'||name==='NotFoundError'||name==='NotReadableError')break;
+        /* 只有「权限被拒 / 没有设备」是终局。NotReadableError 常常只是
+           高级约束在这台 WebView 上启动不了音轨，必须继续退回纯 audio:true；
+           直接 break 会误报「被其它应用占用」，而且重试永远走同一条死路。 */
+        if(name==='NotAllowedError'||name==='SecurityError'||name==='NotFoundError')break;
+        /* 让音频服务把上一次失败的音轨彻底释放再重试。 */
+        if(attempted<attempts.length)await new Promise(resolve=>setTimeout(resolve,120));
       }
     }
   }
@@ -37,7 +43,11 @@ async function requestStream(){
       return await new Promise((resolve,reject)=>legacy.call(navigator,{audio:true},resolve,reject));
     }catch(e){lastError=e;}
   }
-  throw lastError||new Error('无法访问麦克风：getUserMedia 不可用');
+  const wrapped=new Error((lastError&&lastError.message)||'无法访问麦克风：getUserMedia 不可用');
+  wrapped.name=(lastError&&lastError.name)||'Error';
+  wrapped.fallbackAttempted=attempted>=attempts.length;
+  wrapped.cause=lastError;
+  throw wrapped;
 }
 
 export class AudioEngine{
@@ -65,6 +75,7 @@ export class AudioEngine{
   }
   async start(){
     this.stream=await requestStream();
+    try{
     let mime='';
     for(const t of ['audio/webm;codecs=opus','audio/webm','audio/mp4']){
       try{if(MediaRecorder.isTypeSupported(t)){mime=t;break;}}catch(e){/* 旧实现缺 isTypeSupported */}
@@ -91,6 +102,20 @@ export class AudioEngine{
     this.vad={inSpeech:false,speechStart:0,lastLoud:0,quietSince:0,gapStart:-1,silenceMarked:true};
     this.state='recording';
     this.timer=setInterval(()=>this.window(),WINDOW_MS);
+    }catch(e){
+      /* 启动失败必须把已经拿到的麦克风轨道还回去，否则「重试」永远报占用。 */
+      this.abort();
+      throw e;
+    }
+  }
+  /** Release every native resource held by an aborted or failed start. */
+  abort(){
+    clearInterval(this.timer);this.timer=0;
+    try{if(this.recorder&&this.recorder.state!=='inactive')this.recorder.stop();}catch(e){}
+    try{if(this.stream)this.stream.getTracks().forEach(track=>track.stop());}catch(e){}
+    try{if(this.ctx)this.ctx.close();}catch(e){}
+    this.state='idle';this.recorder=null;this.stream=null;this.ctx=null;
+    this.analyser=null;this.buf=null;
   }
   pause(){
     if(this.state!=='recording')return;

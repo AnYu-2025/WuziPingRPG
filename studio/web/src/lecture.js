@@ -358,9 +358,11 @@ async function startRecording(){
       engine.anchors=persist.anchors;   // 共享引用：录音期间 persist.anchors 始终可见
       await engine.start();
     }catch(err){
-      setBar('error');engine=null;
+      /* 先释放上一轮可能已经占住的麦克风，再允许「重试」。 */
+      if(engine){try{engine.abort();}catch(e){}engine=null;}
+      setBar('error');
       const message=micMessage(err);
-      hint(message);notify(message);
+      hint(message); /* 常驻横幅已经说明原因，不再重复弹一次 toast */
       reportError('录音启动失败：'+(err&&err.name||'Error')+' '+(err&&err.message||''));
       return;
     }
@@ -370,7 +372,7 @@ async function startRecording(){
     ensureAnim();
     notify('录音已开始。每一行笔记都会自动记录时间戳。');
   }catch(fatal){
-    engine=null;
+    if(engine){try{engine.abort();}catch(e){}engine=null;}
     setBar('error');
     const message='录音启动失败：'+((fatal&&(fatal.message||fatal.name))||'未知错误');
     hint(message);notify(message);
@@ -445,7 +447,9 @@ function micMessage(err){
   const name=err&&err.name||'';
   if(name==='NotAllowedError'||name==='SecurityError')return '麦克风权限被拒绝。请在系统设置 → 应用 → 天工 → 权限中允许麦克风，然后点「重试」。';
   if(name==='NotFoundError'||name==='DevicesNotFound')return '没有找到可用的麦克风设备。';
-  if(name==='NotReadableError'||name==='TrackStartError')return '麦克风被其他应用占用，请关闭其他录音/通话应用后重试。';
+  if(name==='NotReadableError'||name==='TrackStartError')return err&&err.fallbackAttempted===false
+    ? '录音参数不被当前 WebView 支持，已自动切换；请点「重试」。'
+    : '麦克风暂时无法启动：可能被其它录音/通话应用占用，或系统音频服务未就绪。请关闭其它应用后点「重试」。';
   if(name==='OverconstrainedError'||name==='ConstraintNotSatisfiedError')return '麦克风不支持所需的录音参数，请重试一次。';
   if(name==='NotSupportedError')return '当前 WebView 不支持这段录音，请更新 Android System WebView。';
   if(name==='AbortError')return '录音被系统中断，请重试。';
