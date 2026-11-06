@@ -3,12 +3,12 @@ $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $node=Get-Command node.exe -ErrorAction SilentlyContinue
 if($null -eq $node){throw 'Node.js is required for the Studio web tests'}
-& $node.Source --test (Join-Path $root 'studio/web/tests/tts.test.mjs') (Join-Path $root 'studio/web/tests/ai.test.mjs') (Join-Path $root 'studio/web/tests/draw.test.mjs') (Join-Path $root 'studio/web/tests/audio-engine.test.mjs') (Join-Path $root 'studio/web/tests/demoire.test.mjs')
+& $node.Source --test (Join-Path $root 'studio/web/tests/tts.test.mjs') (Join-Path $root 'studio/web/tests/ai.test.mjs') (Join-Path $root 'studio/web/tests/ai-leave.test.mjs') (Join-Path $root 'studio/web/tests/ai-agent.test.mjs') (Join-Path $root 'studio/web/tests/draw.test.mjs') (Join-Path $root 'studio/web/tests/audio-engine.test.mjs') (Join-Path $root 'studio/web/tests/demoire.test.mjs')
 if($LASTEXITCODE -ne 0){throw 'Studio web tests failed'}
 $classes=Join-Path $root 'build/studio-tests'
 New-Item -ItemType Directory -Force -Path $classes | Out-Null
 $sources=@((Get-ChildItem -LiteralPath (Join-Path $root 'core/src/main/java'),(Join-Path $root 'tools/tests'),(Join-Path $root 'studio/tests') -Recurse -Filter '*.java').FullName)
-$sources+=@((Join-Path $root 'studio/src/main/java/cn/wuziping/studio/TextFiles.java'),(Join-Path $root 'studio/src/main/java/cn/wuziping/studio/AssetServer.java'))
+$sources+=@((Join-Path $root 'studio/src/main/java/cn/wuziping/studio/TextFiles.java'),(Join-Path $root 'studio/src/main/java/cn/wuziping/studio/AssetServer.java'),(Join-Path $root 'studio/src/main/java/cn/wuziping/studio/PhoneActionPlan.java'))
 & (Join-Path $JdkRoot 'bin/javac.exe') -encoding UTF-8 --release 8 -d $classes @sources
 if($LASTEXITCODE -ne 0){throw 'Studio test compilation failed'}
 foreach($name in @('GameTests','StoryTests','BodyTests','GuestTests','ExpansionTests','MathTests','PhysicsTests')){& (Join-Path $JdkRoot 'bin/java.exe') -cp $classes "cn.wuziping.ember.tests.$name";if($LASTEXITCODE -ne 0){throw "Game regression failed: $name"}}
