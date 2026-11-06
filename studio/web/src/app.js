@@ -14,9 +14,10 @@ import {HighlightStyle,syntaxHighlighting} from '@codemirror/language';
 import {tags} from '@lezer/highlight';
 import {closeSearchPanel,openSearchPanel} from '@codemirror/search';
 import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAfterRestore,lectureViewCreated,lectureModeEnter,lectureModeLeave,lectureBusy,lectureStatusText,lectureDebug} from './lecture.js';
-import {initTTS,ttsSerialize,ttsSanitize,ttsAfterRestore,ttsModeEnter,ttsModeLeave,ttsDocumentChanged,ttsStatusText,ttsReceive,ttsDebug} from './tts.js';
+import {initTTS,ttsSerialize,ttsSanitize,ttsAfterRestore,ttsModeEnter,ttsModeLeave,ttsHideBar,ttsShowBar,ttsDocumentChanged,ttsStatusText,ttsReceive,ttsDebug} from './tts.js';
 import {initDraw,ensureDrawUI,enterDrawMode,exitDrawMode,isDrawMode,getDrawStrokes,loadDrawStrokes} from './draw.js';
 import {initAI,aiSerialize,aiSanitize,aiRestore,aiModeEnter,aiModeLeave,aiHidePanel,aiEnterPanel,aiStatusText,aiReceive,aiDebug} from './ai.js';
+import {BACK,resolveBack} from './back.js';
 
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
 
@@ -141,6 +142,15 @@ const closeMenu=()=>{const m=$('menuDialog');if(m&&m.open)m.close();};
 const menu=(id,fn)=>on(id,()=>{closeMenu();fn();});
 function showGame(){flush();closeDrawer();closeMenu();$('workbench').hidden=true;$('lounge').hidden=false;document.body.classList.add('gameview');$('activePath').textContent='游戏';$('dirtyFlag').textContent='伍子平 · 星火远征';$('gameTab').classList.add('selected');$('codeTab').classList.remove('selected');send('gameState');}
 function showCode(){closeMenu();$('workbench').hidden=false;$('lounge').hidden=true;document.body.classList.remove('gameview');$('gameTab').classList.remove('selected');$('codeTab').classList.add('selected');renderFiles();if(view)view.requestMeasure();}
+function setWorkspaceMode(mode){
+  workspaceMode=selectedMode=mode;
+  const drawToggle=$('drawToggle');if(drawToggle)drawToggle.hidden=mode!=='notepad';
+  if(mode!=='notepad')document.body.classList.remove('notepad');
+  if(mode!=='lecture')document.body.classList.remove('lecture');
+  if(mode!=='tts')document.body.classList.remove('tts');
+  if(mode!=='ai')document.body.classList.remove('aiview');
+  if(mode!=='game')document.body.classList.remove('gameview');
+}
 on('filesToggle',()=>{closeMenu();document.body.classList.toggle('drawer');});on('backdrop',closeDrawer);on('closeExplorer',closeDrawer);on('newFile',()=>nameDialog());on('newTab',()=>nameDialog());menu('menuNew',()=>nameDialog());
 menu('findButton',()=>{openSearchPanel(view);view.focus();});menu('settingsButton',()=>$('settingsDialog').showModal());on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
 on('codeTab',showCode);on('gameTab',showGame);menu('menuGame',showGame);menu('menuMode',()=>openLanding(true));on('playGame',()=>{flush();if(native)send('play');else notify('此预览仅展示编辑器，安装 APK 后可直接进入原生游戏。');});on('exportGame',()=>native?send('exportGame'):notify('游戏存档备份在 Android APK 中使用。'));on('importGame',()=>native?send('importGame'):notify('安装 APK 后可导入游戏备份。'));
@@ -177,24 +187,54 @@ try{const savedMode=localStorage.getItem(MODE_KEY);if(['python','notepad','game'
 function updateEnterLabel(){if(enterModeLabel)enterModeLabel.textContent=ready?landingLabels[selectedMode]:'正在点亮工作台…';}
 function syncWheel(){const index=Math.max(0,Math.min(modeItems.length-1,wheelSelection));wheelSelection=index;selectedMode=modeItems[index].dataset.mode;modeItems.forEach((el,n)=>{el.classList.toggle('active',n===index);el.setAttribute('aria-selected',String(n===index));});if(landing){landing.dataset.mode=selectedMode;landing.style.setProperty('--sel',String(index));}if(modeIndex)modeIndex.textContent=String(index+1).padStart(2,'0')+' / '+String(modeItems.length).padStart(2,'0');updateEnterLabel();}
 function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(landingStatus)landingStatus.textContent='工作台已点亮';enterMode.disabled=false;updateEnterLabel();}
-function hideLanding(){if(!landingOpen)return;if(workspaceMode==='ai')aiEnterPanel();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');},420);}
+function hideLanding(){if(!landingOpen)return;if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},420);}
 function placeWheel(){const found=modeItems.findIndex(el=>el.dataset.mode===selectedMode);wheelSelection=Math.max(0,found);syncWheel();}
-function openLanding(reopen=false){if(reopen&&workspaceMode==='tts')ttsModeLeave();if(reopen&&workspaceMode==='ai')aiHidePanel();clearTimeout(landingTimer);landing.hidden=false;if(landingStatus)landingStatus.textContent=ready?'工作台已点亮':'正在点亮工作台';landing.classList.remove('landing-out');landing.removeAttribute('aria-hidden');landingBack.hidden=!reopen;landingOpen=true;if(reopen&&['python','notepad','game','lecture','tts','ai'].includes(workspaceMode))selectedMode=workspaceMode;placeWheel();requestAnimationFrame(()=>{placeWheel();try{wheel.focus({preventScroll:true});}catch(e){}});}
+function openLanding(reopen=false){if(reopen&&workspaceMode==='tts')ttsHideBar();if(reopen&&workspaceMode==='ai')aiHidePanel();clearTimeout(landingTimer);landing.hidden=false;if(landingStatus)landingStatus.textContent=ready?'工作台已点亮':'正在点亮工作台';landing.classList.remove('landing-out');landing.removeAttribute('aria-hidden');landingBack.hidden=!reopen;landingOpen=true;if(reopen&&['python','notepad','game','lecture','tts','ai'].includes(workspaceMode))selectedMode=workspaceMode;placeWheel();requestAnimationFrame(()=>{placeWheel();try{wheel.focus({preventScroll:true});}catch(e){}});}
 function handleSystemBack(){
   const openDialog=document.querySelector('dialog[open]');
-  if(openDialog){openDialog.close('cancel');lastBackAt=0;return true;}
-  if(document.body.classList.contains('drawer')){document.body.classList.remove('drawer');lastBackAt=0;return true;}
-  if(isDrawMode()||document.body.classList.contains('drawing')||($('drawLayer')&&!$('drawLayer').hidden)){exitDrawMode();lastBackAt=0;return true;}
-  if(view&&view.dom.querySelector('.cm-search')){closeSearchPanel(view);view.focus();lastBackAt=0;return true;}
-  const lounge=$('lounge');
-  if(lounge&&!lounge.hidden){showCode();lastBackAt=0;return true;}
-  if(landingOpen){hideLanding();return true;}
-  const now=Date.now();
-  if(now-lastBackAt<=2000){lastBackAt=0;return false;}
-  lastBackAt=now;
-  flush();
-  openLanding(true);
-  return true;
+  const loungeOpen=!!$('lounge')&&!$('lounge').hidden;
+  try{
+    const decision=resolveBack({
+      dialogOpen:!!openDialog,
+      drawerOpen:document.body.classList.contains('drawer'),
+      drawing:isDrawMode()||document.body.classList.contains('drawing')||($('drawLayer')&&!$('drawLayer').hidden),
+      searchOpen:!!(view&&view.dom.querySelector('.cm-search')),
+      landingOpen,
+      now:Date.now(),
+      lastBackAt,
+      doubleWindowMs:2000
+    });
+    lastBackAt=decision.nextLastBackAt;
+    switch(decision.action){
+      case BACK.DIALOG:
+        if(openDialog)openDialog.close('cancel');
+        return true;
+      case BACK.DRAWER:
+        document.body.classList.remove('drawer');
+        return true;
+      case BACK.DRAW:
+        exitDrawMode();
+        setTimeout(()=>{if(view)view.focus();},0);
+        return true;
+      case BACK.SEARCH:
+        closeSearchPanel(view);
+        view.focus();
+        return true;
+      case BACK.LANDING:
+        if(landingOpen)hideLanding();
+        else if(loungeOpen){showCode();setWorkspaceMode('python');lastBackAt=0;}
+        else{flush();openLanding(true);}
+        return true;
+      case BACK.DOUBLE:
+        if(loungeOpen){showCode();setWorkspaceMode('python');lastBackAt=0;return true;}
+        return false;
+      default:return false;
+    }
+  }catch(error){
+    console.error('[Studio] back handling failed',error);
+    lastBackAt=0;
+    return true;
+  }
 }
 function ensureNote(){let note=state.files.find(f=>f.path==='笔记.txt');if(!note){note=makeFile('笔记.txt','');state.files.push(note);}if(!state.opened.includes(note.path))state.opened.push(note.path);return note;}
 function ensureLectureNote(){let note=state.files.find(f=>f.path==='课堂笔记.md');if(!note){note=makeFile('课堂笔记.md','');state.files.push(note);changed();}if(!state.opened.includes(note.path))state.opened.push(note.path);return note;}
@@ -238,7 +278,7 @@ wheel.addEventListener('wheel',event=>{if(Math.abs(event.deltaY)<4)return;event.
 wheel.addEventListener('keydown',event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();moveSelection(event.key==='ArrowDown'?1:-1);}else if(event.key==='Enter'){event.preventDefault();enterSelected();}});
 modeItems.forEach(item=>item.addEventListener('click',()=>{if(wheelSwiped)return;const index=modeItems.indexOf(item);if(index!==wheelSelection){wheelSelection=index;syncWheel();return;}enterSelected();}));
 enterMode.addEventListener('click',enterSelected);
-landingBack.addEventListener('click',()=>{lastBackAt=0;hideLanding();});
+landingBack.addEventListener('click',()=>{lastBackAt=Date.now();hideLanding();});
 window.__studioLandingReady=true;
 initLecture({
   notify,
@@ -312,5 +352,5 @@ initAI({
  runSnippet:aiRunSnippet
 });
 openLanding(false);
-window.Studio={getState:snapshot,get view(){return view;},run,stop,flush,importFiles,back:handleSystemBack,lecture:lectureDebug,tts:ttsDebug,ai:aiDebug};
+window.Studio={getState:()=>({...snapshot(),mode:workspaceMode}),get view(){return view;},run,stop,flush,importFiles,back:handleSystemBack,lecture:lectureDebug,tts:ttsDebug,ai:aiDebug};
 if(native)send('ready');else{let saved=null;try{saved=JSON.parse(localStorage.getItem('ember-studio-v1'));}catch(e){}restore(saved);}

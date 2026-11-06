@@ -551,7 +551,16 @@ export function ttsAfterRestore(){
   render();
 }
 
+export function ttsHideBar(){
+  if(ui&&ui.bar)ui.bar.hidden=true;
+}
+
+export function ttsShowBar(){
+  if(ui&&ui.bar)ui.bar.hidden=false;
+}
+
 export function ttsModeEnter(){
+  ttsShowBar();
   refreshDocument();
   if(!nativeBridge()){
     if(!browserVoicesReady)loadBrowserVoices();
