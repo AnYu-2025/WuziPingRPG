@@ -20,10 +20,9 @@ import java.util.regex.Pattern;
 public final class AssistantTools {
     public interface Emit { void emit(JSONObject message); }
     private static final String PREF="assistant-v1",KEY_TREE="tree",KEY_TASKS="tasks",KEY_EVENTS="events",KEY_DELETES="deletes";
-    private static final Set<String> ACTIONS=new HashSet<>(Arrays.asList("remind","dailyLog","scanReport"));
-    private final Context ctx;private final ExecutorService io;private final Emit emit;
+    private final Context ctx;private final ExecutorService io;private final Emit emit;private final PhoneActions phone;
     private final Map<String,HttpURLConnection> calls=new ConcurrentHashMap<>();
-    public AssistantTools(Context context,ExecutorService executor,Emit out){ctx=context;io=executor;emit=out;}
+    public AssistantTools(Context context,ExecutorService executor,Emit out){ctx=context;io=executor;emit=out;phone=new PhoneActions(context);}
 
     private SharedPreferences prefs(){return ctx.getSharedPreferences(PREF,Context.MODE_PRIVATE);}
     private void send(String type,String id,String data,boolean ok){
@@ -123,6 +122,7 @@ public final class AssistantTools {
                 else if(tool.equals("scheduleTask"))result=schedule(args).toString();
                 else if(tool.equals("listTasks"))result=tasks().toString();
                 else if(tool.equals("cancelTask"))result=cancel(args.optString("id","")).toString();
+                else if(PhoneActionPlan.isPhoneTool(tool))result=phone.run(tool,args);
                 else result="未知工具："+tool;
                 send("aiToolResult",id,result,true);
             }catch(Exception e){send("aiToolResult",id,"操作未完成："+(e.getMessage()==null?"":e.getMessage()),false);}
@@ -220,7 +220,7 @@ public final class AssistantTools {
     }
     private JSONObject schedule(JSONObject args)throws Exception{
         String action=args.optString("action","remind");
-        if(!ACTIONS.contains(action))throw new IOException("不支持的任务类型");
+        if(!PhoneActionPlan.alarmMayRun(action))throw new IOException("不支持的任务类型");
         long at=args.optLong("at",0);if(at<=System.currentTimeMillis())throw new IOException("时间必须晚于现在");
         String id="task-"+System.currentTimeMillis();
         JSONArray list=taskArray();JSONObject t=new JSONObject();

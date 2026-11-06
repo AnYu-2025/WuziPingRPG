@@ -89,11 +89,13 @@
   <label class="ai-field"><input id="aiRemote" type="checkbox"><span>连接电脑上的服务</span></label>
   <label class="ai-field">电脑服务地址<input id="aiRemoteUrl" type="url" autocomplete="off" spellcheck="false" placeholder="http://192.168.1.10:8080/v1/chat/completions"></label>
   <label class="ai-field"><input id="aiAutoApprove" type="checkbox"><span>自动批准只读工具</span></label>
+  <label class="ai-field"><input id="aiAgentLoop" type="checkbox" checked><span>多步执行（看完结果再继续）</span></label>
   <label class="ai-field">系统提示<textarea id="aiSystem"></textarea></label>
  </div>
  <div class="ai-section"><h3 id="aiQuickTitle">快捷指令</h3><div class="ai-quick" id="aiQuick">
   <button data-quick="explain" type="button">解释当前代码</button><button data-quick="generate" type="button">生成代码</button>
   <button data-quick="run" type="button">运行当前文件</button><button data-quick="summarize" type="button">总结会话</button>
+  <button data-quick="phone" type="button">看看手机状态</button>
  </div></div>
 </aside>
 <div class="ai-main">
@@ -105,7 +107,7 @@
   <button id="aiImport" type="button">导入回放</button><button id="aiShare" type="button">分享卡</button>
  </header>
  <div class="ai-gate" id="aiGate"><p id="aiGateText">AI 助手默认不联网。开启后，请求只发往你填写的服务，密钥仅保存在本机工作区。</p><button id="aiGateBtn" type="button">我了解，开启联网</button></div>
- <p class="ai-status-hint" id="aiStatusHint">把内容写进编辑器或文件前，需要你点「允许」。</p>
+ <p class="ai-status-hint" id="aiStatusHint">打开其他应用、分享、短信草稿、剪贴板和写文件之前，需要你点「允许」。</p>
  <div class="ai-messages" id="aiMessages" role="log" aria-live="polite"></div>
  <div class="ai-queue" id="aiQueue" hidden><strong id="aiQueueLabel">插话队列</strong><ul id="aiQueueList"></ul><button id="aiFlushQueue" type="button">立即发送</button></div>
  <form class="ai-composer" id="aiComposer" onsubmit="return false">
@@ -118,7 +120,7 @@
 <aside class="ai-tools">
  <div class="ai-pet" id="aiPet" data-state="off"><div class="head"></div><div class="body"></div></div>
  <div class="ai-pet-note" id="aiPetNote">小助手</div>
- <div class="ai-section"><h3 id="aiToolsTitle">工具卡</h3><button id="aiAuthorize" type="button">授权手机目录</button><p class="ai-status-hint">AI 请求读写文件、运行代码或插入编辑器时，会先生成一张卡片等你确认。</p></div>
+ <div class="ai-section"><h3 id="aiToolsTitle">工具卡</h3><button id="aiAuthorize" type="button">授权手机目录</button><p class="ai-status-hint">写文件、删除、打开网页或其他应用、拨号、短信草稿、分享、剪贴板和已安装应用列表都会先生成卡片。只读的设备状态可以自动批准。多步任务每次结果回来后继续，点「停止」可中断。短信不会自动发送。</p></div>
 </aside>
 </section>
 <dialog id="aiShareDialog" class="ai-dialog"><h2 id="aiShareTitle">天工 · AI 助手对话</h2><canvas id="aiShareCanvas" width="720" height="520"></canvas><div class="ai-dialog-actions"><button id="aiCloseShare" type="button">关闭</button></div></dialog>

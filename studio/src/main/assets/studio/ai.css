@@ -39,6 +39,8 @@
 .ai-tools-inline{margin-top:10px;display:grid;gap:8px}
 .ai-card{border:1px solid var(--ai-line);border-left:3px solid var(--ai-accent);border-radius:9px;padding:9px 11px;background:var(--ai-bg);font-size:12px}
 .ai-card-write{border-left-color:#c2605f}
+.ai-card-done{opacity:.72}
+.ai-card p{margin:0;color:var(--ai-mute)}
 .ai-card strong{display:block;margin-bottom:6px}
 .ai-card pre{max-height:130px;overflow:auto;margin:0 0 8px;white-space:pre-wrap}
 .ai-card-actions{display:flex;gap:8px}

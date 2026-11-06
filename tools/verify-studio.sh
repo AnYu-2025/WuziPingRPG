@@ -8,12 +8,12 @@ if [[ -z "$JDK_ROOT" ]]; then
   else echo "Set JDK_ROOT or JAVA_HOME" >&2; exit 1; fi
 fi
 if ! command -v node >/dev/null 2>&1; then echo "Node.js is required for the Studio web tests" >&2; exit 1; fi
-node --test "$ROOT/studio/web/tests/tts.test.mjs" "$ROOT/studio/web/tests/ai.test.mjs" "$ROOT/studio/web/tests/draw.test.mjs" "$ROOT/studio/web/tests/audio-engine.test.mjs" "$ROOT/studio/web/tests/demoire.test.mjs"
+node --test "$ROOT/studio/web/tests/tts.test.mjs" "$ROOT/studio/web/tests/ai.test.mjs" "$ROOT/studio/web/tests/ai-leave.test.mjs" "$ROOT/studio/web/tests/ai-agent.test.mjs" "$ROOT/studio/web/tests/draw.test.mjs" "$ROOT/studio/web/tests/audio-engine.test.mjs" "$ROOT/studio/web/tests/demoire.test.mjs"
 CLASSES="$ROOT/build/studio-tests"
 mkdir -p "$CLASSES"
 SOURCES=()
 while IFS= read -r -d '' file; do SOURCES+=("$file"); done < <(find "$ROOT/core/src/main/java" "$ROOT/tools/tests" "$ROOT/studio/tests" -name '*.java' -print0)
-SOURCES+=("$ROOT/studio/src/main/java/cn/wuziping/studio/TextFiles.java" "$ROOT/studio/src/main/java/cn/wuziping/studio/AssetServer.java")
+SOURCES+=("$ROOT/studio/src/main/java/cn/wuziping/studio/TextFiles.java" "$ROOT/studio/src/main/java/cn/wuziping/studio/AssetServer.java" "$ROOT/studio/src/main/java/cn/wuziping/studio/PhoneActionPlan.java")
 "$JDK_ROOT/bin/javac" -encoding UTF-8 --release 8 -d "$CLASSES" "${SOURCES[@]}"
 for name in GameTests StoryTests BodyTests GuestTests ExpansionTests MathTests PhysicsTests; do
   "$JDK_ROOT/bin/java" -cp "$CLASSES" "cn.wuziping.ember.tests.$name"
