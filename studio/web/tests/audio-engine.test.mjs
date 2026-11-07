@@ -41,17 +41,32 @@ test('permission denial is final and never retries', async () => {
   let calls = 0;
   setNavigator(async () => { calls++; throw domError('NotAllowedError', 'denied'); });
   try {
-    await assert.rejects(requestStream(), e => e.name === 'NotAllowedError' && e.fallbackAttempted === false);
+    await assert.rejects(requestStream(), e => e.name === 'NotAllowedError');
     assert.equal(calls, 1);
   } finally { restore(); }
 });
 
-test('two failed attempts are reported as a fully attempted fallback', async () => {
+test('persistent NotReadableError exhausts every retry round', async () => {
   let calls = 0;
   setNavigator(async () => { calls++; throw domError('NotReadableError', 'busy'); });
   try {
-    await assert.rejects(requestStream(), e => e.name === 'NotReadableError' && e.fallbackAttempted === true);
-    assert.equal(calls, 2);
+    await assert.rejects(requestStream(), e => e.name === 'NotReadableError');
+    /* 三轮退避 × 两档约束（带降噪 / audio:true）：WebView 释放音频服务的瞬时失败靠它兜住 */
+    assert.equal(calls, 6);
+  } finally { restore(); }
+});
+
+test('a transient NotReadableError recovers on a later round', async () => {
+  let calls = 0;
+  const stream = { getTracks: () => [] };
+  setNavigator(async c => {
+    calls++;
+    if (calls <= 2) throw domError('NotReadableError', 'busy');
+    return stream;
+  });
+  try {
+    assert.equal(await requestStream(), stream);
+    assert.equal(calls, 3);
   } finally { restore(); }
 });
 

@@ -32,7 +32,7 @@ function fatalMicError(e){
   const name=e&&e.name;
   return name==='NotAllowedError'||name==='SecurityError'||name==='PermissionDeniedError';
 }
-async function requestStream(){
+export async function requestStream(){
   const modern=navigator.mediaDevices&&navigator.mediaDevices.getUserMedia;
   const legacy=navigator.getUserMedia||navigator.webkitGetUserMedia;
   let lastError=null;

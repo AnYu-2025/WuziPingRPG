@@ -9,6 +9,7 @@ import {gutter,GutterMarker,Decoration,EditorView} from '@codemirror/view';
 import {AudioEngine,Playback,blobToBase64,fmt} from './audio-engine.js';
 import {Timeline} from './timeline.js';
 import {renderPptx} from './pptx.js';
+import {demoireCanvas,demoireSanitize} from './demoire.js';
 import {initMediaStore,putMedia,resolveMedia,releaseMedia,deleteMedia,collectMedia,mediaUrl,mediaMessage,mediaNative} from './media-store.js';
 
 const NOTES_PATH='课堂笔记.md';
@@ -97,19 +98,9 @@ const playHighlight=EditorView.decorations.compute([stampField],state=>{
   const line=state.doc.lineAt(pos);
   return Decoration.set([Decoration.line({class:'cm-note-playing'}).range(line.from)]);
 });
-const noteClick=EditorView.domEventHandlers({
-  click(event,view){
-    if(!hasAudio())return false;
-    const pos=view.posAtCoords({x:event.clientX,y:event.clientY});
-    if(pos==null)return false;
-    const f=view.state.field(stampField,false);
-    if(!f||!f.stamps.length)return false;
-    const s=stampForLine(f,view.state.doc.lineAt(pos));
-    if(s){seekTo(s.time,true);}
-    return false;
-  }
-});
-const lectureExtensions=[stampField,timeGutter,playHighlight,noteClick];
+/* 点击跳转只认左侧时间戳 gutter：以前整个编辑区的 click 都会 seek + 自动播放，
+   写笔记时随手点一下正文就跳走音频、移动光标也会打断播放，太容易误触。 */
+const lectureExtensions=[stampField,timeGutter,playHighlight];
 export {lectureExtensions};
 
 /* ---------------- 模块状态 ---------------- */
@@ -117,9 +108,16 @@ export {lectureExtensions};
 let env=null;                    // app.js 注入的钩子
 let engine=null,playback=null,timeline=null;
 let barState='idle';             // idle|starting|recording|recpaused|stopping|stopped|playing|playpaused|error
-let persist={audio:null,anchors:[],slides:[],notes:[],translate:false};
+let persist={audio:null,anchors:[],slides:[],notes:[],translate:false,demoire:demoireSanitize(null),rate:1};
 let pendingStamps=[];
-let slideSeq=0,uiReady=false,animRaf=0,editAnchorId=null,previewSlideId=null,lastPlayPos=-1;
+let slideSeq=0,uiReady=false,animRaf=0,editAnchorId=null,previewSlideId=null,lastPlayPos=-1,showingRaw=false;
+/* 当前讲到第几页（0 基）：翻页条与「翻页即打点」共用。 */
+let curSlide=0;
+/* 「从本行播放 10 秒」的自动暂停计时器，任何手动播放/暂停都要先取消它。 */
+let lineStopTimer=0;
+const RATES=[1,1.25,1.5,2];
+/* 去摩尔纹的原图只留在内存里供「对比原图」，不写进工作区快照。 */
+const rawSlides=new Map();
 let toastTimer=0;
 let ui={};
 /* 检查点与本次录音的媒体引用：录音过程中每 45 秒把已录片段写进私有目录，
@@ -197,11 +195,16 @@ function ensureUI(){
     record:$('recordBtn'),pause:$('pauseBtn'),stop:$('stopBtn'),newRec:$('newRecBtn'),anchor:$('anchorBtn'),
     translateToggle:$('translateToggle'),translateCheck:$('translateCheck'),
     canvas:$('timelineCanvas'),zoomIn:$('zoomIn'),zoomOut:$('zoomOut'),range:$('tlRange'),
+    rate:$('playRate'),linePlay:$('linePlay'),
     anchors:$('anchorList'),slides:$('slideList'),import:$('importSlide'),slideInput:$('slideInput'),
+    stage:$('slideStage'),slideNow:$('slideNow'),slideNowLabel:$('slideNowLabel'),slidePos:$('slidePos'),
+    slidePrev:$('slidePrev'),slideNext:$('slideNext'),slideMark:$('slideMark'),
     importPptx:$('importPptx'),pptxInput:$('pptxInput'),
     tabs:$('lectureTabs'),
     anchorDialog:$('anchorDialog'),anchorLabel:$('anchorLabel'),anchorTime:$('anchorTime'),anchorSlide:$('anchorSlide'),
-    slideDialog:$('slideDialog'),slideImage:$('slideImage'),slideTitle:$('slideTitle'),slideSeek:$('slideSeek')
+    slideDialog:$('slideDialog'),slideImage:$('slideImage'),slideTitle:$('slideTitle'),slideSeek:$('slideSeek'),
+    slideToggleRaw:$('slideToggleRaw'),slideMoveUp:$('slideMoveUp'),slideMoveDown:$('slideMoveDown'),slideDelete:$('slideDelete'),
+    demoireEnabled:$('demoireEnabled'),demoireStrength:$('demoireStrength'),demoireValue:$('demoireValue')
   };
   timeline=new Timeline(ui.canvas,{
     onSeek:t=>{if(hasAudio())seekTo(t,true);},
@@ -261,11 +264,62 @@ function ensureUI(){
   });
   if(ui.pptxInput)ui.pptxInput.addEventListener('change',()=>importSlides(ui.pptxInput.files));
   ui.anchorDialog.addEventListener('close',onAnchorDialogClose);
-  ui.slideDialog.addEventListener('close',()=>{previewSlideId=null;});
+  ui.slideDialog.addEventListener('close',()=>{previewSlideId=null;showingRaw=false;});
   ui.slideSeek.addEventListener('click',()=>{
     const slide=persist.slides.find(s=>s.id===previewSlideId);
     if(slide&&slide.anchorTime!=null){seekTo(slide.anchorTime,true);ui.slideDialog.close();}
   });
+  /* 预览里直接管理页面：删除 / 前移 / 后移（以前库满了提示「请先删除一些页面」，却没有入口）。 */
+  if(ui.slideDelete)ui.slideDelete.addEventListener('click',()=>{
+    const slide=persist.slides.find(s=>s.id===previewSlideId);
+    if(slide)deleteSlide(slide);
+  });
+  if(ui.slideMoveUp)ui.slideMoveUp.addEventListener('click',()=>{
+    const slide=persist.slides.find(s=>s.id===previewSlideId);
+    if(slide)moveSlide(slide,-1);
+  });
+  if(ui.slideMoveDown)ui.slideMoveDown.addEventListener('click',()=>{
+    const slide=persist.slides.find(s=>s.id===previewSlideId);
+    if(slide)moveSlide(slide,1);
+  });
+  if(ui.slideToggleRaw)ui.slideToggleRaw.addEventListener('click',()=>{
+    const slide=persist.slides.find(s=>s.id===previewSlideId);
+    const raw=slide?rawSlides.get(slide.id):null;
+    if(!slide||!raw)return;
+    showingRaw=!showingRaw;
+    ui.slideImage.src=showingRaw?raw:slideUrl(slideRef(slide));
+    ui.slideToggleRaw.textContent=showingRaw?'看修复后':'对比原图';
+  });
+  /* 播放倍速：复习时 1.25/1.5/2 倍循环切换 */
+  if(ui.rate)ui.rate.addEventListener('click',()=>{
+    const index=Math.max(0,RATES.indexOf(Number(persist.rate)));
+    persist.rate=RATES[(index+1)%RATES.length];
+    applyRate();
+    env.scheduleSave();
+    notify('播放速度 '+persist.rate+'×');
+  });
+  /* 从当前笔记行播放 10 秒：复习最常用的一条 */
+  if(ui.linePlay)ui.linePlay.addEventListener('click',()=>{void playLineTen();});
+  /* PPT 翻页：录音/播放中按「下一页」= 自动给新页打点 */
+  if(ui.slidePrev)ui.slidePrev.addEventListener('click',()=>gotoSlide(curSlide-1,false));
+  if(ui.slideNext)ui.slideNext.addEventListener('click',()=>gotoSlide(curSlide+1,true));
+  if(ui.slideMark)ui.slideMark.addEventListener('click',()=>{linkCurrentSlide();});
+  if(ui.demoireEnabled&&ui.demoireStrength){
+    ui.demoireEnabled.checked=persist.demoire.enabled;
+    ui.demoireStrength.value=Math.round(persist.demoire.strength*100);
+    if(ui.demoireValue)ui.demoireValue.textContent=ui.demoireStrength.value+'%';
+    ui.demoireEnabled.addEventListener('change',()=>{
+      persist.demoire=demoireSanitize({enabled:ui.demoireEnabled.checked,strength:persist.demoire.strength});
+      env.scheduleSave();
+      notify(persist.demoire.enabled?'已开启拍后去摩尔纹（对新导入的照片生效）':'已关闭拍后去摩尔纹');
+    });
+    ui.demoireStrength.addEventListener('input',()=>{
+      const pct=Number(ui.demoireStrength.value)||0;
+      persist.demoire=demoireSanitize({enabled:persist.demoire.enabled,strength:pct/100});
+      if(ui.demoireValue)ui.demoireValue.textContent=pct+'%';
+      env.scheduleSave();
+    });
+  }
 }
 function setBar(state){
   barState=state;
@@ -309,18 +363,32 @@ function renderAnchors(){
     empty.textContent='暂无锚点。录音时说话会自动标记，也可以点「📌 标记锚点」。';
     list.append(empty);
   }
+  refreshStatus();
+}
+function refreshStatus(){
+  const el=document.getElementById('noteCount');
+  if(el&&document.body.classList.contains('lecture'))el.textContent=lectureStatusText();
 }
 function renderSlides(){
   if(!uiReady)return;
   slideSeq=persist.slides.reduce((m,s)=>Math.max(m,parseInt(String(s.id).replace(/\D/g,''),10)||0),0)+1;
   const list=ui.slides;
   list.replaceChildren();
-  for(const slide of persist.slides){
-    const item=document.createElement('div');item.className='slideitem';
-    const thumb=document.createElement('button');thumb.className='slidethumb';thumb.title=slide.name;
+  persist.slides.forEach((slide,index)=>{
+    const item=document.createElement('div');item.className='slideitem';item.dataset.index=String(index);
+    const thumb=document.createElement('button');thumb.className='slidethumb';thumb.title=slide.name+'（长按删除）';
     const img=document.createElement('img');img.src=slideUrl(slideRef(slide));img.alt=slide.name;img.loading='lazy';
     thumb.append(img);
-    thumb.addEventListener('click',()=>openSlidePreview(slide));
+    thumb.addEventListener('click',()=>{if(longPressed){longPressed=false;return;}curSlide=index;renderSlideStage(false);openSlidePreview(slide);});
+    /* 手机上没有右键：长按缩略图 = 删除这一页 */
+    let pressTimer=0,longPressed=false;
+    const startPress=()=>{longPressed=false;clearTimeout(pressTimer);pressTimer=setTimeout(()=>{longPressed=true;deleteSlide(slide);},650);};
+    const cancelPress=()=>{clearTimeout(pressTimer);pressTimer=0;};
+    thumb.addEventListener('pointerdown',startPress);
+    thumb.addEventListener('pointerup',cancelPress);
+    thumb.addEventListener('pointerleave',cancelPress);
+    thumb.addEventListener('pointercancel',cancelPress);
+    thumb.addEventListener('contextmenu',event=>{event.preventDefault();});
     const meta=document.createElement('div');meta.className='slidemeta';
     const time=document.createElement('button');time.className='slidetime';
     if(slide.anchorTime!=null){
@@ -330,20 +398,138 @@ function renderSlides(){
     }else{
       time.textContent='＋ 锚点';
       time.title='标记为当前播放/录音时间';
-      time.addEventListener('click',()=>linkSlideAt(slide,markTime()));
+      time.addEventListener('click',()=>{
+        const t=markTime();
+        if(t==null){notify('先开始录音或播放，再给这一页打点。');return;}
+        linkSlideAt(slide,t);
+        renderSlides();renderSlideStage(false);renderTimeline();
+        env.scheduleSave();
+      });
       time.classList.add('unlinked');
     }
     const name=document.createElement('span');name.className='slidename';name.textContent=slide.name;
     meta.append(time,name);
     item.append(thumb,meta);
     list.append(item);
-  }
+  });
   if(!persist.slides.length){
     const empty=document.createElement('p');empty.className='slidempty';
     empty.textContent='还没有 PPT 页面。下方可以拍照片，也可以导入整个 PPT 文件，每一页都会记录在时间轴旁。';
     list.append(empty);
   }
+  renderSlideStage(false);
+  refreshStatus();
 }
+
+/* ---------------- PPT 翻页与页面管理 ---------------- */
+function clampSlide(index){return Math.max(0,Math.min(Math.max(0,persist.slides.length-1),index));}
+function renderSlideStage(scroll){
+  if(!uiReady)return;
+  const total=persist.slides.length;
+  if(total)curSlide=clampSlide(curSlide);else curSlide=0;
+  const slide=total?persist.slides[curSlide]:null;
+  if(ui.stage){
+    ui.stage.hidden=!slide;
+    if(slide){
+      const src=slideUrl(slideRef(slide)),img=ui.slideNow;
+      if(img&&img.getAttribute('src')!==src)img.src=src;
+      if(img)img.alt=slide.name;
+      if(ui.slideNowLabel)ui.slideNowLabel.textContent='第 '+(curSlide+1)+' / '+total+' 页'+(slide.anchorTime!=null?' · '+fmt(slide.anchorTime):'');
+    }
+  }
+  if(ui.slidePos)ui.slidePos.textContent=total?(curSlide+1)+' / '+total:'0 / 0';
+  if(ui.slidePrev)ui.slidePrev.disabled=curSlide<=0;
+  if(ui.slideNext)ui.slideNext.disabled=!total||curSlide>=total-1;
+  if(ui.slides)for(const item of ui.slides.querySelectorAll('.slideitem'))item.classList.toggle('active',total>0&&item.dataset.index===String(curSlide));
+  if(scroll&&slide&&ui.slides){
+    const item=ui.slides.querySelector('.slideitem[data-index="'+curSlide+'"]');
+    try{if(item&&item.scrollIntoView)item.scrollIntoView({block:'nearest'});}catch(e){}
+  }
+}
+/* 翻页：link=true 表示「翻页即打点」——录音/播放中翻到新页时自动记下时间，
+   省掉「点缩略图 → 预览 → 关闭 → 再按标记」这一串。已经打过点的页不覆盖。 */
+function gotoSlide(index,link){
+  if(!persist.slides.length)return;
+  curSlide=clampSlide(index);
+  renderSlideStage(true);
+  /* 只有正在录音/暂停时才「翻页即打点」：只是回放复习时翻页不该凭空生成锚点。 */
+  if(link&&recActive())linkCurrentSlide(null,true);
+}
+/* 给当前页打点；auto=true 时只给还没打点的页补上，不覆盖手工调整过的时间 */
+function linkCurrentSlide(time,auto){
+  const slide=persist.slides[curSlide];
+  if(!slide)return;
+  const t=(time==null)?markTime():time;
+  if(t==null){if(!auto)notify('先开始录音或播放，再给 PPT 打点。');return;}
+  if(auto&&slide.anchorTime!=null)return;
+  slide.anchorTime=Math.round(t*10)/10;
+  linkSlideAt(slide,slide.anchorTime);
+  renderSlides();renderSlideStage(false);renderTimeline();
+  env.scheduleSave();
+  if(!auto)notify('第 '+(curSlide+1)+' 页 · 已打点 '+fmt(slide.anchorTime));
+}
+function deleteSlide(slide){
+  const index=persist.slides.indexOf(slide);
+  if(index<0)return;
+  if(!window.confirm('删除《'+slide.name+'》？这一页对应的时间点也会一起移除（笔记正文不受影响）。'))return;
+  const orphanLabel='PPT：'+slide.name;
+  persist.anchors=persist.anchors.filter(anchor=>{
+    if(anchor.slideId!==slide.id)return true;
+    if(anchor.label===orphanLabel)return false;   // 纯为这页建立的锚点一起删
+    anchor.slideId=null;                          // 手动标记保留，只解除关联
+    return true;
+  });
+  persist.slides.splice(index,1);
+  try{deleteMedia(slideRef(slide));}catch(e){/* 外置文件可能已不存在 */}
+  rawSlides.delete(slide.id);
+  if(uiReady&&ui.slideDialog.open)ui.slideDialog.close();
+  curSlide=clampSlide(index);
+  renderAnchors();renderSlides();renderSlideStage(false);renderTimeline();
+  env.scheduleSave();
+  notify('已删除 1 页，剩余 '+persist.slides.length+' 页。');
+}
+function moveSlide(slide,delta){
+  const index=persist.slides.indexOf(slide),to=index+delta;
+  if(index<0||to<0||to>=persist.slides.length)return;
+  persist.slides.splice(index,1);
+  persist.slides.splice(to,0,slide);
+  curSlide=to;
+  renderSlides();renderSlideStage(true);
+  if(uiReady&&ui.slideDialog.open)refreshSlideDialog(slide);
+  env.scheduleSave();
+  notify('已'+(delta<0?'前移':'后移')+'到第 '+(to+1)+' 页。');
+}
+/* ---------------- 播放倍速与单行复读 ---------------- */
+function applyRate(){
+  const rate=RATES.includes(Number(persist.rate))?Number(persist.rate):1;
+  persist.rate=rate;
+  if(uiReady&&ui.rate)ui.rate.textContent=rate+'×';
+  if(playback){try{playback.audio.playbackRate=rate;}catch(e){/* 未加载 */}}
+}
+function cancelLineStop(){
+  if(lineStopTimer){clearTimeout(lineStopTimer);lineStopTimer=0;}
+}
+/* 从光标所在笔记行的时间点播放 10 秒（倍速下按实际音频时长折算墙钟时间） */
+async function playLineTen(){
+  if(!hasAudio()){notify('还没有录音。点「🎙 开始录音」先录一段。');return;}
+  let t=null;
+  const view=env&&env.view();
+  const field=view?view.state.field(stampField,false):null;
+  if(view&&field&&field.stamps.length){
+    const stamp=stampForLine(field,view.state.doc.lineAt(view.state.selection.main.head));
+    if(stamp)t=stamp.time;
+  }
+  if(t==null)t=playTime();
+  await seekTo(t,true);
+  if(!playback||playback.audio.paused)return;
+  cancelLineStop();
+  lineStopTimer=setTimeout(()=>{
+    lineStopTimer=0;
+    if(playback&&!playback.audio.paused)pauseAudio();
+  },Math.round(10000/Math.max(0.5,persist.rate||1)));
+  notify('从 '+fmt(t)+' 播放 10 秒 · '+persist.rate+'×');
+}
+
 function renderTimeline(){
   if(!timeline)return;
   const duration=recActive()?Math.max(playDur(),currentElapsed()):playDur();
@@ -589,11 +775,16 @@ function markAnchor(){
     ?engine.markManual('标记 '+fmt(t))
     :(persist.anchors.push({id:'a'+Date.now()+'-m',time:Math.round(t*10)/10,type:'manual',label:'标记 '+fmt(t),slideId:null}),persist.anchors[persist.anchors.length-1]);
   persist.anchors.sort((a,b)=>a.time-b.time);
-  const slide=[...persist.slides].reverse().find(s=>s.anchorTime==null);
-  if(slide)linkSlideAt(slide,t,anchor);
-  renderAnchors();renderSlides();renderTimeline();
+  /* 按页码顺序找第一张还没打点的页：以前是 reverse().find()，导完 50 页 PPT
+     第一次打点会关联到第 50 页，跟上课顺序正好相反。 */
+  const slide=persist.slides.find(s=>s.anchorTime==null);
+  if(slide){
+    linkSlideAt(slide,t,anchor);
+    curSlide=persist.slides.indexOf(slide);
+  }
+  renderAnchors();renderSlides();renderSlideStage(false);renderTimeline();
   env.scheduleSave();
-  notify('已标记 '+fmt(t)+(slide?' · 关联最新 PPT 照片':''));
+  notify('已标记 '+fmt(t)+(slide?' · 关联第 '+(curSlide+1)+' 页':''));
 }
 function markTime(){
   if(engine&&engine.state!=='idle')return currentElapsed();
@@ -601,6 +792,7 @@ function markTime(){
   return null;
 }
 function linkSlideAt(slide,time,anchor){
+  if(typeof time!=='number'||!isFinite(time)||time<0)return;
   slide.anchorTime=Math.round(time*10)/10;
   if(!anchor){
     anchor=persist.anchors.find(a=>a.slideId===slide.id);
@@ -647,7 +839,7 @@ function ensurePlayback(){
   if(playback)return playback;
   playback=new Playback();
   playback.audio.addEventListener('ended',()=>{setBar('stopped');timeline.setPlayhead(null);dispatchPlayLine(null);updateTimer();});
-  playback.audio.addEventListener('play',()=>{setBar('playing');ensureAnim();});
+  playback.audio.addEventListener('play',()=>{setBar('playing');applyRate();ensureAnim();});
   playback.audio.addEventListener('pause',()=>{if(barState==='playing'){setBar('playpaused');}updateTimer();});
   return playback;
 }
@@ -683,12 +875,14 @@ async function playAudio(){
   p.audio.play().then(()=>{setBar('playing');ensureAnim();}).catch(()=>notify('播放失败，请再试一次。'));
 }
 function pauseAudio(){
+  cancelLineStop();
   if(!playback)return;
   playback.audio.pause();
   setBar('playpaused');
   updateTimer();
 }
 function stopAudio(){
+  cancelLineStop();
   if(!playback)return;
   playback.audio.pause();
   try{playback.audio.currentTime=0;}catch(e){/* 未加载 */}
@@ -791,9 +985,20 @@ async function compressSlide(source,label){
   const w=Math.max(1,Math.round((img.width||SLIDE_MAX_W)*scale)),h=Math.max(1,Math.round((img.height||SLIDE_MAX_W*0.75)*scale));
   const cv=document.createElement('canvas');cv.width=w;cv.height=h;
   cv.getContext('2d').drawImage(img,0,0,w,h);
-  const data=cv.toDataURL('image/jpeg',SLIDE_QUALITY);
-  if(!data.startsWith('data:image/'))throw new Error('压缩失败');
-  return storeSlideImage(data,label,w,h);
+  const raw=cv.toDataURL('image/jpeg',SLIDE_QUALITY);
+  if(!raw.startsWith('data:image/'))throw new Error('压缩失败');
+  /* 拍后即时去摩尔纹：只压色度、保留亮度，PPT 文字不会被磨糊。
+     原图只留在内存里供「对比原图」，不写进工作区快照。 */
+  const setting=demoireSanitize(persist.demoire);
+  let cleaned=false;
+  if(setting.enabled){
+    try{cleaned=demoireCanvas(cv,setting.strength).changed;}catch(e){cleaned=false;}
+  }
+  const data=cleaned?cv.toDataURL('image/jpeg',SLIDE_QUALITY):raw;
+  const slide=await storeSlideImage(data,label,w,h);
+  if(cleaned)rawSlides.set(slide.id,raw);
+  slide.demoire=cleaned;
+  return slide;
 }
 async function importSlides(files){
   ensureUI();
@@ -903,13 +1108,25 @@ function finishImport(added,firstError,skippedPages){
   }
   notify('已导入 '+added+' 张 PPT 页面'+(skippedPages?'（有 '+skippedPages+' 页无法渲染）':'')+'。录音中点「📌 标记锚点」即可关联当前页。');
 }
-function openSlidePreview(slide){
-  ensureUI();
+function refreshSlideDialog(slide){
+  if(!uiReady||!slide)return;
+  const index=persist.slides.indexOf(slide);
   previewSlideId=slide.id;
+  showingRaw=false;
   ui.slideImage.src=slideUrl(slideRef(slide));
-  ui.slideTitle.textContent=slide.name;
+  ui.slideTitle.textContent=slide.name+' · 第 '+(index+1)+' / '+persist.slides.length+' 页';
   ui.slideSeek.disabled=slide.anchorTime==null;
   ui.slideSeek.textContent=slide.anchorTime!=null?('跳到此页开始（'+fmt(slide.anchorTime)+'）'):'跳到此页开始';
+  const hasRaw=!!rawSlides.get(slide.id);
+  if(ui.slideToggleRaw){ui.slideToggleRaw.hidden=!hasRaw;ui.slideToggleRaw.textContent='对比原图';}
+  if(ui.slideMoveUp)ui.slideMoveUp.disabled=index<=0;
+  if(ui.slideMoveDown)ui.slideMoveDown.disabled=index>=persist.slides.length-1;
+}
+function openSlidePreview(slide){
+  ensureUI();
+  curSlide=Math.max(0,persist.slides.indexOf(slide));
+  refreshSlideDialog(slide);
+  renderSlideStage(false);
   ui.slideDialog.showModal();
 }
 
@@ -966,6 +1183,8 @@ export function initLecture(hooks){
 export function lectureModeEnter(){
   installGlobalErrorHook();
   ensureUI();
+  applyRate();
+  renderSlideStage(false);
   document.body.dataset.lectureTab=document.body.dataset.lectureTab||'notes';
   setBar(hasAudio()?'stopped':'idle');
   refreshAll();
@@ -974,6 +1193,7 @@ export function lectureModeEnter(){
   ensureAnim();
 }
 export function lectureModeLeave(){
+  cancelLineStop();
   if(playback&&!playback.audio.paused)playback.audio.pause();
   if(!engine){setBar('idle');hint('');}
   dispatchPlayLine(null);
@@ -1040,7 +1260,7 @@ export function lectureSanitize(data){
     .filter(n=>n&&typeof n.pos==='number'&&isFinite(n.pos)&&n.pos>=0&&typeof n.time==='number'&&isFinite(n.time)&&n.time>=0)
     .slice(0,5000)
     .map(n=>({pos:Math.round(n.pos),time:Math.round(n.time*10)/10})):[];
-  return {audio,anchors,slides,notes,translate:!!d.translate,active:!!d.active};
+  return {audio,anchors,slides,notes,translate:!!d.translate,active:!!d.active,demoire:demoireSanitize(d.demoire),rate:RATES.includes(Number(d.rate))?Number(d.rate):1};
 }
 export function lectureSerialize(){
   let stamps=persist.notes;
@@ -1055,13 +1275,15 @@ export function lectureSerialize(){
     anchors:persist.anchors,
     slides:persist.slides,
     notes:stamps,
-    translate:!!persist.translate
+    translate:!!persist.translate,
+    demoire:persist.demoire,
+    rate:persist.rate
   };
 }
 export function lectureAfterRestore(){
   const state=env?env.getState():null;
   const data=(state&&state.lecture)||{};
-  persist={audio:data.audio||null,anchors:data.anchors||[],slides:data.slides||[],notes:[],translate:!!data.translate};
+  persist={audio:data.audio||null,anchors:data.anchors||[],slides:data.slides||[],notes:[],translate:!!data.translate,demoire:demoireSanitize(data.demoire),rate:RATES.includes(Number(data.rate))?Number(data.rate):1};
   pendingStamps=(data.notes||[]).slice();
   persist.anchors.sort((a,b)=>a.time-b.time);
   if(playback){playback.release();playback=null;}
@@ -1069,6 +1291,8 @@ export function lectureAfterRestore(){
     if(ui.translateCheck)ui.translateCheck.checked=!!persist.translate;
     syncTranslatePill();
     refreshAll();
+    applyRate();
+    renderSlideStage(false);
   }
   if(persist.audio)void loadPlayback(true);
   /* 换课/重录留下的媒体文件没有人引用就清掉，别让私有目录无限增长。 */
@@ -1091,7 +1315,7 @@ export function lectureViewCreated(){
 export const lectureDebug={
   load(session){
     const clean=lectureSanitize(session);
-    persist={audio:clean.audio,anchors:clean.anchors,slides:clean.slides,notes:[]};
+    persist={audio:clean.audio,anchors:clean.anchors,slides:clean.slides,notes:[],translate:!!clean.translate,demoire:clean.demoire,rate:clean.rate};
     persist.anchors.sort((a,b)=>a.time-b.time);
     ensureUI();
     if(persist.audio)void loadPlayback(true);
