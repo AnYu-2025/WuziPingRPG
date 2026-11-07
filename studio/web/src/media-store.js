@@ -90,14 +90,76 @@ export function putMedia(base64,mime,name){
 
 /* 原生回执分发：app.js 收到未知类型时转进来。 */
 export function mediaMessage(m){
-  if(!m||m.type!=='mediaSaved')return false;
+  if(!m)return false;
+  if(m.type!=='mediaSaved'&&m.type!=='audioSaved'&&m.type!=='audioStarted')return false;
   const job=pending.get(m.id);
   if(!job)return true;
   pending.delete(m.id);
   clearTimeout(job.timer);
-  if(m.ok&&m.ref)job.resolve(String(m.ref));
+  if(m.ok&&(m.ref||m.type==='audioStarted'))job.resolve(m.type==='audioSaved'?{ref:String(m.ref||''),bytes:Number(m.bytes)||0}:String(m.ref||''));
   else job.reject(new Error(m.message||'媒体写入失败'));
   return true;
+}
+
+/* 录音流式落盘：录音期间每秒一片按序追加进同一个文件，结束时关流。
+   以前是「停止后把 2 小时音频整段转 base64、一次性过桥」，19 MB 字符串在
+   JS 里 stringify、在 Java 里 new JSONObject 都在主线程上，界面会卡一下；
+   检查点还每 45 秒把全量重写一遍，超时就退回内嵌，直接撞 30 MB 快照上限。
+
+   这里返回的对象直接交给 AudioEngine.attachSink()：
+   - chunk(blob) 排队写入（按调用顺序串行，保证 webm 分片顺序）
+   - end() 等在途分片写完再关流，回执里带最终引用
+   - abort() 放弃这次录音（音频没开始就失败时用，空的会被宿主删掉） */
+export function beginAudio(name,mime){
+  const file=mediaName(name,mime);
+  const id='au'+(++seq)+'-'+Date.now(),endId=id+'-end';
+  const ref=PREFIX+file;
+  const type=String(mime||'audio/webm');
+  let chain=Promise.resolve(),failure=null;
+  const send=(kind,extra)=>{
+    try{
+      if(!mediaNative())throw new Error('原生通道不可用');
+      hooks.send(kind,Object.assign({id},extra));
+    }catch(err){failure=failure||err;}
+  };
+  if(mediaNative()){
+    const job=new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{pending.delete(id);reject(new Error('录音文件创建超时'));},PUT_TIMEOUT);
+      pending.set(id,{resolve,reject,timer});
+    });
+    send('audioBegin',{id,name:file,mime:type});
+    job.catch(()=>{/* 创建失败会在第一个 chunk/end 上报出来 */});
+  }
+  return {
+    ref,
+    chunk(blob){
+      chain=chain.then(()=>blob.arrayBuffer()).then(buffer=>{
+        if(!buffer||!buffer.byteLength)return;
+        send('audioChunk',{data:bytesToBase64(new Uint8Array(buffer))});
+      }).catch(err=>{failure=failure||err;});
+      return chain;
+    },
+    end(){
+      return chain.then(()=>new Promise((resolve,reject)=>{
+        if(failure)throw failure;
+        const timer=setTimeout(()=>{pending.delete(endId);reject(new Error('录音落盘超时'));},PUT_TIMEOUT);
+        pending.set(endId,{resolve,reject,timer});
+        hooks.send('audioEnd',{id:endId});
+      })).then(result=>({ref:(result&&result.ref)||ref,bytes:(result&&result.bytes)||0}));
+    },
+    abort(){
+      try{if(mediaNative())hooks.send('audioAbort',{id});}catch(err){/* 已经没了 */}
+      pending.delete(id);pending.delete(endId);
+    }
+  };
+}
+
+/* 分片（几 KB）转 base64：切片避免 btoa 参数过长。 */
+function bytesToBase64(bytes){
+  let text='';
+  const STEP=0x8000;
+  for(let i=0;i<bytes.length;i+=STEP)text+=String.fromCharCode.apply(null,bytes.subarray(i,i+STEP));
+  return btoa(text);
 }
 
 /* 异步解析成可播放的 blob URL（音频必须走这条，才能拖动进度）。 */

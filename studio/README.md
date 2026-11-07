@@ -93,11 +93,20 @@ Android 11 及以后，清单里的 `<queries>` 只声明启动器、浏览器�
 
 ## 安装与原游戏进度
 
-仓库里可以直接下载的安装包仍是文首的 **0.1.15**（versionCode 23）。当前源码是 **0.1.21**（versionCode 29），统一页面外壳、录音修复、PPTX 导入都在源码里，需要本地重新构建才会进入安装包。本地构建运行 `tools/build-studio.ps1` 或 `tools/build-studio.sh`（JDK 17、Android SDK 34、`build/manual/debug.keystore`），产物写到 `dist/Ember-Studio-0.1.21.apk` 和 `dist/Ember-Studio-0.1.21-parallel.apk`。这两个包目前不在仓库里。
+仓库里可以直接下载的安装包仍是文首的 **0.1.15**（versionCode 23）。当前源码是 **0.1.22**（versionCode 30），统一页面外壳、录音修复、PPTX 导入都在源码里，需要本地重新构建才会进入安装包。本地构建运行 `tools/build-studio.ps1` 或 `tools/build-studio.sh`（JDK 17、Android SDK 34、`build/manual/debug.keystore`），产物写到 `dist/Ember-Studio-0.1.22.apk` 和 `dist/Ember-Studio-0.1.22-parallel.apk`。这两个包目前不在仓库里。
 
 0.1.15 标准包的包名是 `cn.wuziping.ember`，共存包是 `cn.wuziping.ember.preview07`。编辑器成为应用首页。标准包与已经安装的 0.1.13、0.1.14 或同证书的 0.7 直接覆盖，**不要先卸载**，原 `journey-v1.bin` 继续留着。外部 0.6 用的是另一张证书，盖不上去。共存包和标准包可以同时留在手机上，但不能读取对方的私有存档。实际 Android 安装还没有在真机上验收。
 
 启动页选择「游戏」后点击「进入游戏」，仍是原生 Canvas 游戏。游戏中按 Android 返回键可选择「保存并返回编辑器」，标题界面按返回键直接回到编辑器。进入后选择「继续旅程」续玩。娱乐区也提供 `.wzpsave` 存档导出、导入；导入先验证格式，再确认替换，并在私有目录保留一份原进度备份。
+
+## 0.1.22 更新
+
+三处真机问题，都跟「页面和宿主各写一套」有关：
+
+- **「停止并保存后退出」可能丢录音**：停止录音后 `engine` 立刻置空，而编码/写文件/刷新回放还在后面的 await 链里；宿主的退出轮询只问 `busy()`，一看 `engine` 空了就 flush（此时 `audio` 还是空）并销毁 WebView。现在停止后的整段落盘都计入 `busy()`（`settling` 计数），宿主必须等音频真正写进草稿才继续退出；等待上限从 9 秒放宽到 20 秒。
+- **返回键在真机上是死代码**：宿主 `onBackPressed` 里内联了一串 DOM 判断（弹窗/抽屉/游戏大厅），从不调用页面里的 `window.Studio.back()`，于是画板收尾、搜索面板关闭、逐层返回全部失效——而浏览器回归打的是页面那条入口，所以一直全绿。现在宿主只调 `window.Studio.back()`，返回值只有三种：`recording`（弹停止确认）、`handled`（已消化）、`exit`（弹退出确认）。层级为 弹窗 → 抽屉 → 画板 → 搜索 → 首页 → 游戏大厅 → 编辑器；编辑器里返回回首页，首页里返回才退出，所以连按两下返回 = 退出。`npm test` 里加了一条回归防线：宿主的 `onBackPressed` 再出现 `dialog[open]` / `classList.contains('drawer')` 就报错。
+- **录音不再整段 base64 过桥**：以前停止时把 2 小时音频（约 19 MB）整段转 base64，JS 的 `JSON.stringify` 与 Java 的 `new JSONObject` 都在主线程上；检查点还每 45 秒把全量重写一次，超时就退回内嵌、直接撞 30 MB 快照上限。现在录音期间每秒的分片（约 2–6 KB）直接经 `audioBegin/audioChunk/audioEnd` 追加进同一个文件，宿主边收边写、每片 flush；停止时只要关流拿回文件名。检查点也从「重写音频」变成「只记时长与波形」，间隔缩到 15 秒，进程被杀最多丢最后一片。
+- 版本号 0.1.22（versionCode 30）。
 
 ## 0.1.21 更新
 

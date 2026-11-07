@@ -66,6 +66,9 @@ export class AudioEngine{
     this.elapsedMs=0;            // 已录音时长（不含当前进行中的片段）
     this.resumeAt=0;
     this.stream=null;this.recorder=null;this.chunks=[];this.mime='';
+    /* sink：拿到分片就立刻交给它（原生流式写文件），不再把所有分片攒在内存里
+       等最后一次性 base64。没接 sink 时（浏览器预览）行为和以前一样。 */
+    this.sink=null;this.sinkError='';this.receivedBytes=0;
     this.ctx=null;this.analyser=null;this.buf=null;
     this.timer=0;
     this.envelope=[];            // [{序号隐含时间, 值}]，间距 0.5s
@@ -80,15 +83,25 @@ export class AudioEngine{
     if(!this.onEvent)return;
     try{this.onEvent({type,reason:String(reason||'')});}catch(e){/* 回调不能影响录音 */}
   }
-  /* 把已收到的 chunks 合成为“到目前为止”的完整片段，用于检查点落盘。
-     不打断录制：MediaRecorder 的 timeslice 分片按顺序拼接是合法的 webm。 */
-  snapshotData(){
-    if(!this.chunks.length)return null;
-    const type=this.mime||'audio/webm';
-    const blob=new Blob(this.chunks,{type});
-    if(!blob.size)return null;
+  /* 接上流式落盘。之前已经收到的分片按原顺序补写，避免「第一片比 sink 先到」。 */
+  attachSink(sink){
+    if(!sink)return;
+    this.sink=sink;
+    const pending=this.chunks.splice(0);
+    for(const blob of pending)this.writeChunk(blob);
+  }
+  /* 分片同时交给 sink 和本地数组：sink 是正常路径（原生边收边写），
+     本地数组只在落盘失败时用来兜底重编码。 */
+  writeChunk(blob){
+    this.chunks.push(blob);
+    if(!this.sink)return;
+    try{this.sink.chunk(blob);}
+    catch(err){this.sinkError=String((err&&err.message)||err);}
+  }
+  /* 检查点只需要元数据：音频已经是原生那边边录边写的文件，不用再合成 Blob。 */
+  progress(){
     const elapsed=this.elapsedMs+(this.state==='recording'?Math.max(0,Date.now()-this.resumeAt):0);
-    return {blob,mime:type,duration:elapsed/1000,envelope:this.envelope.slice(),interrupted:this.interrupted};
+    return {duration:elapsed/1000,envelope:this.envelope.slice(),bytes:this.receivedBytes,mime:this.mime||'audio/webm'};
   }
   static supported(){
     const devices=navigator.mediaDevices&&navigator.mediaDevices.getUserMedia;
@@ -117,7 +130,13 @@ export class AudioEngine{
     this.mime=this.recorder.mimeType||mime||'audio/webm';
     this.chunks=[];
     this.interrupted='';
-    this.recorder.ondataavailable=e=>{if(e.data&&e.data.size)this.chunks.push(e.data);};
+    this.receivedBytes=0;
+    this.sinkError='';
+    this.recorder.ondataavailable=e=>{
+      if(!e.data||!e.data.size)return;
+      this.receivedBytes+=e.data.size;
+      this.writeChunk(e.data);
+    };
     /* 录音链路的中断兜底：MediaRecorder 报错、麦克风音轨被系统收走
        （来电、拔耳机、切后台被系统回收）都不会抛异常，只会静默停住。
        这里监听到就立刻通知调用方落盘，别等用户点停止才发现是空数据。 */
@@ -163,7 +182,7 @@ export class AudioEngine{
     try{if(this.recorder&&this.recorder.state!=='inactive')this.recorder.stop();}catch(e){}
     stopStream(this.stream);
     try{if(this.ctx&&this.ctx.state!=='closed')this.ctx.close();}catch(e){}
-    this.state='idle';this.recorder=null;this.stream=null;this.ctx=null;this.analyser=null;this.buf=null;this.tracks=[];this.chunks=[];
+    this.state='idle';this.recorder=null;this.stream=null;this.ctx=null;this.analyser=null;this.buf=null;this.tracks=[];this.chunks=[];this.sink=null;this.receivedBytes=0;
   }
   pause(){
     if(this.state!=='recording')return;
@@ -228,11 +247,14 @@ export class AudioEngine{
         if(settled)return;
         settled=true;
         if(guard)clearTimeout(guard);
-        const blob=new Blob(this.chunks,{type:mime});
+        /* streamed=true 表示音频已经（也）写进原生文件了；blob 仍然备着，
+           万一关流失败还能退回整段写入。Blob 由分片列表构成，不复制数据。 */
+        const streamed=!!this.sink,bytes=this.receivedBytes,sinkError=this.sinkError;
+        const blob=this.chunks.length?new Blob(this.chunks,{type:mime}):null;
         stopStream(this.stream);
         try{if(this.ctx&&this.ctx.state!=='closed')this.ctx.close();}catch(e){/* 已关闭 */}
         this.state='idle';this.recorder=null;this.stream=null;this.ctx=null;this.analyser=null;this.tracks=[];
-        resolve({blob,mime,duration,envelope,anchors,chunks:this.chunks.length,interrupted});
+        resolve({blob,mime,duration,envelope,anchors,chunks:this.chunks.length,interrupted,streamed,bytes,sinkError});
       };
       rec.onstop=finish;
       /* 录音器已经进入 inactive（比如被系统打断）时 stop() 不再触发 onstop，

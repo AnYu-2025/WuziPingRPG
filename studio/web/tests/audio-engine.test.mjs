@@ -90,6 +90,44 @@ test('a failed start releases the microphone track so retry can succeed', async 
   } finally { restore(); }
 });
 
+test('recorder chunks stream into the native sink in order', async () => {
+  const savedWindow = globalThis.window;
+  globalThis.window = globalThis;
+  const stream = { getTracks: () => [], getAudioTracks: () => [] };
+  setNavigator(async () => stream);
+  let recorder = null;
+  globalThis.MediaRecorder = class {
+    static isTypeSupported() { return true; }
+    constructor() { this.state = 'inactive'; this.mimeType = 'audio/webm'; recorder = this; }
+    start() { this.state = 'recording'; }
+    stop() { this.state = 'inactive'; if (this.onstop) setTimeout(() => this.onstop(), 0); }
+  };
+  globalThis.AudioContext = class {
+    constructor() { this.state = 'running'; }
+    createMediaStreamSource() { return { connect() {} }; }
+    createAnalyser() { return { fftSize: 2048, getByteTimeDomainData() {} }; }
+    close() { this.state = 'closed'; }
+  };
+  try {
+    const engine = new AudioEngine();
+    await engine.start();
+    /* 第一片可能比 sink 先到（start() 之后才接线）：接上时按顺序补写。 */
+    recorder.ondataavailable({ data: new Blob([new Uint8Array(10)]) });
+    const seen = [];
+    engine.attachSink({ chunk: blob => seen.push(blob.size) });
+    recorder.ondataavailable({ data: new Blob([new Uint8Array(20)]) });
+    const result = await engine.stop();
+    assert.deepEqual(seen, [10, 20], 'every slice reaches the sink in order');
+    assert.equal(result.streamed, true);
+    assert.equal(result.bytes, 30);
+    assert.ok(result.blob && result.blob.size === 30, 'blob stays available as a fallback');
+    assert.equal(engine.progress().bytes, 30);
+  } finally {
+    if (savedWindow === undefined) delete globalThis.window; else globalThis.window = savedWindow;
+    restore();
+  }
+});
+
 test('fmt keeps mm:ss and hh:mm:ss', () => {
   assert.equal(fmt(0), '00:00');
   assert.equal(fmt(65), '01:05');

@@ -30,6 +30,14 @@ public final class EditorActivity extends Activity {
        否则 2 小时录音 + 几十页 PPT 会撞上快照上限，整份草稿被丢弃。 */
     private static final String MEDIA_PREFIX="lecture-media/";
     private static final long WORKSPACE_LIMIT=30L*1024*1024;
+    /* 退出：最多等录音落盘 20 秒（2 小时录音关流+刷新草稿足够），超时才强退。 */
+    private static final long EXIT_SAVE_TIMEOUT=20000L;
+    private static final int EXIT_POLL_LIMIT=120;
+    /* 录音分片流式落盘：页面每秒把 MediaRecorder 的分片追加进来，宿主边收边写。
+       2 小时录音不再需要整段转 19 MB base64 过桥，也不会每 45 秒全量重写一次。 */
+    private static final class AudioSink{FileOutputStream out;File file;long bytes;}
+    private final java.util.Map<String,AudioSink> audioSinks=new java.util.concurrent.ConcurrentHashMap<>();
+    private final ExecutorService audioIo=Executors.newSingleThreadExecutor();
     private File slideCache,mediaDir;
     private boolean exitRequested=false;
     private final Runnable exitWatchdog=new Runnable(){@Override public void run(){if(exitRequested){exitRequested=false;finish();}}};
@@ -230,6 +238,77 @@ public final class EditorActivity extends Activity {
             notice("PPT 导入失败："+e.getMessage());
             android.util.Log.w("EmberStudio","pptx copy failed "+uri+" "+e.getMessage());
         }
+    }
+    /* ---- 录音流式落盘 ----
+       页面在 MediaRecorder 每秒的 ondataavailable 里把这一片（约 2–6 KB）用 base64
+       推过来，这里按序追加到同一个文件。分片按序拼接就是合法的 webm，跟以前把
+       整个 Blob 一次转 base64 的结果完全一致，但省掉了「2 小时 → 19 MB 字符串 →
+       JS JSON.stringify → Java new JSONObject」这一整条主线程上的大对象搬运。
+       好处是顺带把检查点变成零成本：文件一直在写，页面只要记下时长与波形。 */
+    private void audioBegin(JSONObject m){
+        final String id=m.optString("id"),name=m.optString("name");
+        audioIo.execute(()->{
+            JSONObject o=message("audioStarted");put(o,"id",id);
+            try{
+                if(!safeMediaName(name))throw new IOException("录音文件名不合法");
+                if(!mediaDir.isDirectory()&&!mediaDir.mkdirs())throw new IOException("无法创建媒体目录");
+                closeAudioSink(id);
+                AudioSink sink=new AudioSink();
+                sink.file=new File(mediaDir,name);
+                sink.out=new FileOutputStream(sink.file,false);
+                audioSinks.put(id,sink);
+                put(o,"ok",true);put(o,"ref",MEDIA_PREFIX+name);
+            }catch(Exception e){put(o,"ok",false);put(o,"message",e.getMessage()==null?"录音文件创建失败":e.getMessage());}
+            event(o);
+        });
+    }
+    private void audioChunk(JSONObject m){
+        final String id=m.optString("id"),data=m.optString("data");
+        audioIo.execute(()->{
+            AudioSink sink=audioSinks.get(id);
+            if(sink==null||data.length()==0||data.length()>8*1024*1024)return;
+            try{
+                byte[] bytes=android.util.Base64.decode(data,android.util.Base64.DEFAULT);
+                if(bytes.length==0)return;
+                sink.out.write(bytes);
+                /* 每片都 flush：进程被系统杀掉时，磁盘上已经是最新的一片，
+                   而不是缓冲区里的几秒。 */
+                sink.out.flush();
+                sink.bytes+=bytes.length;
+            }catch(Exception e){android.util.Log.w("EmberStudio","audio chunk failed: "+e.getMessage());}
+        });
+    }
+    private void audioEnd(JSONObject m){
+        final String id=m.optString("id");
+        audioIo.execute(()->{
+            JSONObject o=message("audioSaved");put(o,"id",id);
+            AudioSink sink=audioSinks.remove(id);
+            try{
+                if(sink==null)throw new IOException("录音文件已关闭");
+                sink.out.flush();sink.out.close();
+                if(sink.bytes<=0){
+                    if(!sink.file.delete())android.util.Log.w("EmberStudio","empty audio delete failed");
+                    throw new IOException("录音没有产生数据");
+                }
+                put(o,"ok",true);put(o,"ref",MEDIA_PREFIX+sink.file.getName());put(o,"bytes",sink.bytes);
+            }catch(Exception e){put(o,"ok",false);put(o,"message",e.getMessage()==null?"录音写入失败":e.getMessage());}
+            event(o);
+        });
+    }
+    /* 录音没开始/被用户中途放弃：关流，空的就删掉，不留孤儿文件。 */
+    private void audioAbort(JSONObject m){
+        final String id=m.optString("id");
+        audioIo.execute(()->{
+            AudioSink sink=audioSinks.remove(id);
+            if(sink==null)return;
+            try{sink.out.close();}catch(Exception ignored){/* 已关闭 */}
+            if(sink.bytes<=0&&sink.file!=null&&!sink.file.delete())android.util.Log.w("EmberStudio","empty audio delete failed");
+        });
+    }
+    private void closeAudioSink(String id){
+        AudioSink sink=audioSinks.remove(id);
+        if(sink==null)return;
+        try{sink.out.close();}catch(Exception ignored){/* 已关闭 */}
     }
     /* 课堂模式媒体：录音与 PPT 页面图写进应用私有目录 lecture-media/，
        页面用同源 URL 读回。base64 只是过桥手段，不再进工作区 JSON。 */
@@ -448,6 +527,10 @@ public final class EditorActivity extends Activity {
             });
             return;
         }
+        if(type.equals("audioBegin")){audioBegin(m);return;}
+        if(type.equals("audioChunk")){audioChunk(m);return;}
+        if(type.equals("audioEnd")){audioEnd(m);return;}
+        if(type.equals("audioAbort")){audioAbort(m);return;}
         if(type.equals("mediaPut")){mediaPut(m);return;}
         if(type.equals("mediaDelete")){mediaDelete(m);return;}
         if(type.equals("mediaGc")){mediaGc(m);return;}
@@ -688,17 +771,22 @@ public final class EditorActivity extends Activity {
         if(web!=null){
             /* 切后台/息屏/来电：立刻停录并落盘。选照片、选文件会短暂 pause，
                那种情况不能把课打断，所以用 pickerOpen 排除。 */
-            if(!pickerOpen)web.evaluateJavascript("(function(){try{window.Studio&&window.Studio.lecture&&window.Studio.lecture.suspend();}catch(e){}})()",null);
+            if(!pickerOpen)web.evaluateJavascript("(function(){try{window.Studio&&window.Studio.lecture&&window.Studio.lecture.suspend({background:true});}catch(e){}})()",null);
             web.evaluateJavascript("window.Studio&&window.Studio.flush()",null);
         }
         super.onPause();
     }
     @Override public void onBackPressed(){
         if(web==null){saveAndExit();return;}
-        web.evaluateJavascript("(()=>{if(window.Studio&&window.Studio.lecture&&window.Studio.lecture.busy())return 'recording';if(document.querySelector('dialog[open]')){document.querySelector('dialog[open]').close('cancel');return true;}if(document.body.classList.contains('drawer')){document.body.classList.remove('drawer');return true;}if(!document.getElementById('lounge').hidden){document.getElementById('codeTab').click();return true;}return false;})()",result->{
-            /* 录音中不能直接退出：先把已录到的部分停下来存好，再走正常退出确认。 */
-            if("\"recording\"".equals(result)){confirmRecordingExit();return;}
-            if(!"true".equals(result))confirmExit();
+        /* 返回键的唯一判定在页面里（window.Studio.back）：弹窗、抽屉、画板、搜索、
+           首页、游戏大厅、退出逐层处理，宿主只负责「要不要弹确认框」。
+           以前这里内联了一串 DOM 判断，跟页面里的逻辑各写一套，结果真机上画板
+           收尾、搜索面板关闭、逐层返回全部失效——而测试打的是页面那条入口，
+           所以还全绿。 */
+        web.evaluateJavascript("(function(){try{var r=window.Studio&&window.Studio.back?window.Studio.back():'exit';return typeof r==='string'?r:'handled';}catch(e){return 'exit';}})()",result->{
+            String status=result==null?"":result.replace("\"","").trim();
+            if("recording".equals(status)){confirmRecordingExit();return;}
+            if("exit".equals(status))confirmExit();
         });
     }
     private void confirmRecordingExit(){
@@ -721,13 +809,15 @@ public final class EditorActivity extends Activity {
         if(web==null){exitRequested=false;finish();return;}
         if(exitRequested)return;
         exitRequested=true;
-        ui.postDelayed(exitWatchdog,9000);
-        web.evaluateJavascript("(function(){try{return !!(window.Studio&&window.Studio.lecture&&window.Studio.lecture.suspend());}catch(e){return false;}})()",value->pollExitSave(0));
+        ui.postDelayed(exitWatchdog,EXIT_SAVE_TIMEOUT);
+        /* exit:true 告诉页面这是退出而不是切后台：不用为了回放把整段音频读进内存，
+           只要把已录到的部分写完即可。 */
+        web.evaluateJavascript("(function(){try{return !!(window.Studio&&window.Studio.lecture&&window.Studio.lecture.suspend({exit:true}));}catch(e){return false;}})()",value->pollExitSave(0));
     }
     private void pollExitSave(int attempt){
         if(!exitRequested)return;
         if(web==null||isFinishing()||isDestroyed()){exitRequested=false;ui.removeCallbacks(exitWatchdog);finish();return;}
-        if(attempt>60){flushAndExit();return;}   // 9 秒兜底
+        if(attempt>EXIT_POLL_LIMIT){flushAndExit();return;}
         web.evaluateJavascript("(function(){try{return !!(window.Studio&&window.Studio.lecture&&window.Studio.lecture.busy());}catch(e){return false;}})()",value->{
             if(!exitRequested)return;
             if("true".equals(value)){ui.postDelayed(()->pollExitSave(attempt+1),150);return;}
@@ -740,5 +830,5 @@ public final class EditorActivity extends Activity {
         web.evaluateJavascript("(function(){try{window.Studio&&window.Studio.flush();}catch(e){}})()",null);
         ui.postDelayed(exitWatchdog,4000);
     }
-    @Override protected void onDestroy(){ui.removeCallbacksAndMessages(null);releaseTts();clearSlideCache();if(web!=null){web.removeJavascriptInterface("StudioBridge");web.destroy();web=null;}if(assets!=null)try{assets.close();}catch(IOException ignored){}if(packed!=null)packed.close();io.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){ui.removeCallbacksAndMessages(null);releaseTts();clearSlideCache();for(String id:new ArrayList<>(audioSinks.keySet()))closeAudioSink(id);audioIo.shutdown();if(web!=null){web.removeJavascriptInterface("StudioBridge");web.destroy();web=null;}if(assets!=null)try{assets.close();}catch(IOException ignored){}if(packed!=null)packed.close();io.shutdown();super.onDestroy();}
 }

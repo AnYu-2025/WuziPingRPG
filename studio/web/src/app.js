@@ -245,7 +245,7 @@ const landing=$('landing'),wheel=$('modeWheel'),enterMode=$('enterMode'),enterMo
 const modeItems=[...wheel.querySelectorAll('.wheel-item')];
 const landingLabels={python:'开始写 Python',notepad:'打开记事本',game:'去星火远征',lecture:'开始上课',tts:'开始英文朗读',ai:'打开 AI 助手'};
 const MODE_KEY='ember-studio-mode';
-let landingOpen=true,landingTimer=0,lastBackAt=0,selectedMode='python',workspaceMode='python',lastCodePath='',lastTtsPath='',wheelSelection=0;
+let landingOpen=true,landingTimer=0,selectedMode='python',workspaceMode='python',lastCodePath='',lastTtsPath='',wheelSelection=0;
 try{const savedMode=localStorage.getItem(MODE_KEY);if(['python','notepad','game','lecture','tts','ai'].includes(savedMode))selectedMode=savedMode;}catch(e){}
 function updateEnterLabel(){if(enterModeLabel)enterModeLabel.textContent=ready?landingLabels[selectedMode]:'正在点亮工作台…';}
 function syncWheel(){const index=Math.max(0,Math.min(modeItems.length-1,wheelSelection));wheelSelection=index;selectedMode=modeItems[index].dataset.mode;modeItems.forEach((el,n)=>{el.classList.toggle('active',n===index);el.setAttribute('aria-selected',String(n===index));});if(landing){landing.dataset.mode=selectedMode;landing.style.setProperty('--sel',String(index));}if(modeIndex)modeIndex.textContent=String(index+1).padStart(2,'0')+' / '+String(modeItems.length).padStart(2,'0');updateEnterLabel();}
@@ -253,6 +253,9 @@ function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(land
 function hideLanding(){if(!landingOpen)return;if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},420);}
 function placeWheel(){const found=modeItems.findIndex(el=>el.dataset.mode===selectedMode);wheelSelection=Math.max(0,found);syncWheel();}
 function openLanding(reopen=false){if(reopen&&workspaceMode==='tts')ttsHideBar();if(reopen&&workspaceMode==='ai')aiHidePanel();clearTimeout(landingTimer);landing.hidden=false;if(landingStatus)landingStatus.textContent=ready?'工作台已点亮':'正在点亮工作台';landing.classList.remove('landing-out');landing.removeAttribute('aria-hidden');landingBack.hidden=!reopen;landingOpen=true;if(reopen&&['python','notepad','game','lecture','tts','ai'].includes(workspaceMode))selectedMode=workspaceMode;placeWheel();requestAnimationFrame(()=>{placeWheel();try{wheel.focus({preventScroll:true});}catch(e){}});}
+/* 返回键：唯一入口。原生 onBackPressed 只调这一个函数，返回值告诉它下一步做什么：
+   'recording' 正在录音/落盘（弹「停止并保存后退出」）、'handled' 已消化、
+   'exit' 没有可返回的层级（弹退出确认）。 */
 function handleSystemBack(){
   const openDialog=document.querySelector('dialog[open]');
   const loungeOpen=!!$('lounge')&&!$('lounge').hidden;
@@ -262,41 +265,44 @@ function handleSystemBack(){
       drawerOpen:document.body.classList.contains('drawer'),
       drawing:isDrawMode()||document.body.classList.contains('drawing')||($('drawLayer')&&!$('drawLayer').hidden),
       searchOpen:!!(view&&view.dom.querySelector('.cm-search')),
-      landingOpen,
-      now:Date.now(),
-      lastBackAt,
-      doubleWindowMs:2000
+      homeOpen:landingOpen,
+      loungeOpen
     });
-    lastBackAt=decision.nextLastBackAt;
     switch(decision.action){
       case BACK.DIALOG:
         if(openDialog)openDialog.close('cancel');
-        return true;
+        return 'handled';
       case BACK.DRAWER:
         document.body.classList.remove('drawer');
-        return true;
+        return 'handled';
       case BACK.DRAW:
         exitDrawMode();
         setTimeout(()=>{if(view)view.focus();},0);
-        return true;
+        return 'handled';
       case BACK.SEARCH:
         closeSearchPanel(view);
-        view.focus();
-        return true;
-      case BACK.LANDING:
-        if(landingOpen)hideLanding();
-        else if(loungeOpen){showCode();setWorkspaceMode('python');lastBackAt=0;}
-        else{flush();openLanding(true);}
-        return true;
-      case BACK.DOUBLE:
-        if(loungeOpen){showCode();setWorkspaceMode('python');lastBackAt=0;return true;}
-        return false;
-      default:return false;
+        if(view)view.focus();
+        return 'handled';
+      case BACK.LOUNGE:
+        showCode();setWorkspaceMode('python');
+        return 'handled';
+      case BACK.HOME:
+        /* 首页上再按返回 = 退出。录音（含停止后的落盘）必须交回宿主：
+           它要弹「停止并保存后退出」，并等落盘完成才销毁 WebView。 */
+        if(lectureBusy())return 'recording';
+        flush();
+        return 'exit';
+      case BACK.OPEN:
+        if(lectureBusy())return 'recording';
+        flush();
+        openLanding(true);
+        return 'handled';
+      default:return 'handled';
     }
   }catch(error){
     console.error('[Studio] back handling failed',error);
-    lastBackAt=0;
-    return true;
+    /* 逻辑炸了也不能把用户困在应用里：交给宿主走退出确认。 */
+    return 'exit';
   }
 }
 function ensureNote(){let note=state.files.find(f=>f.path==='笔记.txt');if(!note){note=makeFile('笔记.txt','');state.files.push(note);}if(!state.opened.includes(note.path))state.opened.push(note.path);return note;}
@@ -332,7 +338,7 @@ function applyMode(mode){
   setTimeout(()=>{if(view)view.focus();},260);
   return true;
 }
-function enterSelected(){if(!ready||!landingOpen)return;const mode=selectedMode;if(!applyMode(mode)){selectedMode=workspaceMode;syncWheel();return;}lastBackAt=0;try{localStorage.setItem(MODE_KEY,mode);}catch(e){}hideLanding();}
+function enterSelected(){if(!ready||!landingOpen)return;const mode=selectedMode;if(!applyMode(mode)){selectedMode=workspaceMode;syncWheel();return;}try{localStorage.setItem(MODE_KEY,mode);}catch(e){}hideLanding();}
 const moveSelection=step=>{wheelSelection=Math.max(0,Math.min(modeItems.length-1,wheelSelection+step));syncWheel();};
 let wheelTouchY=0,wheelSwiped=false,wheelLock=0;
 wheel.addEventListener('touchstart',event=>{wheelTouchY=event.touches[0]?.clientY||0;wheelSwiped=false;},{passive:true});
@@ -341,7 +347,7 @@ wheel.addEventListener('wheel',event=>{if(Math.abs(event.deltaY)<4)return;event.
 wheel.addEventListener('keydown',event=>{if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();moveSelection(event.key==='ArrowDown'?1:-1);}else if(event.key==='Enter'){event.preventDefault();enterSelected();}});
 modeItems.forEach(item=>item.addEventListener('click',()=>{if(wheelSwiped)return;const index=modeItems.indexOf(item);if(index!==wheelSelection){wheelSelection=index;syncWheel();return;}enterSelected();}));
 enterMode.addEventListener('click',enterSelected);
-landingBack.addEventListener('click',()=>{lastBackAt=Date.now();hideLanding();});
+landingBack.addEventListener('click',()=>{hideLanding();});
 window.__studioLandingReady=true;
 initLecture({
   notify,

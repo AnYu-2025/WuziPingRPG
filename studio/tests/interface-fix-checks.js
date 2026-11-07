@@ -65,35 +65,33 @@ await run('game lobby back returns to editor','workbench visible, lounge hidden,
     await enterMode(bridgePage,'python');
     await bridgePage.locator('#gameTab').click();
     await bridgePage.waitForSelector('#lounge:not([hidden])');
-    equal(await bridgePage.evaluate(()=>window.Studio.back()),true,'Studio.back result');
+    equal(await bridgePage.evaluate(()=>window.Studio.back()),'handled','Studio.back result');
     await bridgePage.waitForSelector('#lounge',{state:'hidden'});
     equal(await bridgePage.locator('#workbench').isVisible(),true,'workbench visibility');
     equal(await bridgePage.evaluate(()=>document.body.classList.contains('gameview')),false,'gameview class');
   }finally{await closePage(bridgePage);}
 });
 
-await run('landing back collapses picker','second Studio.back true and landing hidden',async()=>{
+await run('back opens the home screen first','handled, landing visible',async()=>{
   const bridgePage=await openBridge();
   try{
     await enterMode(bridgePage,'python');
-    equal(await bridgePage.evaluate(()=>window.Studio.back()),true,'first back');
+    equal(await bridgePage.evaluate(()=>window.Studio.back()),'handled','first back');
     await bridgePage.waitForSelector('#landing:not([hidden])');
-    equal(await bridgePage.evaluate(()=>window.Studio.back()),true,'second back');
-    await bridgePage.waitForSelector('#landing',{state:'hidden'});
   }finally{await closePage(bridgePage);}
 });
 
-await run('third back exits after picker toggle','true, true, false across picker close and quick third back',async()=>{
+/* 双击退出：编辑器里按两下返回 —— 第一下回首页，第二下请求宿主退出。
+   这条以前从页面这边永远走不到（宿主自己判断），真机上按返回只能退出，
+   逐层返回等于没有。 */
+await run('second back on the home screen asks to exit','handled then exit, landing stays visible',async()=>{
   const bridgePage=await openBridge();
   try{
     await enterMode(bridgePage,'python');
-    equal(await bridgePage.evaluate(()=>window.Studio.back()),true,'first back');
+    equal(await bridgePage.evaluate(()=>window.Studio.back()),'handled','first back');
     await bridgePage.waitForSelector('#landing:not([hidden])');
-    equal(await bridgePage.evaluate(()=>window.Studio.back()),true,'second back');
-    await bridgePage.waitForSelector('#landing',{state:'hidden'});
-    // Keep the third back inside the product's two-second window.
-    await bridgePage.waitForTimeout(300);
-    equal(await bridgePage.evaluate(()=>window.Studio.back()),false,'third back');
+    equal(await bridgePage.evaluate(()=>window.Studio.back()),'exit','second back');
+    equal(await bridgePage.locator('#landing').isVisible(),true,'landing still visible');
   }finally{await closePage(bridgePage);}
 });
 
@@ -103,7 +101,7 @@ await run('draw mode back closes drawing layer','drawing false, drawLayer hidden
     await enterMode(bridgePage,'notepad');
     await bridgePage.locator('#drawToggle').click();
     await bridgePage.waitForFunction(()=>document.body.classList.contains('drawing'));
-    equal(await bridgePage.evaluate(()=>window.Studio.back()),true,'Studio.back result');
+    equal(await bridgePage.evaluate(()=>window.Studio.back()),'handled','Studio.back result');
     equal(await bridgePage.evaluate(()=>document.body.classList.contains('drawing')),false,'drawing class');
     await bridgePage.waitForSelector('#drawLayer',{state:'hidden'});
     equal(await bridgePage.locator('#landing').isHidden(),true,'landing visibility');
@@ -118,7 +116,7 @@ await run('search back closes search panel','.cm-search removed while landing st
     await bridgePage.locator('#findButton').click();
     await bridgePage.waitForSelector('.cm-search');
     console.log('search DOM:',await bridgePage.evaluate(()=>document.querySelector('.cm-search').outerHTML.slice(0,240)));
-    equal(await bridgePage.evaluate(()=>window.Studio.back()),true,'Studio.back result');
+    equal(await bridgePage.evaluate(()=>window.Studio.back()),'handled','Studio.back result');
     equal(await bridgePage.locator('.cm-search').count(),0,'search panel count');
     equal(await bridgePage.locator('#landing').isHidden(),true,'landing visibility');
   }finally{await closePage(bridgePage);}
@@ -135,11 +133,12 @@ await run('AI queue survives picker','no aiCancel, same queue length, AI panel r
     await bridgePage.locator('#aiSend').click();
     const before=await bridgePage.evaluate(()=>window.Studio.ai().queue.length);
     equal(before,1,'queue length before back');
-    equal(await bridgePage.evaluate(()=>window.Studio.back()),true,'Studio.back result');
+    equal(await bridgePage.evaluate(()=>window.Studio.back()),'handled','Studio.back result');
     await bridgePage.waitForSelector('#landing:not([hidden])');
     equal(await bridgePage.evaluate(()=>nativeRequests.some(request=>request.type==='aiCancel')),false,'aiCancel request');
     equal(await bridgePage.evaluate(()=>window.Studio.ai().queue.length),before,'queue length while picker open');
-    equal(await bridgePage.evaluate(()=>window.Studio.back()),true,'second back handled');
+    equal(await bridgePage.evaluate(()=>window.Studio.back()),'exit','second back requests exit');
+    await bridgePage.locator('#landingBack').click();
     await bridgePage.waitForSelector('#landing',{state:'hidden'});
     equal(await bridgePage.locator('#aiPanel').isVisible(),true,'AI panel visibility');
   }finally{await closePage(bridgePage);}
@@ -150,7 +149,7 @@ await run('TTS is not stopped by picker','no ttsStop or ttsPause request',async(
   try{
     await enterMode(bridgePage,'tts');
     await bridgePage.waitForFunction(()=>nativeRequests.some(request=>request.type==='ttsStatus'));
-    equal(await bridgePage.evaluate(()=>window.Studio.back()),true,'Studio.back result');
+    equal(await bridgePage.evaluate(()=>window.Studio.back()),'handled','Studio.back result');
     await bridgePage.waitForSelector('#landing:not([hidden])');
     equal(await bridgePage.evaluate(()=>nativeRequests.some(request=>request.type==='ttsStop'||request.type==='ttsPause')),false,'TTS stop/pause request');
   }finally{await closePage(bridgePage);}
@@ -164,7 +163,7 @@ await run('running code blocks notepad switch','notepad class absent, file count
     await bridgePage.locator('#runButton').click();
     await bridgePage.waitForFunction(()=>document.getElementById('runState').textContent.includes('可停止'),null,{timeout:30000});
     const before=await bridgePage.evaluate(()=>window.Studio.getState().files.length);
-    equal(await bridgePage.evaluate(()=>window.Studio.back()),true,'Studio.back result');
+    equal(await bridgePage.evaluate(()=>window.Studio.back()),'handled','Studio.back result');
     await bridgePage.waitForSelector('#landing:not([hidden])');
     await bridgePage.locator('.wheel-item[data-mode="notepad"]').click({force:true});
     await bridgePage.locator('.wheel-item[data-mode="notepad"]').click({force:true});
@@ -205,7 +204,7 @@ await run('flush happens before landing','snapshot request precedes visible land
     });
     const draft='# flushed before landing\nprint("saved-first")\n';
     await bridgePage.locator('.cm-content').fill(draft);
-    equal(await bridgePage.evaluate(()=>window.Studio.back()),true,'Studio.back result');
+    equal(await bridgePage.evaluate(()=>window.Studio.back()),'handled','Studio.back result');
     await bridgePage.waitForSelector('#landing:not([hidden])');
     const result=await bridgePage.evaluate(()=>({order:window.__backOrder,snapshots:nativeRequests.filter(request=>request.type==='snapshot')}));
     equal(result.order[0],'snapshot','request order');

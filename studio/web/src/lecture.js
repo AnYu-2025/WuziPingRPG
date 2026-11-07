@@ -10,11 +10,11 @@ import {AudioEngine,Playback,blobToBase64,fmt} from './audio-engine.js';
 import {Timeline} from './timeline.js';
 import {renderPptx} from './pptx.js';
 import {demoireCanvas,demoireSanitize} from './demoire.js';
-import {initMediaStore,putMedia,resolveMedia,releaseMedia,deleteMedia,collectMedia,mediaUrl,mediaMessage,mediaNative} from './media-store.js';
+import {initMediaStore,putMedia,resolveMedia,releaseMedia,deleteMedia,collectMedia,mediaUrl,mediaMessage,mediaNative,beginAudio} from './media-store.js';
 
 const NOTES_PATH='课堂笔记.md';
 const MAX_SLIDES=50,SLIDE_MAX_W=1024,SLIDE_QUALITY=0.8;
-const CHECKPOINT_MS=45000;      // 录音检查点：最多丢 45 秒
+const CHECKPOINT_MS=15000;      // 录音检查点：音频本身已经在写文件，这里只刷新时长/波形
 const WORKSPACE_LIMIT=30*1024*1024;
 
 /* ---------------- CodeMirror 时间戳标注 ---------------- */
@@ -120,9 +120,10 @@ const RATES=[1,1.25,1.5,2];
 const rawSlides=new Map();
 let toastTimer=0;
 let ui={};
-/* 检查点与本次录音的媒体引用：录音过程中每 45 秒把已录片段写进私有目录，
-   即使进程被系统回收也只剩最后几十秒，不会整节课白录。 */
-let checkpointTimer=0,lastCheckpointBytes=0,sessionRef='',playbackJob=null,stopping=false,pendingOldRef='';
+/* 录音期间音频由原生边收边写（streamSink），检查点只剩「把时长/波形记进草稿」。
+   settling 是停止录音后的落盘计数：>0 时 lectureBusy() 仍为真，
+   宿主退出前的轮询不会在 persist.audio 还是空的时候就把 WebView 销毁。 */
+let checkpointTimer=0,sessionRef='',playbackJob=null,stopping=false,settling=0,pendingOldRef='',pendingOldAudio=null,streamSink=null;
 
 /* 提示统一走这里：打包后模块内的函数名会被压缩，直接裸调用 notify 在真机上是
    undefined（这是录音、PPT 导入“点了没反应”的根因），所以只经 env 钩子调用，
@@ -591,34 +592,29 @@ function applySessionReset(){
 
 function startCheckpoint(){
   stopCheckpoint();
-  lastCheckpointBytes=0;
-  checkpointTimer=setInterval(()=>{void saveCheckpoint();},CHECKPOINT_MS);
+  checkpointTimer=setInterval(()=>{saveCheckpoint();},CHECKPOINT_MS);
 }
 function stopCheckpoint(){
   if(checkpointTimer){clearInterval(checkpointTimer);checkpointTimer=0;}
 }
-/* 录音检查点：把目前已收到的分片写进私有目录并刷新草稿。
-   timeslice 分片按序拼接是合法的 webm，进程被系统回收时最多丢 45 秒。
-   浏览器预览没有原生通道，写进去就是巨大的 data URL，反而撑爆本地存储，
-   所以只在原生可用时做。 */
-async function saveCheckpoint(){
-  if(!engine||!sessionRef||stopping||!mediaNative())return;
+/* 录音一开始就把引用写进草稿：音频是原生边录边写的文件，草稿里只要记下
+   路径、时长和波形。进程被系统杀掉时，磁盘上已经写到最后一片，
+   重开就能接着复习——不会再出现「整节课白录」。 */
+function markLiveAudio(){
+  if(!streamSink||!engine)return;
+  const p=engine.progress();
+  persist.audio={ref:streamSink.ref,mime:p.mime,duration:Math.round(p.duration*10)/10,envelope:p.envelope,checkpoint:true};
+  if(env&&env.scheduleSave)env.scheduleSave();
+}
+/* 检查点：不需要再编码/重写音频（文件一直在写），只刷新草稿里的时长与波形。
+   以前每 45 秒把累积的全部分片转一次 base64 重写，2 小时录音就是 19 MB
+   字符串在 JS 与 Java 主线程上各过一遍，界面会卡一下。 */
+function saveCheckpoint(){
+  if(!engine||stopping||settling>0||!streamSink)return;
   if(engine.state!=='recording'&&engine.state!=='paused')return;
-  let snap=null;
-  try{snap=engine.snapshotData();}catch(e){return;}
-  if(!snap||!snap.blob.size||snap.blob.size<=lastCheckpointBytes)return;
-  lastCheckpointBytes=snap.blob.size;
-  const bytes=snap.blob.size;
-  try{
-    const base64=await blobToBase64(snap.blob);
-    const ref=await putMedia(base64,snap.mime,sessionRef.slice(sessionRef.lastIndexOf('/')+1));
-    if(!engine||stopping)return;                       // 落盘期间用户已经点了停止
-    persist.audio={ref,mime:snap.mime,duration:Math.round(snap.duration*10)/10,envelope:snap.envelope,checkpoint:true};
-    if(env&&env.scheduleSave)env.scheduleSave();
-    hint('录音中 · 已自动保存到 '+fmt(snap.duration)+'（'+(bytes/1048576).toFixed(1)+' MB），意外退出最多丢 45 秒。');
-  }catch(err){
-    reportError('检查点保存失败：'+((err&&err.message)||err));
-  }
+  markLiveAudio();
+  const p=engine.progress();
+  hint('录音中 · 已保存到 '+fmt(p.duration)+'（'+(p.bytes/1048576).toFixed(1)+' MB），意外退出最多丢 15 秒。');
 }
 /* 录音链路自己报错或被系统收走时（来电、拔耳机、切后台），
    立刻把已经录到的部分落盘，而不是等用户点停止才发现是空数据。 */
@@ -661,8 +657,19 @@ async function startRecording(){
       '。\n上节课的笔记正文会另存为「课堂笔记-日期-时间.md」保留。继续吗？'))return;
     stopAudio();
     pendingOldRef=audioRef();
+    pendingOldAudio=persist.audio?Object.assign({},persist.audio):null;
     persist.audio=null;persist.anchors=[];
     engine=new AudioEngine(()=>{notify('已达 2 小时录音上限，已自动停止。');void stopRecording();},onEngineEvent);
+    /* 原生可用就让音频边录边写：先建文件，引擎每收到一个分片就顺序追加进去。
+       这样停止时不需要把整段音频转成 base64 过桥，进程被杀也只丢最后一片。 */
+    streamSink=mediaNative()?beginAudio('audio-'+Date.now(),'audio/webm'):null;
+    if(streamSink){
+      sessionRef=streamSink.ref;
+      engine.attachSink({chunk:blob=>{
+        streamSink.chunk(blob);
+        if(!persist.audio)markLiveAudio();   // 第一片落地就把引用记进草稿
+      }});
+    }
     setBar('starting');
     hint('');
     try{
@@ -672,8 +679,9 @@ async function startRecording(){
       /* 失败路径必须显式收尾：停轨道、关音频上下文，否则这台设备的麦克风会
          在自己进程里一直开着，用户点「重试」只会看到"被占用"。 */
       try{if(engine)engine.abortStart();}catch(cleanupError){/* 已释放 */}
-      setBar('error');engine=null;
-      if(pendingOldRef){persist.audio={ref:pendingOldRef,mime:'audio/webm',duration:0,envelope:[]};pendingOldRef='';}
+      if(streamSink){streamSink.abort();streamSink=null;}   // 空的录音文件一并删掉
+      setBar('error');engine=null;sessionRef='';
+      if(pendingOldAudio){persist.audio=pendingOldAudio;pendingOldAudio=null;pendingOldRef='';}
       const message=micMessage(err);
       /* 先同步把基础原因写进提示条：设备枚举是异步的，万一它卡住，
          用户至少还能看到错误名，不会连"为什么失败"都没有。 */
@@ -685,8 +693,7 @@ async function startRecording(){
     }
     setBar('recording');
     lastPlayPos=-1;
-    sessionRef='lecture-media/audio-'+Date.now()+'.webm';
-    lastCheckpointBytes=0;
+    if(!streamSink)sessionRef='lecture-media/audio-'+Date.now()+'.webm';
     const archived=applySessionReset();
     startCheckpoint();
     updateTimer();
@@ -713,60 +720,99 @@ function resumeRecording(){
   setBar('recording');
   ensureAnim();
 }
-/* options.background：切后台 / 退出时自动结束，不弹完成提示。 */
+/* options.background：切后台 / 退出时自动结束，不弹完成提示。
+   options.exit：这是「停止并保存后退出」，不用为了回放把整段音频读进内存。 */
 async function stopRecording(options){
   if(!engine||stopping)return;
-  const background=!!(options&&options.background);
+  const background=!!(options&&options.background),exit=!!(options&&options.exit);
   stopping=true;
+  /* 从点停止到落盘结束整条链都算「忙」：宿主退出前会轮询 lectureBusy()，
+     以前 engine 一置空就返回 false，它立刻 flush（persist.audio 还是 null）
+     并销毁 WebView，后面 742 行起的编码/写入全部作废——这就是「停止并保存后
+     退出」丢录音的原因。 */
+  settling++;
   stopCheckpoint();
   setBar('stopping');
-  let result=null;
   try{
-    result=await engine.stop();
-  }catch(err){
-    reportError('停止录音失败：'+((err&&err.message)||err));
-  }
-  engine=null;
-  stopping=false;
-  const interrupted=(result&&result.interrupted)||'';
-  if(!result||!result.blob||!result.blob.size){
-    setBar('idle');
-    const reason=interrupted
-      ?'录音中断，没有保存到有效数据：'+interrupted
-      :'录音没有产生数据：麦克风可能刚启动就被系统收回。请检查麦克风权限后重试。';
-    hint(reason);notify(reason);reportError(reason);
-    if(env&&env.flush)env.flush();
-    return;
-  }
-  try{
-    const base64=await blobToBase64(result.blob);
-    let ref='';
+    let result=null;
     try{
-      ref=await putMedia(base64,result.mime,sessionRef?sessionRef.slice(sessionRef.lastIndexOf('/')+1):('audio-'+Date.now()+'.webm'));
+      result=await engine.stop();
     }catch(err){
-      /* 外置失败也不能把录音丢掉：退回内嵌，同时把真实原因告诉用户。 */
-      ref='data:'+result.mime+';base64,'+base64;
-      reportError('录音外置失败，已内嵌保存：'+((err&&err.message)||err));
-      hint('录音文件写入失败（'+((err&&err.message)||err)+'），已改用内嵌保存，草稿会变得很大。');
+      reportError('停止录音失败：'+((err&&err.message)||err));
     }
-    persist.audio={ref,mime:result.mime,duration:Math.round(result.duration*10)/10,envelope:result.envelope};
-  }catch(err){
-    setBar('idle');
-    notify('录音数据编码失败：'+((err&&err.message)||err));
-    return;
+    engine=null;
+    stopping=false;
+    const interrupted=(result&&result.interrupted)||'';
+    const bytes=result?(Number(result.bytes)||(result.blob?result.blob.size:0)):0;
+    if(!result||!bytes){
+      if(streamSink){streamSink.abort();streamSink=null;}
+      sessionRef='';
+      if(pendingOldAudio){persist.audio=pendingOldAudio;pendingOldAudio=null;pendingOldRef='';}
+      setBar('idle');
+      const reason=interrupted
+        ?'录音中断，没有保存到有效数据：'+interrupted
+        :'录音没有产生数据：麦克风可能刚启动就被系统收回。请检查麦克风权限后重试。';
+      hint(reason);notify(reason);reportError(reason);
+      if(env&&env.flush)env.flush();
+      return;
+    }
+    try{
+      persist.audio=await persistRecorded(result);
+    }catch(err){
+      setBar('idle');
+      notify('录音数据编码失败：'+((err&&err.message)||err));
+      reportError('录音落盘失败：'+((err&&err.stack||err.message)||err));
+      return;
+    }
+    persist.anchors.sort((a,b)=>a.time-b.time);
+    sessionRef='';
+    const stale=pendingOldRef;
+    pendingOldRef='';pendingOldAudio=null;
+    if(stale&&stale!==audioRef()&&stale.indexOf('lecture-media/')===0)deleteMedia(stale);
+    /* 切后台时不要为了回放把整段音频读进内存（2 小时约 14 MB）：
+       回到前台第一次播放/跳转会自己加载。 */
+    if(!exit){
+      if(background)void loadPlayback(true);
+      else await loadPlayback(true);
+    }
+    setBar('stopped');
+    if(interrupted)hint('录音被中断（'+interrupted+'），已保存录到的 '+fmt(persist.audio.duration)+'。');
+    renderAnchors();renderTimeline();updateTimer();
+    if(env&&env.flush)env.flush();
+    if(!background)notify('录音完成：'+fmt(persist.audio.duration)+' · '+persist.anchors.length+' 个锚点。');
+    else notify('录音已在后台结束并保存：'+fmt(persist.audio.duration)+'。');
+  }finally{
+    streamSink=null;
+    settling=Math.max(0,settling-1);
   }
-  persist.anchors.sort((a,b)=>a.time-b.time);
-  sessionRef='';
-  const stale=pendingOldRef;
-  pendingOldRef='';
-  if(stale&&stale!==audioRef()&&stale.indexOf('lecture-media/')===0)deleteMedia(stale);
-  await loadPlayback(true);
-  setBar('stopped');
-  if(interrupted)hint('录音被中断（'+interrupted+'），已保存录到的 '+fmt(persist.audio.duration)+'。');
-  renderAnchors();renderTimeline();updateTimer();
-  if(env&&env.flush)env.flush();
-  if(!background)notify('录音完成：'+fmt(persist.audio.duration)+' · '+persist.anchors.length+' 个锚点。');
-  else notify('录音已在后台结束并保存：'+fmt(persist.audio.duration)+'。');
+}
+/* 把停下来的录音变成一条可持久化的引用。
+   正常路径：原生那边已经把分片写成文件，关流拿回引用即可（不碰 base64）。
+   兜底一：关流失败，退回「整段 base64 → mediaPut」。
+   兜底二：外置也失败，内嵌 data URL（草稿会变大，但录音不丢）。 */
+async function persistRecorded(result){
+  const duration=Math.round(result.duration*10)/10;
+  const envelope=result.envelope;
+  if(result.streamed&&streamSink){
+    try{
+      const saved=await streamSink.end();
+      if(saved&&saved.bytes>0)return {ref:saved.ref,mime:result.mime,duration,envelope};
+    }catch(err){
+      reportError('录音落盘失败，改用整段保存：'+((err&&err.message)||err));
+      hint('录音文件写入失败（'+((err&&err.message)||err)+'），已改用整段保存，草稿会变得很大。');
+    }
+  }
+  if(!result.blob||!result.blob.size)throw new Error('录音数据为空');
+  const base64=await blobToBase64(result.blob);
+  const name=sessionRef?sessionRef.slice(sessionRef.lastIndexOf('/')+1):('audio-'+Date.now()+'.webm');
+  try{
+    const ref=await putMedia(base64,result.mime,name);
+    return {ref,mime:result.mime,duration,envelope};
+  }catch(err){
+    reportError('录音外置失败，已内嵌保存：'+((err&&err.message)||err));
+    hint('录音文件写入失败（'+((err&&err.message)||err)+'），已改用内嵌保存，草稿会变得很大。');
+    return {ref:'data:'+result.mime+';base64,'+base64,mime:result.mime,duration,envelope};
+  }
 }
 function markAnchor(){
   const t=markTime();
@@ -1201,15 +1247,18 @@ export function lectureModeLeave(){
   updateTimer();
 }
 export function lectureBusy(){
-  return !!(engine&&(engine.state==='recording'||engine.state==='paused'));
+  /* 「忙」= 正在录 或 正在落盘。宿主退出前轮询的就是这个值：
+     只把 engine 当判据的话，engine 一置空它就以为结束，立刻 flush 并销毁
+     WebView，而音频还在后面的 await 链里没写完。 */
+  return settling>0||stopping||recActive();
 }
-/* 切后台 / 息屏 / 返回键：立刻结束录音并把已录到的部分落盘，
-   原来 onPause 只 flush 草稿而音频还没写进去，等于整节课白录。 */
-export function lectureSuspend(){
-  if(stopping)return true;
-  if(!engine)return false;
-  if(engine.state!=='recording'&&engine.state!=='paused')return false;
-  void stopRecording({background:true});
+/* 切后台 / 息屏 / 退出：立刻结束录音并把已录到的部分落盘。
+   原来 onPause 只 flush 草稿而音频还没写进去，等于整节课白录。
+   info.exit=true 表示这次是退出，不需要再把整段音频读进内存做回放。 */
+export function lectureSuspend(info){
+  const exit=!!(info&&info.exit);
+  if(!recActive())return settling>0||stopping;   // 已经在收尾：让宿主继续等
+  void stopRecording({background:true,exit});
   return true;
 }
 export function lectureStatusText(){
@@ -1330,10 +1379,10 @@ export const lectureDebug={
   slides:()=>persist.slides.slice(),
   importSlideUrls:urls=>importSlideUrls(urls),
   importPptxUrls:urls=>importPptxUrls(urls),
-  checkpoint:()=>saveCheckpoint(),
-  suspend:()=>lectureSuspend(),
+  checkpoint:()=>{saveCheckpoint();return persist.audio;},
+  suspend:info=>lectureSuspend(info),
   busy:()=>lectureBusy(),
   stop:()=>stopRecording({background:true}),
   leftovers:()=>sessionLeftovers(),
-  info(){return {bar:barState,audio:hasAudio(),duration:playDur(),anchors:persist.anchors.length,slides:persist.slides.length,ref:audioRef()};}
+  info(){return {bar:barState,audio:hasAudio(),duration:playDur(),anchors:persist.anchors.length,slides:persist.slides.length,ref:audioRef(),busy:lectureBusy(),streaming:!!streamSink};}
 };
