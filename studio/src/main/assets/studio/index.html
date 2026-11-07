@@ -3,12 +3,12 @@
 <body>
 <section id="landing" class="home" aria-label="天工首页" data-ready="0">
 <header class="home-top">
- <div class="home-brand"><span class="brandspark" aria-hidden="true">✦</span><div><strong>天工</strong><span class="brandsub">随身工作台</span></div><span class="brandver">0.1.17</span></div>
+ <div class="home-brand" id="homeBrand"><span class="brandspark" aria-hidden="true">✦</span><div><strong>天工</strong><span class="brandsub">随身工作台</span></div><span class="brandver">0.1.17</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>返回刚才的工作</button>
 </header>
 <div class="home-scroll" id="homeScroll">
  <p class="home-status"><span class="status-dot" aria-hidden="true"></span><span id="landingStatus">正在读取草稿</span></p>
- <h1>今天从这里开始</h1>
+ <h1 id="homeTitle">今天从这里开始</h1>
  <p class="home-lead">点一下就进入。返回键先回到这个首页，再按一次才会问你要不要退出。</p>
  <button id="resumeCard" class="home-resume" type="button" hidden disabled>
   <span class="home-kicker">接着做</span>
@@ -114,7 +114,7 @@
  <p class="ai-status-hint" id="aiStatusHint">打开其他应用、分享、短信草稿、剪贴板和写文件之前，需要你点「允许」。</p>
  <div class="ai-messages" id="aiMessages" role="log" aria-live="polite"></div>
  <div class="ai-queue" id="aiQueue" hidden><strong id="aiQueueLabel">插话队列</strong><ul id="aiQueueList"></ul><button id="aiFlushQueue" type="button">立即发送</button></div>
- <form class="ai-composer" id="aiComposer" onsubmit="return false">
+ <form class="ai-composer" id="aiComposer">
   <textarea id="aiInput" placeholder="问点什么，或让我帮你改代码…"></textarea>
   <button id="aiAttach" type="button">添加图片</button><input id="aiAttachInput" type="file" accept="image/*" hidden>
   <button id="aiVoice" type="button">语音输入</button>

@@ -145,6 +145,6 @@ export function resumeCard({mode,activePath,dirty=0,fromSession=false}={}){
 export function canLeaveMode({recording=false,running=false,to=''}={}){
   if(to==='home')return {ok:true,flush:true,reason:''};
   if(recording&&to!=='lecture')return {ok:false,flush:false,reason:'recording'};
-  if(running&&(to==='python'||to==='notepad'||to==='tts'||to==='ai'))return {ok:false,flush:false,reason:'running'};
+  if(running&&(to==='python'||to==='notepad'||to==='lecture'||to==='tts'||to==='ai'))return {ok:false,flush:false,reason:'running'};
   return {ok:true,flush:true,reason:''};
 }

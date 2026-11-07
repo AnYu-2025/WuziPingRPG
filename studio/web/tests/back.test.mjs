@@ -111,6 +111,7 @@ test('mode changes protect a recording and a running program',()=>{
   assert.equal(canLeaveMode({recording:true,to:'notepad'}).ok,false);
   assert.equal(canLeaveMode({recording:true,to:'home'}).ok,true);
   assert.equal(canLeaveMode({running:true,to:'ai'}).ok,false);
+  assert.equal(canLeaveMode({running:true,to:'lecture'}).ok,false);
   assert.equal(canLeaveMode({running:true,to:'game'}).ok,true);
   assert.equal(canLeaveMode({to:'python'}).flush,true);
 });

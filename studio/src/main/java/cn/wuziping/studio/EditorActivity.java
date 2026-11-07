@@ -23,7 +23,7 @@ import cn.wuziping.ember.Game;
 public final class EditorActivity extends Activity {
     private WebView web;private AssetServer assets;private PackedAssets packed;private AtomicFile workspace,gameSave;
     private TextToSpeech tts;private boolean ttsReady=false,ttsInitializing=false,ttsRangeSeen=false;private String ttsError="",ttsCurrentId="";private int ttsCharIndex=0,ttsCurrentLength=0;
-    private final ExecutorService io=Executors.newSingleThreadExecutor();private JSONObject pendingExport;private boolean pickerOpen=false,workspaceReadOnly=false,keyboardVisible=false,exitDialog=false;
+    private final ExecutorService io=Executors.newSingleThreadExecutor();private JSONObject pendingExport;private boolean pickerOpen=false,workspaceReadOnly=false,keyboardVisible=false;private AlertDialog exitDialog;
     private static final int OPEN=30,FOLDER=31,EXPORT=32,GAME_OUT=33,GAME_IN=34,MIC=35,SLIDE=36,SLIDES=37,PPTX=38,TREE=39;
     private static final String SLIDE_PREFIX="slide-cache/";
     private File slideCache;
@@ -576,17 +576,19 @@ public final class EditorActivity extends Activity {
         return raw;
     }
     private void confirmExit(){
-        if(web==null||exitDialog)return;
-        exitDialog=true;
+        if(web==null||isFinishing()||isDestroyed())return;
+        if(exitDialog!=null&&exitDialog.isShowing())return;
         web.evaluateJavascript("window.Studio&&window.Studio.exitMessage?window.Studio.exitMessage():''",raw->{
-            if(web==null||isFinishing()){exitDialog=false;return;}
+            if(web==null||isFinishing()||isDestroyed())return;
+            if(exitDialog!=null&&exitDialog.isShowing())return;
             String message=decodeJsString(raw);
             if(message.isEmpty())message="草稿会留在本机。还没点「保存」的内容不会写回手机上的原文件。游戏存档另外保存。";
-            AlertDialog dialog=new AlertDialog.Builder(this).setTitle("退出天工？").setMessage(message).setNegativeButton("留在天工",null).setPositiveButton("退出",(d,w)->{
+            exitDialog=new AlertDialog.Builder(this).setTitle("退出天工？").setMessage(message).setNegativeButton("留在天工",null).setPositiveButton("退出",(d,w)->{
+                if(web==null)return;
                 web.evaluateJavascript("window.Studio&&window.Studio.flush()",v->io.execute(()->runOnUiThread(this::finish)));
             }).create();
-            dialog.setOnDismissListener(d->exitDialog=false);
-            dialog.show();
+            exitDialog.setOnDismissListener(d->exitDialog=null);
+            exitDialog.show();
         });
     }
     @Override public void onBackPressed(){

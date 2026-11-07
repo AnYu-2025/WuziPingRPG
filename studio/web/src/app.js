@@ -282,7 +282,7 @@ function applyMode(mode){
   if(mode==='tts'&&!ttsTarget)return false;
   if(workspaceMode==='tts'&&mode!=='tts')ttsModeLeave();
   const leavingAI=workspaceMode==='ai'&&mode!=='ai';
-  workspaceMode=mode;
+  setWorkspaceMode(mode);
   const drawToggle=$('drawToggle');
   if(leavingAI)aiModeLeave();
   const aiPanel=$('aiPanel');
@@ -305,7 +305,13 @@ function applyMode(mode){
   setTimeout(()=>{if(view)view.focus();},260);
   return true;
 }
-function enterHomeMode(mode){if(!ready||!landingOpen||!KNOWN_MODES.includes(mode))return;if(!applyMode(mode))return;selectedMode=mode;try{localStorage.setItem(MODE_KEY,mode);}catch(e){}hideLanding();}
+function enterHomeMode(mode){
+  if(!ready||!landingOpen||!KNOWN_MODES.includes(mode))return;
+  /* Re-opening the mode already on screen is a cancel, not another applyMode. */
+  if(homeFromSession&&mode===workspaceMode){hideLanding();return;}
+  if(!applyMode(mode))return;
+  selectedMode=mode;try{localStorage.setItem(MODE_KEY,mode);}catch(e){}hideLanding();
+}
 for(const card of homeCards)card.addEventListener('click',()=>enterHomeMode(card.dataset.mode));
 const resume=$('resumeCard');if(resume)resume.addEventListener('click',()=>enterHomeMode(rememberedMode()));
 if(landingBack)landingBack.addEventListener('click',()=>hideLanding());
@@ -385,6 +391,7 @@ initAI({
  switchFile:path=>{const p=String(path).slice(0,200);if(!state.files.some(f=>f.path===p))return '文件不存在：'+p;switchFile(p);return '已打开：'+p;},
  runSnippet:aiRunSnippet
 });
+const aiComposer=$('aiComposer');if(aiComposer)aiComposer.addEventListener('submit',event=>event.preventDefault());
 openLanding(false);
 window.Studio={getState:()=>({...snapshot(),mode:workspaceMode,home:landingOpen}),get view(){return view;},run,stop,flush,importFiles,back:handleSystemBack,exitMessage:()=>exitCopy(state.files).message,lecture:lectureDebug,tts:ttsDebug,ai:aiDebug};
 if(native)send('ready');else{let saved=null;try{saved=JSON.parse(localStorage.getItem('ember-studio-v1'));}catch(e){}restore(saved);}

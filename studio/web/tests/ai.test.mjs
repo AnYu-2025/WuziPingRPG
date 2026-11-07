@@ -27,8 +27,21 @@ test('history is capped at 200 messages and 200k characters', () => {
   const many = Array.from({ length: 400 }, (_, i) => ({ role: 'user', content: 'x'.repeat(3000), ts: i }));
   const kept = trimMessages(many);
   assert.ok(kept.length <= 200);
-  assert.ok(kept.join('').length <= 200000);
+  assert.ok(kept.reduce((sum, m) => sum + m.content.length, 0) <= 200000);
   assert.equal(kept[0].role, 'user');
+});
+
+test('the character budget keeps the newest messages, not the oldest', () => {
+  // 250 messages of 3000 chars exceed the 200k budget inside the 200-message window.
+  // The latest user question must survive so the model answers the current turn.
+  const many = Array.from({ length: 250 }, (_, i) => ({ role: 'user', content: 'm' + i + ':' + 'x'.repeat(3000), ts: i, id: i }));
+  const kept = trimMessages(many);
+  assert.equal(kept.at(-1).id, 249, 'newest message must be retained');
+  assert.equal(kept.at(-1).content, many[249].content);
+  // Chronological order is preserved and the oldest retained message is newer than dropped ones.
+  assert.ok(kept.every((m, i) => i === 0 || m.id > kept[i - 1].id));
+  assert.ok(kept[0].id > 49, 'oldest part of the window is dropped first');
+  assert.ok(kept.reduce((sum, m) => sum + m.content.length, 0) <= 200000);
 });
 
 test('tool cards parse fenced JSON and ignore malformed blocks', () => {
