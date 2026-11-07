@@ -58,6 +58,10 @@ public final class AssistantTools {
             try{
                 conn=(HttpURLConnection)new URL(url).openConnection();
                 conn.setRequestMethod("POST");conn.setDoOutput(true);
+                /* Never auto-follow redirects: HttpURLConnection would re-send the
+                   Authorization header to the Location host, leaking the user's API key
+                   to a server they never chose. A 3xx surfaces as an explicit error instead. */
+                conn.setInstanceFollowRedirects(false);
                 conn.setConnectTimeout(15000);conn.setReadTimeout(120000);
                 conn.setRequestProperty("Content-Type","application/json; charset=utf-8");
                 conn.setRequestProperty("Accept","text/event-stream");

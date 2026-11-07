@@ -104,8 +104,11 @@ export function aiSanitize(raw){
   };
 }
 export function trimMessages(list){
-  const src=Array.isArray(list)?list:[];const out=[];let total=0;
-  for(const m of src.slice(-200)){
+  const src=Array.isArray(list)?list:[];const window=src.slice(-200);const out=[];let total=0;
+  /* Walk newest-first so the character budget drops the oldest history, never the
+     latest user turn. Reverse back to chronological order for the model. */
+  for(let i=window.length-1;i>=0;i--){
+    const m=window[i];
     if(!m||typeof m!=='object')continue;
     const role=['user','assistant','tool','system'].includes(m.role)?m.role:'user';
     const content=str(m.content,20000),ts=Number(m.ts)||Date.now();
@@ -113,7 +116,7 @@ export function trimMessages(list){
     total+=content.length;
     out.push({role,content,ts,kind:str(m.kind,20),name:str(m.name,40),turn:Number(m.turn)||0,id:Number(m.id)||0});
   }
-  return out;
+  return out.reverse();
 }
 /** Self-defined tool-card protocol: fenced ```tool blocks containing {tool,args}. */
 export function parseToolCalls(text){
