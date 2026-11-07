@@ -14,45 +14,54 @@ const SILENCE_ANCHOR_MS=3000; // 语音结束后沉默超过 3s → 在沉默起
 const MAX_MS=2*60*60*1000;    // 单次录音上限 2 小时（base64 存工作区）
 const BITS_PER_SECOND=16000;  // opus 语音码率：1 小时 ≈ 7MB，2 小时仍在保存上限内
 
+/* 任何时候都要把采集流真正还给系统：只把引用置空，WebView 内部的 AudioRecord
+   仍然开着，下一次 getUserMedia 就会被自己占住，报 NotReadableError。 */
+export function stopStream(stream){
+  try{if(stream&&stream.getTracks)stream.getTracks().forEach(track=>{try{track.stop();}catch(e){}});}catch(e){}
+}
+
 /* 拿麦克风：先要带降噪的约束，失败后逐级退回，最后走旧版 getUserMedia。
    某些 WebView 不支持 echoCancellation/noiseSuppression 这类约束，会直接抛
-   OverconstrainedError；层级回退可以避免“点了没反应”。 */
-export async function requestStream(){
-  const attempts=[{audio:{echoCancellation:true,noiseSuppression:true,channelCount:1}},{audio:true}];
-  let lastError=null,attempted=0;
+   OverconstrainedError；层级回退可以避免“点了没反应”。
+   NotReadableError 在 Android WebView 上很常见且多为**瞬时**的（音频服务还在
+   释放上一路采集、音频焦点刚切换），所以这里退避重试几轮，而不是直接判死刑。 */
+const ROUND_DELAYS=[0,250,700];      // 三轮：立即 / 250ms / 700ms
+const ATTEMPTS=[{audio:{echoCancellation:true,noiseSuppression:true,channelCount:1}},{audio:true}];
+/* 用户明确拒绝、或安全策略拦截，重试没有意义，立刻把原因交给调用方。 */
+function fatalMicError(e){
+  const name=e&&e.name;
+  return name==='NotAllowedError'||name==='SecurityError'||name==='PermissionDeniedError';
+}
+async function requestStream(){
   const modern=navigator.mediaDevices&&navigator.mediaDevices.getUserMedia;
-  if(modern){
-    for(const constraints of attempts){
-      attempted++;
-      try{return await navigator.mediaDevices.getUserMedia(constraints);}
-      catch(e){
-        lastError=e;
-        const name=e&&e.name;
-        /* 只有「权限被拒 / 没有设备」是终局。NotReadableError 常常只是
-           高级约束在这台 WebView 上启动不了音轨，必须继续退回纯 audio:true；
-           直接 break 会误报「被其它应用占用」，而且重试永远走同一条死路。 */
-        if(name==='NotAllowedError'||name==='SecurityError'||name==='NotFoundError')break;
-        /* 让音频服务把上一次失败的音轨彻底释放再重试。 */
-        if(attempted<attempts.length)await new Promise(resolve=>setTimeout(resolve,120));
+  const legacy=navigator.getUserMedia||navigator.webkitGetUserMedia;
+  let lastError=null;
+  for(let round=0;round<ROUND_DELAYS.length;round++){
+    if(ROUND_DELAYS[round])await new Promise(resolve=>setTimeout(resolve,ROUND_DELAYS[round]));
+    if(modern){
+      for(const constraints of ATTEMPTS){
+        try{return await navigator.mediaDevices.getUserMedia(constraints);}
+        catch(e){
+          lastError=e;
+          if(fatalMicError(e))throw e;
+        }
       }
     }
+    if(legacy&&round===0){
+      try{
+        return await new Promise((resolve,reject)=>legacy.call(navigator,{audio:true},resolve,reject));
+      }catch(e){lastError=e;if(fatalMicError(e))throw e;}
+    }
   }
-  const legacy=navigator.getUserMedia||navigator.webkitGetUserMedia;
-  if(legacy){
-    try{
-      return await new Promise((resolve,reject)=>legacy.call(navigator,{audio:true},resolve,reject));
-    }catch(e){lastError=e;}
-  }
-  const wrapped=new Error((lastError&&lastError.message)||'无法访问麦克风：getUserMedia 不可用');
-  wrapped.name=(lastError&&lastError.name)||'Error';
-  wrapped.fallbackAttempted=attempted>=attempts.length;
-  wrapped.cause=lastError;
-  throw wrapped;
+  throw lastError||new Error('无法访问麦克风：getUserMedia 不可用');
 }
 
 export class AudioEngine{
-  constructor(onAutoStop){
+  /* onAutoStop：到达 2 小时上限；onEvent：链路异常（中断/报错），
+     由调用方决定是提示还是立刻落盘，避免“只剩空 chunks”这种无声失败。 */
+  constructor(onAutoStop,onEvent){
     this.onAutoStop=onAutoStop||null;
+    this.onEvent=onEvent||null;
     this.state='idle';           // idle | recording | paused
     this.elapsedMs=0;            // 已录音时长（不含当前进行中的片段）
     this.resumeAt=0;
@@ -64,6 +73,22 @@ export class AudioEngine{
     this.windowVals=[];
     this.vad={inSpeech:false,speechStart:0,lastLoud:0,quietSince:0,gapStart:-1,silenceMarked:true};
     this.seq=0;
+    this.interrupted='';         // 非空表示链路已经不可用，stop 时要如实告知
+    this.tracks=[];
+  }
+  emit(type,reason){
+    if(!this.onEvent)return;
+    try{this.onEvent({type,reason:String(reason||'')});}catch(e){/* 回调不能影响录音 */}
+  }
+  /* 把已收到的 chunks 合成为“到目前为止”的完整片段，用于检查点落盘。
+     不打断录制：MediaRecorder 的 timeslice 分片按顺序拼接是合法的 webm。 */
+  snapshotData(){
+    if(!this.chunks.length)return null;
+    const type=this.mime||'audio/webm';
+    const blob=new Blob(this.chunks,{type});
+    if(!blob.size)return null;
+    const elapsed=this.elapsedMs+(this.state==='recording'?Math.max(0,Date.now()-this.resumeAt):0);
+    return {blob,mime:type,duration:elapsed/1000,envelope:this.envelope.slice(),interrupted:this.interrupted};
   }
   static supported(){
     const devices=navigator.mediaDevices&&navigator.mediaDevices.getUserMedia;
@@ -75,6 +100,9 @@ export class AudioEngine{
   }
   async start(){
     this.stream=await requestStream();
+    /* 从拿到流开始，任何一步失败都必须把麦克风还回去：
+       MediaRecorder/AudioContext 在个别 WebView 上会抛，若只把异常抛给上层，
+       流对象就泄漏了，用户点「重试」时会被自己上一次的采集占住。 */
     try{
     let mime='';
     for(const t of ['audio/webm;codecs=opus','audio/webm','audio/mp4']){
@@ -88,7 +116,28 @@ export class AudioEngine{
     }
     this.mime=this.recorder.mimeType||mime||'audio/webm';
     this.chunks=[];
+    this.interrupted='';
     this.recorder.ondataavailable=e=>{if(e.data&&e.data.size)this.chunks.push(e.data);};
+    /* 录音链路的中断兜底：MediaRecorder 报错、麦克风音轨被系统收走
+       （来电、拔耳机、切后台被系统回收）都不会抛异常，只会静默停住。
+       这里监听到就立刻通知调用方落盘，别等用户点停止才发现是空数据。 */
+    this.recorder.onerror=e=>{
+      const reason='录音器报错'+(e&&e.error&&e.error.name?'（'+e.error.name+'）':'');
+      if(!this.interrupted)this.interrupted=reason;
+      this.emit('error',reason);
+    };
+    try{
+      this.tracks=this.stream.getAudioTracks?this.stream.getAudioTracks():[];
+    }catch(e){this.tracks=[];}
+    for(const track of this.tracks){
+      if(!track||typeof track.addEventListener!=='function')continue;
+      track.addEventListener('ended',()=>{
+        if(this.state==='idle')return;
+        const reason='麦克风连接被中断（可能是来电、拔掉耳机或被其他应用占用）';
+        if(!this.interrupted)this.interrupted=reason;
+        this.emit('interrupted',reason);
+      });
+    }
     this.recorder.start(WINDOW_MS*2); // 每 1s 收集一个 chunk，限制单块内存
     try{this.ctx=new (window.AudioContext||window.webkitAudioContext)({sampleRate:44100});}
     catch(e){this.ctx=new (window.AudioContext||window.webkitAudioContext)();}
@@ -102,20 +151,19 @@ export class AudioEngine{
     this.vad={inSpeech:false,speechStart:0,lastLoud:0,quietSince:0,gapStart:-1,silenceMarked:true};
     this.state='recording';
     this.timer=setInterval(()=>this.window(),WINDOW_MS);
-    }catch(e){
-      /* 启动失败必须把已经拿到的麦克风轨道还回去，否则「重试」永远报占用。 */
-      this.abort();
-      throw e;
+    }catch(err){
+      this.abortStart();     // 关键：失败也要把麦克风还给系统
+      throw err;
     }
   }
-  /** Release every native resource held by an aborted or failed start. */
-  abort(){
+  /* 启动过程中途失败时的收尾：停轨道、停录音器、关音频上下文。
+     任何一处没清干净，下一次 getUserMedia 都会因为"自己还占着"而失败。 */
+  abortStart(){
     clearInterval(this.timer);this.timer=0;
     try{if(this.recorder&&this.recorder.state!=='inactive')this.recorder.stop();}catch(e){}
-    try{if(this.stream)this.stream.getTracks().forEach(track=>track.stop());}catch(e){}
-    try{if(this.ctx)this.ctx.close();}catch(e){}
-    this.state='idle';this.recorder=null;this.stream=null;this.ctx=null;
-    this.analyser=null;this.buf=null;
+    stopStream(this.stream);
+    try{if(this.ctx&&this.ctx.state!=='closed')this.ctx.close();}catch(e){}
+    this.state='idle';this.recorder=null;this.stream=null;this.ctx=null;this.analyser=null;this.buf=null;this.tracks=[];this.chunks=[];
   }
   pause(){
     if(this.state!=='recording')return;
@@ -174,25 +222,38 @@ export class AudioEngine{
       if(!rec){resolve(null);return;}
       if(this.state==='recording')this.elapsedMs+=Math.max(0,Date.now()-this.resumeAt);
       clearInterval(this.timer);this.timer=0;
-      const envelope=this.envelope,anchors=this.anchors,mime=this.mime,duration=this.elapsedMs/1000;
-      rec.onstop=()=>{
+      const envelope=this.envelope,anchors=this.anchors,mime=this.mime,duration=this.elapsedMs/1000,interrupted=this.interrupted;
+      let settled=false,guard=0;
+      const finish=()=>{
+        if(settled)return;
+        settled=true;
+        if(guard)clearTimeout(guard);
         const blob=new Blob(this.chunks,{type:mime});
-        try{if(this.stream)this.stream.getTracks().forEach(track=>track.stop());}catch(e){/* 已停止 */}
-        try{if(this.ctx)this.ctx.close();}catch(e){/* 已关闭 */}
-        this.state='idle';this.recorder=null;this.stream=null;this.ctx=null;this.analyser=null;
-        resolve({blob,mime,duration,envelope,anchors});
+        stopStream(this.stream);
+        try{if(this.ctx&&this.ctx.state!=='closed')this.ctx.close();}catch(e){/* 已关闭 */}
+        this.state='idle';this.recorder=null;this.stream=null;this.ctx=null;this.analyser=null;this.tracks=[];
+        resolve({blob,mime,duration,envelope,anchors,chunks:this.chunks.length,interrupted});
       };
-      try{rec.stop();}catch(e){rec.onstop();}
+      rec.onstop=finish;
+      /* 录音器已经进入 inactive（比如被系统打断）时 stop() 不再触发 onstop，
+         这里给一个兜底，保证 stopRecording 永远能拿到结果。 */
+      rec.onerror=()=>{const reason='录音器报错';if(!this.interrupted)this.interrupted=reason;finish();};
+      try{
+        if(rec.state==='inactive')finish();else rec.stop();
+      }catch(e){finish();}
+      guard=setTimeout(()=>{if(!settled){if(!interrupted)this.interrupted='录音器没有响应停止请求';finish();}},4000);
     });
   }
 }
 
-/* 录音回放：base64 → blob → objectURL。<audio> 交给调用方驱动。 */
+/* 录音回放：调用方给一个可播放的 src（blob: 或 data:），<audio> 交给它驱动。
+   本地资源服务不支持 Range，所以音频必须先 fetch 成 blob 再播，否则拖不动进度。 */
 export class Playback{
   constructor(){
     this.audio=new Audio();
     this.audio.preload='metadata';
-    this.url=null;
+    this.src='';
+    this.loadedKey='';
     this.audio.addEventListener('loadedmetadata',()=>{
       /* MediaRecorder 产出的 webm 常缺少时长元数据（duration=Infinity），
          先跳到远处逼 WebView 计算真实时长，再回到开头。 */
@@ -203,18 +264,20 @@ export class Playback{
       }
     });
   }
-  load(base64,mime){
+  get url(){return this.src||'';}
+  load(src){
+    if(!src)return false;
     this.release();
-    const blob=base64ToBlob(base64,mime);
-    if(!blob)return false;
-    this.url=URL.createObjectURL(blob);
-    this.audio.src=this.url;
+    this.src=src;
+    this.audio.src=src;
     return true;
   }
   release(){
     try{this.audio.pause();}catch(e){/* 尚未播放 */}
-    if(this.url){URL.revokeObjectURL(this.url);this.url=null;}
+    this.src='';
+    this.loadedKey='';
     this.audio.removeAttribute('src');
+    try{this.audio.load();}catch(e){/* 未挂载 */}
   }
 }
 

@@ -93,11 +93,16 @@ Android 11 及以后，清单里的 `<queries>` 只声明启动器、浏览器�
 
 ## 安装与原游戏进度
 
-仓库里可以直接下载的安装包仍是文首的 **0.1.15**（versionCode 23）。当前源码是 **0.1.19**（versionCode 27），统一页面外壳、录音修复、PPTX 导入都在源码里，需要本地重新构建才会进入安装包。本地构建运行 `tools/build-studio.ps1` 或 `tools/build-studio.sh`（JDK 17、Android SDK 34、`build/manual/debug.keystore`），产物写到 `dist/Ember-Studio-0.1.19.apk` 和 `dist/Ember-Studio-0.1.19-parallel.apk`。这两个包目前不在仓库里。
+仓库里可以直接下载的安装包仍是文首的 **0.1.15**（versionCode 23）。当前源码是 **0.1.20**（versionCode 28），统一页面外壳、录音修复、PPTX 导入都在源码里，需要本地重新构建才会进入安装包。本地构建运行 `tools/build-studio.ps1` 或 `tools/build-studio.sh`（JDK 17、Android SDK 34、`build/manual/debug.keystore`），产物写到 `dist/Ember-Studio-0.1.20.apk` 和 `dist/Ember-Studio-0.1.20-parallel.apk`。这两个包目前不在仓库里。
 
 0.1.15 标准包的包名是 `cn.wuziping.ember`，共存包是 `cn.wuziping.ember.preview07`。编辑器成为应用首页。标准包与已经安装的 0.1.13、0.1.14 或同证书的 0.7 直接覆盖，**不要先卸载**，原 `journey-v1.bin` 继续留着。外部 0.6 用的是另一张证书，盖不上去。共存包和标准包可以同时留在手机上，但不能读取对方的私有存档。实际 Android 安装还没有在真机上验收。
 
 启动页选择「游戏」后点击「进入游戏」，仍是原生 Canvas 游戏。游戏中按 Android 返回键可选择「保存并返回编辑器」，标题界面按返回键直接回到编辑器。进入后选择「继续旅程」续玩。娱乐区也提供 `.wzpsave` 存档导出、导入；导入先验证格式，再确认替换，并在私有目录保留一份原进度备份。
+
+## 0.1.20 更新
+
+- 本版把 0.1.18 的麦克风与数据安全修复、0.1.19 的统一页面外壳合到同一份代码里（此前两者分别在两条线上）。
+- 版本号 0.1.20（versionCode 28）。
 
 ## 0.1.19 更新
 
@@ -111,6 +116,17 @@ Android 11 及以后，清单里的 `<queries>` 只声明启动器、浏览器�
 - 「翻译」勾选框改成一枚胶囊开关（选中变粉底白字）；窄屏时原先会把「保存」压成 34px 方块导致文字溢出，现已恢复为胶囊并保留 `min-width`。
 - AI 助手是独立的全屏面板，手机端保持原样；仅在 ≥900px 宽屏时把它的标题栏也套成卡片，避免三栏折叠后错位。
 - 版本号 0.1.19（versionCode 27）。
+
+## 0.1.18 更新
+
+- 修掉真机上「后台没有别的应用，却提示麦克风被其他应用占用」的根因。提示文字来自 `NotReadableError` 的旧映射，而 Android WebView 报这个错其实多半与别的应用无关：
+  - `AndroidManifest.xml` 缺 `MODIFY_AUDIO_SETTINGS`：WebView 的采集由 Chromium 的 AudioRecord 实现，初始化时要调整音频参数，缺这条普通权限时系统音频服务直接拒绝分配麦克风，页面侧只能收到 `NotReadableError`。已补上，并加了 `uses-feature microphone(required=false)`。
+  - 授权顺序反了：原来要等 WebView 的 `onPermissionRequest` 回调里才弹系统权限框，用户点完「允许」再 `grant()` 时音频源往往已经初始化失败。现在页面在调 `getUserMedia` **之前**先通过 `micPermission` 消息在原生层拿到 `RECORD_AUDIO`（新增请求码 `MIC_WARM`），WebView 授权时权限已就绪。
+  - 只授予音频采集资源：`grant()` 不再把页面请求的其它资源（如摄像头）一并放行，避免 Chromium 去开不存在的设备导致整条采集链路失败。
+- 修掉「自己占住麦克风」的泄漏：`AudioEngine.start()` 在拿到流之后任何一步抛错（`MediaRecorder`/`AudioContext` 构造失败等）都不会停轨道，流对象被丢弃但麦克风仍被本进程打开，用户点「重试」只会继续看到"被占用"。新增 `abortStart()` / `stopStream()`，所有失败与停止路径都会真正释放；录音失败后无需重启应用即可重新开录。
+- `NotReadableError` 不再直接判死刑：改为三轮退避重试（0 / 250 / 700 ms，每轮带降噪约束与 `audio:true` 两个档位），这类错误在 WebView 上常是音频服务尚未释放的瞬时状态。
+- 错误提示改成实情并带诊断信息：不再让用户去关别的应用，改为「系统没有把麦克风交给页面（NotReadableError）」，提示条附上错误名与系统暴露的麦克风输入数量（枚举带 800 ms 上限，避免个别 WebView 挂死）。
+- 版本号 0.1.18（versionCode 26）。
 
 ## 0.1.17 更新
 
