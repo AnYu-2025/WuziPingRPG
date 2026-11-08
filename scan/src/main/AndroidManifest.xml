@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 扫描相机作为天工的库模块：不再声明 application 属性和启动入口，
+     由天工首页的「扫描」卡片拉起 MainActivity，返回键回到天工。 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature
+        android:name="android.hardware.camera.any"
+        android:required="false" />
+
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 天工的 AI 助手需要联网，这里不再移除 INTERNET；扫描本身仍完全离线。 -->
+
+    <application>
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.ScanCamera" />
+
+        <activity
+            android:name=".PreviewActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.ScanCamera" />
+
+        <activity
+            android:name=".CropActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.ScanCamera" />
+    </application>
+
+</manifest>

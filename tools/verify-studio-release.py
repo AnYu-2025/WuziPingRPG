@@ -13,8 +13,8 @@ jdk = Path(os.environ.get('JDK_ROOT') or os.environ.get('JAVA_HOME') or r'C:\Pro
 bt = sdk / 'build-tools/34.0.0'
 out = root / 'artifacts/studio-v0.1'
 out.mkdir(parents=True, exist_ok=True)
-VERSION_NAME = '0.1.17'
-VERSION_CODE = '25'
+VERSION_NAME = '0.2.0'
+VERSION_CODE = '27'
 # Certificate of dist Ember Studio 0.1.13 / game 0.7.1. An in-place upgrade needs this key.
 ORIGINAL_CERT = '0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca'
 
@@ -75,8 +75,8 @@ report = {
 }
 dexes = []
 variants = [
-    ('Ember-Studio-0.1.17.apk', 'cn.wuziping.ember', '天工', 'WuziPing-Emberbound-0.7.1-debug.apk'),
-    ('Ember-Studio-0.1.17-parallel.apk', 'cn.wuziping.ember.preview07', '天工 · 试玩', 'WuziPing-Emberbound-0.7.1-parallel-debug.apk'),
+    ('Ember-Studio-0.2.0.apk', 'cn.wuziping.ember', '天工', 'WuziPing-Emberbound-0.7.1-debug.apk'),
+    ('Ember-Studio-0.2.0-parallel.apk', 'cn.wuziping.ember.preview07', '天工 · 试玩', 'WuziPing-Emberbound-0.7.1-parallel-debug.apk'),
 ]
 for filename, package, label, old_name in variants:
     path = root / 'dist' / filename
@@ -106,7 +106,7 @@ for filename, package, label, old_name in variants:
         assert all(lecture_checks), 'Lecture mode assets incomplete: %r' % [i for i, ok in enumerate(lecture_checks) if not ok]
         feature_checks = [
             'data-mode="tts"' in page and 'id="ttsBar"' in page,
-            'class="brandver">0.1.17' in page,
+            'class="brandver">0.2.0' in page,
             b'speechSynthesis' in bundle or b'TextToSpeech' in bundle,
             b'drawStrokes' in bundle and b'drawCanvas' in bundle,
             b'pointerdown' in bundle and b'touchstart' in bundle and b'pointercancel' in bundle,

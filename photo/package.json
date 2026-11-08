@@ -1,0 +1,35 @@
+{
+  "name": "photo-studio",
+  "version": "0.7.0",
+  "private": true,
+  "description": "本地优先的跨端修图工具 —— 同一内核，适配桌面 / Web / 移动 / 无头批处理",
+  "type": "module",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "verify": "npm run check:version && npm run check:brand && npm run lint && npm run build && npm run typecheck && npm run test",
+    "check:version": "node scripts/check-version.mjs",
+    "check:brand": "node scripts/check-brand.mjs",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:watch": "npm run test:watch -w @photo/core",
+    "build": "npm run build -w @photo/core && npm run build -w @photo/io && npm run build -w @photo/cli && npm run build -w @photo/desktop",
+    "smoke": "npm run smoke -w @photo/desktop",
+    "clean": "npm run clean --workspaces --if-present",
+    "legacy:start": "npm --prefix legacy start",
+    "legacy:dist": "npm --prefix legacy run dist"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.10.0",
+    "globals": "^17.12.0",
+    "typescript-eslint": "^8.70.0"
+  }
+}

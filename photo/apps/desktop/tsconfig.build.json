@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    /* 这是应用，不是库：不需要 .d.ts，产物越干净越好。 */
+    "declaration": false,
+    "declarationMap": false
+  },
+  /* 测试与测试替身不进产物 —— 它们只在 vitest 里被消费。 */
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/canvas-fakes.ts"]
+}

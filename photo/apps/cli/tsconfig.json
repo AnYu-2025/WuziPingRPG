@@ -1,0 +1,29 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    /* 关键：**外壳**允许依赖平台，内核不允许。
+     *
+     * core / io 的 tsconfig 写的是 types: []，它们连 process 都引用不到；
+     * 而 CLI 是 Node 外壳，天然要用 node:fs / node:zlib。这条边界是单向的：
+     *   内核 → 只依赖语言本身
+     *   外壳 → 依赖内核 + 平台
+     * 于是"同一份内核换壳"在编译期就是成立的，而不是靠约定。 */
+    "lib": ["ES2022"],
+    "types": ["node"],
+
+    /* 跨包引用**不走 paths**：统一解析到 node_modules 里 workspace 软链指向的
+     * 已构建产物（packages/core/dist、packages/io/dist）。
+     *
+     * 为什么不用 paths 指向源码：那样 tsc 会把内核源码当成本项目的输入文件，
+     * 构建时直接炸 TS6059（file is not under rootDir）。而 project references
+     * 也救不了它 —— TS 只在解析落到「被引用项目的产物」时才把文件归属出去，
+     * paths 指到 .ts 源码就绕开了这套归属判定。
+     *
+     * 于是全局只有一条规则：跨包 = 解析到对方的构建产物。类型检查、构建、
+     * 运行时三者行为完全一致，不存在"检查看源码、运行看产物"的双轨。
+     * 代价是 typecheck 前要先 build —— 根 verify 脚本已按依赖顺序构建。
+     * 测试不受影响：vitest 用 alias 直接吃源码，无需构建。 */
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "vitest.config.ts"]
+}

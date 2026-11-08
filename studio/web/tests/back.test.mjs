@@ -1,20 +1,60 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  BACK, HOME_ACTIONS, resolveBack, stepBack, repeatBack,
+  BACK, HOME_ACTIONS, MODULES, GROUPS, modulesInGroup, moduleById, isNativeModule,
+  moduleAvailability, returnFromNative, resolveBack, stepBack, repeatBack,
   unsavedOriginals, leaveWork, exitCopy, resumeCard, canLeaveMode
 } from '../src/back.js';
 
 const editor={homeOpen:false,mode:'python',dialogOpen:false,drawerOpen:false,drawing:false,searchOpen:false,loungeOpen:false,lectureTab:'notes'};
 
-test('common actions come before the rest and every mode has a Chinese name',()=>{
-  const common=HOME_ACTIONS.filter(item=>item.group==='common').map(item=>item.id);
-  assert.deepEqual(common,['python','notepad','ai']);
-  assert.deepEqual(HOME_ACTIONS.map(item=>item.id),['python','notepad','ai','lecture','tts','game']);
-  for(const item of HOME_ACTIONS){
+test('modules are grouped for the hub and every module has a Chinese name',()=>{
+  assert.deepEqual(GROUPS.map(g=>g.id),['study','create','more']);
+  assert.deepEqual(modulesInGroup('study').map(item=>item.id),['lecture','tts','scan']);
+  assert.deepEqual(modulesInGroup('create').map(item=>item.id),['python','notepad','photo']);
+  assert.deepEqual(modulesInGroup('more').map(item=>item.id),['ai','game']);
+  assert.equal(HOME_ACTIONS,MODULES);
+  for(const item of MODULES){
     assert.ok(item.title.length>=2,item.id);
     assert.ok(item.resume.startsWith('继续'),item.id);
+    assert.ok(GROUPS.some(g=>g.id===item.group),item.id);
+    assert.ok(item.kind==='web'||item.kind==='native',item.id);
   }
+  assert.deepEqual(MODULES.filter(m=>m.kind==='native').map(m=>m.id),['scan','photo']);
+});
+
+test('native modules need the phone shell, a camera and Android 10 for scanning',()=>{
+  assert.equal(moduleAvailability('python',{}).ok,true);
+  assert.equal(moduleAvailability('scan',{}).ok,false);
+  assert.equal(moduleAvailability('scan',{}).reason,'browser');
+  assert.equal(moduleAvailability('photo',{browserPhoto:true}).ok,true);
+  assert.equal(moduleAvailability('scan',{native:true,sdk:28,scan:true}).reason,'sdk');
+  assert.equal(moduleAvailability('scan',{native:true,sdk:34,scan:false}).reason,'missing');
+  assert.equal(moduleAvailability('scan',{native:true,sdk:34,scan:true}).ok,true);
+  assert.equal(moduleAvailability('photo',{native:true,sdk:23,photo:true}).ok,true);
+  assert.equal(moduleAvailability('nope').ok,false);
+});
+
+test('module layers peel off before the module root returns home',()=>{
+  const run=repeatBack({homeOpen:false,mode:'ai',layers:['aiSettings','aiQueue']},4);
+  assert.deepEqual(run.trace,[BACK.LAYER,BACK.LAYER,BACK.HOME,BACK.EXIT]);
+  assert.equal(resolveBack({mode:'ai',layers:['aiSettings']}).layer,'aiSettings');
+  assert.equal(resolveBack({mode:'ai',drawerOpen:true,layers:['x']}).action,BACK.DRAWER);
+});
+
+test('closing a native module lands on home with a resume card for it',()=>{
+  const back=returnFromNative({homeOpen:true,mode:'python'},'scan');
+  assert.equal(back.homeOpen,true);
+  assert.equal(back.resumeMode,'scan');
+  assert.equal(back.mode,'python');
+  assert.equal(resolveBack(back).action,BACK.EXIT);
+  assert.equal(returnFromNative({homeOpen:true,resumeMode:'python'},'bogus').resumeMode,'python');
+  const card=resumeCard({mode:'photo'});
+  assert.equal(card.kind,'native');
+  assert.equal(card.title,'继续修图');
+  assert.equal(isNativeModule('photo'),true);
+  assert.equal(isNativeModule('python'),false);
+  assert.equal(moduleById('scan').minSdk,29);
 });
 
 test('dialog, drawer, draw and search peel off before leaving the page',()=>{
@@ -114,6 +154,8 @@ test('mode changes protect a recording and a running program',()=>{
   assert.equal(canLeaveMode({running:true,to:'lecture'}).ok,false);
   assert.equal(canLeaveMode({running:true,to:'game'}).ok,true);
   assert.equal(canLeaveMode({to:'python'}).flush,true);
+  assert.equal(canLeaveMode({running:true,to:'scan'}).ok,false);
+  assert.equal(canLeaveMode({recording:true,to:'photo'}).ok,false);
 });
 
 test('missing context does not throw and still resolves to a known action',()=>{

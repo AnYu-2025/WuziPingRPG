@@ -1,0 +1,6 @@
+
+package: name='com.scan.camera' versionCode='29' versionName='2.4.0' platformBuildVersionName='14' platformBuildVersionCode='34' compileSdkVersion='34' compileSdkVersionCodename='14'
+sdkVersion:'29'
+targetSdkVersion:'34'
+application-label:'扫描相机'
+

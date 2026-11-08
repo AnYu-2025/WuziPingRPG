@@ -1,0 +1,41 @@
+{
+  "name": "zhaopian-jiagong",
+  "version": "0.11.0",
+  "description": "低门槛口语化图片处理 - 第一阶段",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable nsis",
+    "dev": "electron . --dev"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.zhaopian.jiagong",
+    "productName": "照片加工",
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ],
+      "signAndEditExecutable": false
+    },
+    "files": [
+      "*.js",
+      "*.html",
+      "*.css",
+      "assets/**/*",
+      "node_modules/jszip/dist/**/*",
+      "node_modules/exifr/dist/full.umd.js"
+    ]
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  },
+  "dependencies": {
+    "exifr": "^7.1.3",
+    "jszip": "^3.10.2"
+  }
+}

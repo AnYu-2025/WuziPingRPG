@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="accent">#D97757</color>
+    <color name="cream">#FAF9F5</color>
+    <color name="ink">#1F1E1D</color>
+    <color name="ink_muted">#6B6961</color>
+    <color name="chip_text_selected">#FFFFFF</color>
+    <color name="chip_text_normal">#B3FFFFFF</color>
+</resources>

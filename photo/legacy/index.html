@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>照片加工 v0.11</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header>
+  <h1><span class="logo">📷 照片加工</span> <small>v0.11 专业调色</small></h1>
+  <nav class="tabs">
+    <button id="tabImg" class="active">🖼 图片</button>
+    <button id="tabVid">🎬 视频</button>
+  </nav>
+  <div class="kouyu-bar">
+    <input id="kouyuInput" placeholder="说人话就行：比如“雨天再暗一点”“横着拼”“裁一下”“批量导出”…" />
+    <button id="kouyuBtn">说了算</button>
+  </div>
+</header>
+<main id="imgView">
+  <aside class="left">
+    <section class="card">
+      <h3>1. 放照片进来（可拖拽）</h3>
+      <input type="file" id="fileInput" accept="image/*" multiple />
+      <div id="thumbList" class="thumbs"></div>
+      <div class="row">
+        <button id="delCurBtn" title="删除当前选中">删当前</button>
+        <button id="clearBtn" title="清空全部">清空</button>
+        <button id="batchBtn" title="把当前效果套到每张图，打成一个ZIP包">批量打ZIP</button>
+      </div>
+      <div class="row">
+        <label>模式</label>
+        <select id="modeSel">
+          <option value="single">单图精修</option>
+          <option value="h">横着拼</option>
+          <option value="v">竖着拼</option>
+          <option value="grid">网格拼(2x2)</option>
+          <option value="cut">🔪 切图(九宫格发圈)</option>
+        </select>
+      </div>
+      <div class="row hidden" id="cutRow"><label>切分</label>
+        <select id="cutCols"><option value="2">2列</option><option value="3" selected>3列</option><option value="4">4列</option></select>
+        <select id="cutRows"><option value="2">2行</option><option value="3" selected>3行</option><option value="4">4行</option></select>
+      </div>
+      </div>
+      <div class="row">
+        <label>拼图缝隙</label><input type="range" id="gapRange" min="0" max="40" value="8" /><span id="gapVal">8</span>
+      </div>
+      <div class="row"><label>拼图底</label>
+        <select id="bgModeSel"><option value="color">纯色(跟边框色)</option><option value="blur">虚化(照片铺底)</option></select>
+      </div>
+    </section>
+    <section class="card">
+      <h3>2. 大白话氛围(一键)</h3>
+      <div id="presetList" class="presets"></div>
+      <div class="row"><input id="myPresetName" placeholder="给现在的调子起个名" /><button id="savePresetBtn" title="保存当前全部参数为我的预设">存</button></div>
+      <div id="myPresetList" class="presets"></div>
+    </section>
+  </aside>
+  <section class="center">
+    <div class="canvasWrap" id="canvasWrap">
+      <canvas id="canvas"></canvas>
+      <div id="straightGrid" class="thirds hidden"></div>
+      <div id="cropBox" class="cropBox hidden"></div>
+    </div>
+    <div class="toolbar">
+      <button id="rotateBtn">⟳ 旋转90°</button>
+      <button id="flipHBtn" title="水平镜像">⇋ 镜像</button>
+      <button id="flipVBtn" title="垂直翻转">⇅ 翻转</button>
+      <span class="sep"></span>
+      <button id="cropBtn">✂ 裁剪</button>
+      <select id="cropRatio">
+        <option value="free">自由</option>
+        <option value="1:1">1:1</option>
+        <option value="4:3">4:3</option>
+        <option value="16:9">16:9</option>
+        <option value="9:16">9:16</option>
+      </select>
+      <button id="cropOkBtn" class="hidden">✓ 确认</button>
+      <button id="cropCancelBtn" class="hidden">✕ 取消</button>
+      <span class="sep"></span>
+      <button id="compareBtn" title="按住看原图">👁 按住看原图</button>
+      <button id="undoBtn" title="Ctrl+Z">↩ 撤销</button>
+      <span class="sep"></span>
+      <button id="zoomOutBtn" title="缩小">－</button>
+      <span id="zoomLabel" title="双击图片=适应窗口">100%</span>
+      <button id="zoomInBtn" title="放大">＋</button>
+      <button id="zoomFitBtn" title="适应窗口">适应</button>
+      <span class="sep"></span>
+      <button id="exportBtn" class="primary">⬇ 导出照片</button>
+      <button id="resetBtn">↺ 重来</button>
+    </div>
+    <p id="kouyuTip" class="tip"></p>
+    <div id="photoInfo" class="photoinfo">把照片拖进来就行</div>
+  </section>
+  <aside class="right">
+    <section class="card">
+      <h3>3. 觉得过了/不够，自己拉一下</h3>
+      <div class="slider"><label>亮度</label><input type="range" id="s_brightness" min="50" max="150" value="100"><b>100</b></div>
+      <div class="slider"><label>对比</label><input type="range" id="s_contrast" min="50" max="150" value="100"><b>100</b></div>
+      <div class="slider"><label>饱和</label><input type="range" id="s_saturate" min="0" max="200" value="100"><b>100</b></div>
+      <div class="slider"><label>曝光</label><input type="range" id="s_exposure" min="-100" max="100" value="0"><b>0</b></div>
+      <div class="slider"><label>色温(暖←→冷)</label><input type="range" id="s_warm" min="-50" max="50" value="0"><b>0</b></div>
+      <div class="slider"><label>暗角</label><input type="range" id="s_vignette" min="0" max="100" value="0"><b>0</b></div>
+      <div class="slider"><label>颗粒</label><input type="range" id="s_grain" min="0" max="50" value="0"><b>0</b></div>
+      <div class="slider"><label>锐化</label><input type="range" id="s_sharpen" min="0" max="100" value="0"><b>0</b></div>
+      <div class="slider"><label>去雾清晰</label><input type="range" id="s_dehaze" min="0" max="100" value="0"><b>0</b></div>
+      <div class="slider"><label>磨皮柔肤</label><input type="range" id="s_soften" min="0" max="100" value="0"><b>0</b></div>
+      <div class="slider"><label>雨丝</label><input type="range" id="s_rain" min="0" max="100" value="0"><b>0</b></div>
+      <div class="slider"><label>雾气</label><input type="range" id="s_fog" min="0" max="100" value="0"><b>0</b></div>
+      <div class="slider"><label>水平校正°</label><input type="range" id="straightRange" min="-15" max="15" value="0"><b>0</b></div>
+      <div class="slider"><label>预设强度%</label><input type="range" id="intensityRange" min="10" max="100" value="100"><b>100</b></div>
+    </section>
+    <section class="card">
+      <h3>曲线（点线加控制点）</h3>
+      <div class="chanrow">
+        <button data-chan="rgb" class="on">RGB</button><button data-chan="r">R</button><button data-chan="g">G</button><button data-chan="b">B</button>
+        <button id="curveResetBtn" title="曲线还原">↺</button>
+      </div>
+      <canvas id="curveCanvas" width="232" height="150" class="curvecv"></canvas>
+      <div class="minitip">拖动调整 · 双击删点 · S型加对比</div>
+    </section>
+    <section class="card">
+      <h3>HSL 分色</h3>
+      <div id="hslSwatches" class="swatches"></div>
+      <div class="slider"><label>色相</label><input type="range" id="hslH" min="-30" max="30" value="0"><b>0</b></div>
+      <div class="slider"><label>饱和</label><input type="range" id="hslS" min="-100" max="100" value="0"><b>0</b></div>
+      <div class="slider"><label>明度</label><input type="range" id="hslL" min="-100" max="100" value="0"><b>0</b></div>
+    </section>
+    <section class="card">
+      <h3>4. 色阶 <button id="autoBtn" title="自动拉开层次+校正偏色，可撤销">✨ 自动增强</button></h3>
+      <canvas id="histCanvas" width="232" height="78" class="hist"></canvas>
+    </section>
+    <section class="card">
+      <h3>5. 水印边框</h3>
+      <div class="row"><label>水印字</label><input id="wmText" placeholder="比如：2026 雨天" /></div>
+      <div class="row"><label>位置</label>
+        <select id="wmPos">
+          <option value="br">右下</option><option value="bl">左下</option>
+          <option value="tr">右上</option><option value="tl">左上</option>
+          <option value="c">居中</option>
+        </select>
+      </div>
+      <div class="row"><label>颜色</label><input type="color" id="wmColor" value="#ffffff" />
+        <label style="width:auto"><input type="checkbox" id="wmStroke" checked /> 描边</label>
+      </div>
+      <div class="slider"><label>字号%</label><input type="range" id="wmSize" min="1" max="8" value="3"><b>3</b></div>
+      <div class="slider"><label>不透明%</label><input type="range" id="wmAlpha" min="10" max="100" value="85"><b>85</b></div>
+      <div class="row"><label>边框宽</label><input type="range" id="borderRange" min="0" max="80" value="0" /></div>
+      <div class="row"><label>边框色</label>
+        <select id="borderColorSel"><option value="#ffffff">白</option><option value="#000000">黑</option></select>
+      </div>
+    </section>
+    <section class="card">
+      <h3>7. 📌 标题贴纸</h3>
+      <div class="row"><label>贴纸字</label><input id="stickerText" placeholder="比如：雨后 / 到此一游" /></div>
+      <div class="row"><label>样式</label>
+        <select id="stickerStyle">
+          <option value="white">白字描边</option>
+          <option value="black">黑字白边</option>
+          <option value="gold">金黄字</option>
+          <option value="seal">红印章</option>
+        </select>
+      </div>
+      <div class="row"><label>位置</label>
+        <select id="stickerPos">
+          <option value="bottom">下中</option>
+          <option value="top">上中</option>
+          <option value="center">居中</option>
+        </select>
+      </div>
+      <div class="slider"><label>字号%</label><input type="range" id="stickerSize" min="3" max="12" value="6"><b>6</b></div>
+    </section>
+    <section class="card">
+      <h3>8. 导出设置（单张+批量共用）</h3>
+      <div class="row useRow">
+        <button data-use="moment">朋友圈</button>
+        <button data-use="small">小图</button>
+        <button data-use="print">打印</button>
+      </div>
+      <div class="row"><label>长边</label>
+        <select id="longEdgeSel">
+          <option value="1920">1920（朋友圈高清）</option>
+          <option value="1280">1280（清晰小图）</option>
+          <option value="2560">2560（2K）</option>
+          <option value="0">原图尺寸</option>
+        </select>
+      </div>
+      <div class="row"><label>格式</label>
+        <select id="formatSel">
+          <option value="jpeg">JPG（小）</option>
+          <option value="webp">WebP（更小）</option>
+          <option value="png">PNG（无损大）</option>
+        </select>
+      </div>
+      <div class="slider"><label>画质</label><input type="range" id="qualityRange" min="10" max="100" value="85"><b>85</b></div>
+      <div class="row"><label>预估</label><span id="sizeTip" class="sizetip">—</span></div>
+    </section>
+  </aside>
+</main>
+<main id="vidView" class="hidden">
+  <aside class="left">
+    <section class="card">
+      <h3>1. 放视频进来</h3>
+      <input type="file" id="vidFile" accept="video/*" />
+      <div id="vidInfo" class="photoinfo">支持 mp4/mov/webm，本地解码不上传</div>
+      <div class="row"><label>画面</label>
+        <select id="vidAspect">
+          <option value="orig">原比例</option>
+          <option value="16:9">16:9 横屏</option>
+          <option value="9:16">9:16 竖屏</option>
+          <option value="1:1">1:1 方形</option>
+        </select>
+      </div>
+      <div class="row"><label>清晰度</label>
+        <select id="vidSize">
+          <option value="0">原尺寸</option>
+          <option value="1920">长边1920</option>
+          <option value="1280" selected>长边1280</option>
+          <option value="720">长边720(小)</option>
+        </select>
+      </div>
+    </section>
+    <section class="card">
+      <h3>2. 修剪片段(秒)</h3>
+      <div class="row"><label>起点</label><input id="trimStart" type="number" min="0" step="0.5" value="0" /><button id="markStartBtn" title="设为当前播放点">取当前</button></div>
+      <div class="row"><label>终点</label><input id="trimEnd" type="number" min="0" step="0.5" value="0" /><button id="markEndBtn" title="设为当前播放点">取当前</button></div>
+      <div class="row"><label style="width:auto"><input type="checkbox" id="loopTrim" checked /> 区间循环试看</label></div>
+    </section>
+    <section class="card">
+      <h3>3. 导出</h3>
+      <div class="row"><button id="vidExportBtn" class="primary">⬇ 导出视频</button><button id="vidCancelBtn" class="hidden">取消</button></div>
+      <div class="row"><button id="vidCoverBtn" title="存当前帧为图片">🖼 导出封面</button></div>
+      <p class="tip" id="vidTip"></p>
+    </section>
+  </aside>
+  <section class="center">
+    <div class="vidStage" id="vidStage">
+      <video id="videoEl" playsinline></video>
+      <div id="vidWarm" class="vidOverlay"></div>
+      <div id="vidVig" class="vidOverlay"></div>
+    </div>
+    <div class="toolbar">
+      <button id="vidPlayBtn">▶ 播放</button>
+      <span id="vidTime" class="timepill">0.0 / 0.0s</span>
+      <input type="range" id="vidSeek" min="0" max="100" step="0.1" value="0" class="seekbar" />
+      <span class="sep"></span>
+      <label class="vollab">音量</label><input type="range" id="vidVol" min="0" max="100" value="80" class="volbar" />
+    </div>
+    <div id="vidPhotoInfo" class="photoinfo">先放视频进来</div>
+  </section>
+  <aside class="right">
+    <section class="card">
+      <h3>调子：和图片共用</h3>
+      <p class="note">去 <b>🖼 图片</b> 页调好亮度/预设/水印，回来直接套在视频上。重型效果（锐化/去雾/磨皮/颗粒/雨雾）视频里自动跳过，保证流畅。</p>
+      <div class="row"><label>快捷套</label><select id="vidPreset"><option value="">— 选个氛围 —</option></select></div>
+    </section>
+    <section class="card">
+      <h3>口语也行</h3>
+      <p class="note">试试：“视频模式”“5秒到12秒”“设起点”“导出视频”“视频封面”“回到图片”</p>
+    </section>
+  </aside>
+</main>
+<script src="node_modules/jszip/dist/jszip.min.js"></script>
+<script src="node_modules/exifr/dist/full.umd.js"></script>
+<script src="presets.js"></script>
+<script src="kouyu.js"></script>
+<script src="renderer.js"></script>
+<script src="grade.js"></script>
+<script src="video.js"></script>
+</body>
+</html>

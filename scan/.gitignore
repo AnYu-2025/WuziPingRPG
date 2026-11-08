@@ -1,0 +1,12 @@
+*.iml
+.gradle/
+.idea/
+.kotlin/
+local.properties
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+# 签名密钥与密码，切勿提交到公开仓库；请自行备份
+keystore.properties
+keystore/

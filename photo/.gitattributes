@@ -1,0 +1,47 @@
+# 统一行尾为 LF，避免 Windows / macOS / Linux 协作时产生整文件级 diff 噪音
+* text=auto eol=lf
+
+# 二进制资源不做行尾转换
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.avif  binary
+*.ico   binary
+*.icns  binary
+*.bmp   binary
+*.tiff  binary
+*.heic  binary
+*.mp4   binary
+*.mov   binary
+*.webm  binary
+*.woff  binary
+*.woff2  binary
+*.ttf   binary
+*.otf   binary
+*.pak   binary
+*.dll   binary
+*.exe   binary
+*.node  binary
+
+# 文本类资源参与 diff 与合并
+*.md    text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# lockfile 是生成物，在 merge 中不做逐行合并，避免冲突噪音
+package-lock.json  merge=binary linguist-generated=true
+pnpm-lock.yaml     merge=binary linguist-generated=true
+
+# 语言统计
+dist/**       linguist-vendored
+node_modules/** linguist-vendored

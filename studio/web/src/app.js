@@ -17,7 +17,7 @@ import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAf
 import {initTTS,ttsSerialize,ttsSanitize,ttsAfterRestore,ttsModeEnter,ttsModeLeave,ttsHideBar,ttsShowBar,ttsDocumentChanged,ttsStatusText,ttsReceive,ttsDebug} from './tts.js';
 import {initDraw,ensureDrawUI,enterDrawMode,exitDrawMode,isDrawMode,getDrawStrokes,loadDrawStrokes,getDrawView,loadDrawView} from './draw.js';
 import {initAI,aiSerialize,aiSanitize,aiRestore,aiModeEnter,aiModeLeave,aiHidePanel,aiEnterPanel,aiStatusText,aiReceive,aiDebug} from './ai.js';
-import {BACK,resolveBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS} from './back.js';
+import {BACK,resolveBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS,moduleById,isNativeModule,moduleAvailability} from './back.js';
 
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
 
@@ -133,7 +133,7 @@ function preview(){flush();if(native){send('preview',{path:active().path,files:s
 function saveFile(as=false){flush();const f=active(),id=String(Date.now())+'-'+Math.random();if(native){pendingSaves.set(id,{path:f.path,text:f.text});send(as||!f.uri?'export':'save',{id,path:f.path,text:f.text,uri:f.uri,encoding:f.encoding});}else{const blob=new Blob([f.text],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=f.path.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);f.savedText=f.text;changed();notify('已导出文件。');}}
 function importFiles(files){if(worker){notify('请停止运行后再导入。');return null;}let first='',backups=0,accepted=0;for(const file of files){if(!validPath(file.path)||typeof file.text!=='string'||file.text.length>MAX_FILE)continue;let path=file.path;const existing=state.files.find(f=>f.path===path);if(existing&&existing.uri!==file.uri){if(state.files.length>=159){notify('文件过多，请先另存草稿后重试。');break;}const backup='_草稿备份/'+Date.now()+'_'+path.split('/').pop().slice(-140);existing.path=backup;existing.uri='';state.opened=state.opened.map(p=>p===path?backup:p);editorStates.delete(path);backups++;}else if(existing){if(existing.text!==existing.savedText){notify('文件存在未写回的编辑，已保留草稿。');continue;}Object.assign(existing,makeFile(path,file.text,file.uri,file.encoding));accepted++;if(!first)first=path;continue;}if(state.files.length>=160)break;state.files.push(makeFile(path,file.text,file.uri||'',file.encoding||'UTF-8'));accepted++;if(!first)first=path;}if(first)switchFile(first);changed();if(backups)notify('导入文件保留原名；同名旧稿已移到 _草稿备份。');return {accepted,backups};}
 async function browserImport(event){const files=[];let skipped=0;for(const f of [...event.target.files].slice(0,160)){if(f.size>MAX_FILE){skipped++;continue;}try{const bytes=new Uint8Array(await f.arrayBuffer());if(bytes.includes(0))throw Error('binary');const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);files.push({path:f.webkitRelativePath||f.name,text,uri:'browser:'+f.name});}catch(e){skipped++;}}const result=importFiles(files);notify(`已接收 ${result?.accepted||0} / ${files.length} 个文本文件${skipped?'，另跳过 '+skipped+' 个非文本或过大文件':''}`);event.target.value='';}
-window.StudioNative={receive(m){if(m.type==='aiToolResult'){const r=aiToolWaiters.get(m.id);if(r){aiToolWaiters.delete(m.id);r(m.data||(m.ok?'完成':'操作未完成'));}return;}if(m.type==='restore'){restore(m.data);if(m.error)notify(m.error);}else if(m.type==='snapshotSaved'){if(m.id>=latestSaved){latestSaved=m.id;if(m.id===revision)$('saveState').textContent=m.ok?'草稿已保存':'草稿保存失败';}}else if(m.type==='imported'){const result=importFiles(m.files||[]);if(result&&result.accepted<(m.files||[]).length)notify('工作区接收 '+result.accepted+' / '+m.files.length+' 个文件，其余因容量或未保存草稿冲突未导入；原文件保留。');else notify((m.message||'导入完成')+(result?.backups?'；同名旧稿已备份':''));}else if(m.type==='saved'){const pending=pendingSaves.get(m.id);pendingSaves.delete(m.id);if(m.ok&&pending){const f=state.files.find(f=>f.path===pending.path);if(f){f.savedText=pending.text;f.uri=m.uri||f.uri;f.encoding=m.encoding||f.encoding;changed();}notify('已保存到手机文件。');}else notify(m.message||'保存未完成，草稿仍保留。');}else if(ttsReceive(m)){}else if(aiReceive(m)){}else if(m.type==='notice')notify(m.message);else if(m.type==='gameState')$('gameSaveInfo').textContent=m.exists?'发现游戏存档 · 进入后点击“继续旅程”。':'尚无游戏存档 · 开始后会自动保存。';}};
+window.StudioNative={receive(m){if(m.type==='aiToolResult'){const r=aiToolWaiters.get(m.id);if(r){aiToolWaiters.delete(m.id);r(m.data||(m.ok?'完成':'操作未完成'));}return;}if(m.type==='restore'){restore(m.data);if(m.error)notify(m.error);}else if(m.type==='snapshotSaved'){if(m.id>=latestSaved){latestSaved=m.id;if(m.id===revision)$('saveState').textContent=m.ok?'草稿已保存':'草稿保存失败';}}else if(m.type==='imported'){const result=importFiles(m.files||[]);if(result&&result.accepted<(m.files||[]).length)notify('工作区接收 '+result.accepted+' / '+m.files.length+' 个文件，其余因容量或未保存草稿冲突未导入；原文件保留。');else notify((m.message||'导入完成')+(result?.backups?'；同名旧稿已备份':''));}else if(m.type==='saved'){const pending=pendingSaves.get(m.id);pendingSaves.delete(m.id);if(m.ok&&pending){const f=state.files.find(f=>f.path===pending.path);if(f){f.savedText=pending.text;f.uri=m.uri||f.uri;f.encoding=m.encoding||f.encoding;changed();}notify('已保存到手机文件。');}else notify(m.message||'保存未完成，草稿仍保留。');}else if(ttsReceive(m)){}else if(aiReceive(m)){}else if(m.type==='notice')notify(m.message);else if(m.type==='capabilities'){moduleCaps={...m,native:true};refreshAvailability();}else if(m.type==='moduleReturned')nativeReturned(m.id);else if(m.type==='gameState')$('gameSaveInfo').textContent=m.exists?'发现游戏存档 · 进入后点击“继续旅程”。':'尚无游戏存档 · 开始后会自动保存。';}};
 /* One activation path per control. pointerup used to fire before click and let the
    interface change underneath the finger (drawer opening, Run becoming Stop), which
    made 0.1.7 buttons feel broken on phones. */
@@ -183,9 +183,11 @@ const landing=$('landing'),landingBack=$('landingBack'),landingStatus=$('landing
 const homeCards=[...document.querySelectorAll('.home-card')];
 const MODE_KEY='ember-studio-mode';
 const KNOWN_MODES=HOME_ACTIONS.map(item=>item.id);
-let landingOpen=true,landingTimer=0,selectedMode='',workspaceMode='python',lastCodePath='',lastTtsPath='',homeFromSession=false;
+let landingOpen=true,landingTimer=0,selectedMode='',workspaceMode='python',lastCodePath='',lastTtsPath='',homeFromSession=false,lastOpened='';
+/* 原生侧在 ready 之后发 capabilities；浏览器预览里修图页可以直接打开，扫描需要相机。 */
+let moduleCaps={native,browserPhoto:!native,sdk:0};
 try{const savedMode=localStorage.getItem(MODE_KEY);if(KNOWN_MODES.includes(savedMode))selectedMode=savedMode;}catch(e){}
-function rememberedMode(){return homeFromSession&&KNOWN_MODES.includes(workspaceMode)?workspaceMode:selectedMode;}
+function rememberedMode(){if(KNOWN_MODES.includes(lastOpened))return lastOpened;return homeFromSession&&KNOWN_MODES.includes(workspaceMode)?workspaceMode:selectedMode;}
 function refreshResume(){
   const card=$('resumeCard'),title=$('resumeTitle'),detail=$('resumeDetail');
   if(!card)return;
@@ -196,23 +198,28 @@ function refreshResume(){
   card.disabled=!ready;
   if(title)title.textContent=info.title;
   if(detail)detail.textContent=info.detail;
+  const icon=$('resumeIcon'),meta=moduleById(info.mode);if(icon&&meta)icon.textContent=meta.icon;
+  card.dataset.mode=info.mode||'';
 }
+function greet(){const h=new Date().getHours();return h<5?'夜深了，':h<11?'早上好，':h<13?'中午好，':h<18?'下午好，':'晚上好，';}
+function refreshHomeTitle(){const t=$('homeTitle');if(t)t.textContent=greet()+'今天做点什么';}
+function refreshAvailability(){for(const card of homeCards){const a=moduleAvailability(card.dataset.mode,moduleCaps);card.dataset.unavailable=a.ok?'0':'1';if(!a.ok)card.title=a.message;else card.removeAttribute('title');}}
 function setHomeEnabled(on){for(const card of homeCards)card.disabled=!on;const resume=$('resumeCard');if(resume)resume.disabled=!on;}
-function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(landingStatus)landingStatus.textContent='草稿已就绪';setHomeEnabled(true);refreshResume();}
+function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(landingStatus)landingStatus.textContent='草稿已就绪';setHomeEnabled(true);refreshAvailability();refreshHomeTitle();refreshResume();}
 function hideLanding(){if(!landingOpen||!landing)return;if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},280);}
 function openLanding(reopen=false){
   if(!landing)return;
   if(reopen&&workspaceMode==='tts')ttsHideBar();
-  if(reopen&&workspaceMode==='ai')aiHidePanel();
+  if(reopen&&workspaceMode==='ai'){setAISettings(false);aiHidePanel();}
   closeDrawer();closeMenu();
   if(view){try{closeSearchPanel(view);}catch(e){}}
   clearTimeout(landingTimer);
   landing.hidden=false;landing.classList.remove('landing-out');landing.removeAttribute('aria-hidden');
   landingOpen=true;homeFromSession=!!reopen;
-  if(landingBack)landingBack.hidden=!reopen;
+  if(landingBack){landingBack.hidden=!reopen;const meta=moduleById(workspaceMode);landingBack.textContent='‹ 回到'+(meta?meta.title:'刚才的工作');}
   if(landingStatus)landingStatus.textContent=ready?'草稿已就绪':'正在读取草稿';
-  if(reopen&&KNOWN_MODES.includes(workspaceMode))selectedMode=workspaceMode;
-  refreshResume();
+  if(reopen&&KNOWN_MODES.includes(workspaceMode)){selectedMode=workspaceMode;lastOpened=workspaceMode;}
+  refreshHomeTitle();refreshResume();
 }
 function setLectureTab(name){
   const tab=name==='timeline'||name==='slides'?name:'notes';
@@ -223,6 +230,13 @@ function setLectureTab(name){
     button.setAttribute('aria-selected',on?'true':'false');
   }
 }
+/* 模块自己的子层，栈顶在前。新功能要加子层时在这里登记，返回键就会先关它。 */
+const MODULE_LAYERS=[
+  {id:'aiSettings',mode:'ai',open:()=>!!$('aiPanel')&&$('aiPanel').classList.contains('settings-open'),close:()=>setAISettings(false)}
+];
+function moduleLayers(){return MODULE_LAYERS.filter(layer=>(!layer.mode||layer.mode===workspaceMode)&&layer.open()).map(layer=>layer.id);}
+function closeModuleLayer(id){const layer=MODULE_LAYERS.find(item=>item.id===id);if(layer)layer.close();}
+function setAISettings(open){const panel=$('aiPanel'),btn=$('aiSettingsToggle');if(!panel)return;panel.classList.toggle('settings-open',!!open);if(btn){btn.setAttribute('aria-expanded',open?'true':'false');btn.textContent=open?'收起设置':'设置';}}
 function handleSystemBack(){
   const openDialog=document.querySelector('dialog[open]');
   try{
@@ -233,6 +247,7 @@ function handleSystemBack(){
       searchOpen:!!(view&&view.dom&&view.dom.querySelector('.cm-search')),
       homeOpen:landingOpen,
       loungeOpen:!!$('lounge')&&!$('lounge').hidden,
+      layers:moduleLayers(),
       mode:workspaceMode,
       lectureTab:document.body.dataset.lectureTab||'notes'
     });
@@ -250,6 +265,9 @@ function handleSystemBack(){
       case BACK.SEARCH:
         closeSearchPanel(view);
         if(view)view.focus();
+        return true;
+      case BACK.LAYER:
+        closeModuleLayer(decision.layer);
         return true;
       case BACK.LECTURE_TAB:
         setLectureTab('notes');
@@ -305,18 +323,41 @@ function applyMode(mode){
   setTimeout(()=>{if(view)view.focus();},260);
   return true;
 }
+/* 原生模块（扫描相机、修图）是独立页面：首页留在下面，系统返回键关掉它就回到这里。 */
+function openNativeModule(id){
+  const meta=moduleById(id);
+  const guard=canLeaveMode({recording:workspaceMode==='lecture'&&lectureBusy(),running:!!worker,to:id});
+  if(!guard.ok){notify(guard.reason==='recording'?'正在上课录音，请先点「⏹ 停止」结束录音，再打开'+meta.title+'。':'代码正在运行，请先停止，再打开'+meta.title+'。');return false;}
+  const a=moduleAvailability(id,moduleCaps);
+  if(!a.ok){notify(a.message);return false;}
+  flush();
+  selectedMode=id;lastOpened=id;try{localStorage.setItem(MODE_KEY,id);}catch(e){}
+  refreshResume();
+  if(native)send('openModule',{id});
+  else if(id==='photo')location.href='../photo/index.html?from=studio';
+  return true;
+}
+function nativeReturned(id){
+  if(!isNativeModule(id))return;
+  if(!landingOpen)openLanding(homeFromSession);
+  lastOpened=id;selectedMode=id;
+  if(landingStatus)landingStatus.textContent='已从「'+moduleById(id).title+'」回到首页';
+  refreshResume();
+}
 function enterHomeMode(mode){
   if(!ready||!landingOpen||!KNOWN_MODES.includes(mode))return;
+  if(isNativeModule(mode)){openNativeModule(mode);return;}
   /* Re-opening the mode already on screen is a cancel, not another applyMode. */
   if(homeFromSession&&mode===workspaceMode){hideLanding();return;}
   if(!applyMode(mode))return;
-  selectedMode=mode;try{localStorage.setItem(MODE_KEY,mode);}catch(e){}hideLanding();
+  selectedMode=mode;lastOpened=mode;try{localStorage.setItem(MODE_KEY,mode);}catch(e){}hideLanding();
 }
 for(const card of homeCards)card.addEventListener('click',()=>enterHomeMode(card.dataset.mode));
 const resume=$('resumeCard');if(resume)resume.addEventListener('click',()=>enterHomeMode(rememberedMode()));
 if(landingBack)landingBack.addEventListener('click',()=>hideLanding());
 on('homeButton',()=>{flush();openLanding(true);});
 on('aiHome',()=>{flush();openLanding(true);});
+on('aiSettingsToggle',()=>{const panel=$('aiPanel');setAISettings(!(panel&&panel.classList.contains('settings-open')));});
 window.__studioLandingReady=true;
 initLecture({
   notify,
@@ -393,5 +434,5 @@ initAI({
 });
 const aiComposer=$('aiComposer');if(aiComposer)aiComposer.addEventListener('submit',event=>event.preventDefault());
 openLanding(false);
-window.Studio={getState:()=>({...snapshot(),mode:workspaceMode,home:landingOpen}),get view(){return view;},run,stop,flush,importFiles,back:handleSystemBack,exitMessage:()=>exitCopy(state.files).message,lecture:lectureDebug,tts:ttsDebug,ai:aiDebug};
+window.Studio={getState:()=>({...snapshot(),mode:workspaceMode,home:landingOpen,layers:moduleLayers(),resume:rememberedMode(),caps:moduleCaps}),get view(){return view;},run,stop,flush,importFiles,back:handleSystemBack,exitMessage:()=>exitCopy(state.files).message,lecture:lectureDebug,tts:ttsDebug,ai:aiDebug};
 if(native)send('ready');else{let saved=null;try{saved=JSON.parse(localStorage.getItem('ember-studio-v1'));}catch(e){}restore(saved);}

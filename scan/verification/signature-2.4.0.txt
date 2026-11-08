@@ -1,0 +1,17 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): false
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: CN=Scan Camera Personal, OU=Personal, O=ScanCamera, C=CN
+Signer #1 certificate SHA-256 digest: 31fe168e96dfc64cdce1303240df87063c45d07da2e56ae6cb018477cd5dfc5d
+Signer #1 certificate SHA-1 digest: a7a19b4cdf0418a53c206b50a7f5659b715a8455
+Signer #1 certificate MD5 digest: 4516fc4fb3468908304876651a498aa3
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 3072
+Signer #1 public key SHA-256 digest: db82e33aca070c85ea921649cb88fe732ad434e78ddee7858491fe69035c185a
+Signer #1 public key SHA-1 digest: 63cd71fc3079f1834534b639c502c9fdb7d1dbb6
+Signer #1 public key MD5 digest: 6fb31170eeeb3e721db2b12903d46572

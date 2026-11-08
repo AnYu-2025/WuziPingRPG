@@ -1,0 +1,8 @@
+﻿
+
+Algorithm : SHA256
+Hash      : 68D8D761BFE11E56AB568CC9296126D8A91C0BBA20EA121CE9967094FE3C378F
+Path      : D:\扫描相机\扫描相机-v2.4.0.apk
+
+
+

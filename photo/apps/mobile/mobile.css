@@ -1,0 +1,67 @@
+/* 浮生图梦 · 手机布局（叠在桌面 styles.css 之上）。
+ * 竖屏：顶栏 → 横向工具条 → 舞台 → 底部分区面板。
+ * 横屏 / 平板：舞台在左，面板在右，与桌面一致。 */
+html,body{height:100%;overflow:hidden}
+body{font-size:14px;padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);-webkit-tap-highlight-color:transparent}
+button,select,input[type="text"]{min-height:38px;border-radius:9px;touch-action:manipulation}
+
+/* 顶栏：左上角回天工，与天工各模块的「‹ 首页」同位 */
+.m-top{display:flex;align-items:center;gap:10px;flex:none;height:52px;padding:0 10px;background:var(--panel);border-bottom:1px solid var(--line)}
+.m-home{flex:none;display:inline-flex;align-items:center;gap:3px;height:36px;min-height:36px;padding:0 12px 0 8px;border-radius:999px;background:#262631;color:#cfd8ff;font-weight:650}
+.m-home span{font-size:20px;line-height:1;margin-top:-2px}
+.m-title{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2}
+.m-title strong{font-size:15px;letter-spacing:.04em}
+.m-title small{font-size:11px;color:var(--dim)}
+.m-slot{flex:none}
+.m-slot #btn-export{height:36px;min-height:36px;padding:0 16px;border-radius:999px}
+
+/* 工具条：桌面顶栏变成一条能横滑的按钮带 */
+.bar{flex:none;gap:8px;padding:6px 10px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;flex-wrap:nowrap}
+.bar::-webkit-scrollbar{display:none}
+.bar .group{flex:none;gap:6px;padding-right:8px;border-right:1px solid var(--line)}
+.bar .group:last-of-type{border-right:0}
+.bar .spacer{display:none}
+.bar button{flex:none;white-space:nowrap;padding:0 12px}
+
+main{flex-direction:column;min-height:0}
+.stage-col{flex:1 1 auto;min-height:150px}
+.stage{padding:8px}
+.empty{padding:0 24px;font-size:13.5px}
+.zoombar{padding:4px 10px 0;gap:6px;overflow-x:auto;scrollbar-width:none}
+.zoombar::-webkit-scrollbar{display:none}
+.zoombar button{min-height:32px;padding:0 10px}
+.thumbs{padding:6px 10px}
+.thumb{width:52px;height:52px}
+
+/* 底部面板：分区标签只显示当前分区 */
+.panel{width:auto;flex:0 0 auto;height:min(44vh,360px);border-left:0;border-top:1px solid var(--line);padding:0 12px calc(14px + env(safe-area-inset-bottom));overscroll-behavior:contain;-webkit-overflow-scrolling:touch;transition:height .18s ease}
+body.m-expanded .panel{height:min(74vh,640px)}
+.m-tabs{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:4px;margin:0 -12px 10px;padding:8px 10px 6px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.m-tabs::-webkit-scrollbar{display:none}
+.m-tab{flex:none;min-height:32px;height:32px;padding:0 13px;border-radius:999px;border-color:transparent;background:transparent;color:var(--dim)}
+.m-tab.active{background:#262c4a;color:#dfe5ff;border-color:#3a4479;font-weight:650}
+.m-fold{flex:none;margin-left:auto;width:34px;min-width:34px;height:32px;min-height:32px;padding:0;border-radius:999px;transition:transform .18s ease}
+body.m-expanded .m-fold{transform:rotate(180deg)}
+.panel [data-sec]{display:none}
+.panel[data-tab="tone"] [data-sec="tone"],
+.panel[data-tab="geo"] [data-sec="geo"],
+.panel[data-tab="text"] [data-sec="text"],
+.panel[data-tab="collage"] [data-sec="collage"],
+.panel[data-tab="export"] [data-sec="export"],
+.panel[data-tab="info"] [data-sec="info"]{display:block}
+.panel[data-tab="tone"] .auto-actions[data-sec="tone"]{display:flex}
+/* 裁剪面板仍受 hidden 控制 */
+.panel #crop-panel[hidden]{display:none!important}
+.export-opts{margin:0 0 12px;border:1px solid var(--line);border-radius:12px;padding:8px 12px 10px}
+.m-hint{margin:0 0 12px;color:var(--dim);font-size:12.5px;line-height:1.6}
+.field{margin-bottom:12px}
+.slider input[type="range"],.field input[type="range"]{height:28px;width:100%;flex:1 1 auto;min-width:0}
+#curve-canvas{max-width:320px;margin:0 auto}
+.toast{bottom:calc(18px + env(safe-area-inset-bottom));max-width:88%;z-index:20}
+
+@media (orientation:landscape) and (min-width:700px){
+  main{flex-direction:row}
+  .panel{width:320px;height:auto;border-left:1px solid var(--line);border-top:0}
+  body.m-expanded .panel{height:auto}
+  .m-fold{display:none}
+}

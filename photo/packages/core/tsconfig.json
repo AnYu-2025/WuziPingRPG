@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    /* 关键：core 不引入 DOM，也不引入 Node 类型。
+     * 一旦核心里出现 document / window / ImageData / process，编译立即失败。
+     * 架构边界不靠自觉，靠编译器强制。
+     * 像素数据用自定义的 PixelBuffer（结构化类型，与 DOM 的 ImageData 天然兼容）。 */
+    "lib": ["ES2022"],
+    "types": [],
+
+    /* 仅做类型检查，不产出；产出交给 tsconfig.build.json */
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "vitest.config.ts"]
+}

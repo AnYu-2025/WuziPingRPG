@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 调节滑杆图标 -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M4,7h16M4,15h16" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M9,4 a3,3 0 1 0 0,6 a3,3 0 1 0 0,-6 z M15,12 a3,3 0 1 0 0,6 a3,3 0 1 0 0,-6 z" />
+</vector>

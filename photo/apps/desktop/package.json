@@ -1,0 +1,65 @@
+{
+  "name": "@photo/desktop",
+  "version": "0.7.0",
+  "private": true,
+  "description": "桌面外壳：Electron 薄壳 + 内核渲染。壳里不许出现像素算法。",
+  "author": "浮生图梦",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "build": "node ../../scripts/tsc-retry.mjs tsconfig.build.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "electron .",
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:dist": "node scripts/smoke-dist.mjs",
+    "shot": "node scripts/shot.mjs",
+    "dist": "electron-builder --win portable nsis"
+  },
+  "devDependencies": {
+    "@photo/core": "*",
+    "@photo/io": "*",
+    "@types/node": "^20.19.0",
+    "electron": "33.4.11",
+    "electron-builder": "^25.1.8",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  },
+  "build": {
+    "appId": "com.zhaopian.jiagong",
+    "productName": "浮生图梦",
+    "electronVersion": "33.4.11",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "assets/**/*",
+      "index.html",
+      "smoke.html",
+      "styles.css",
+      "!node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../../packages/core/dist",
+        "to": "core"
+      },
+      {
+        "from": "../../packages/io/dist",
+        "to": "io"
+      }
+    ],
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
+    }
+  }
+}

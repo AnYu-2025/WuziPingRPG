@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    /* io 与 core 同规格：零平台依赖。
+     * 因此 BMP / PPM 编解码可以在 浏览器 / Worker / Node / 移动 WebView 中原样运行。 */
+    "lib": ["ES2022"],
+    "types": [],
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "vitest.config.ts"]
+}

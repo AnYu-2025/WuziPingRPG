@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": {"build": "node build.mjs", "test": "node --test tests/*.test.mjs"},
+  "scripts": {"build": "node build.mjs && node build-photo.mjs", "test": "node --test tests/*.test.mjs"},
   "dependencies": {
     "codemirror": "^6.0.1",
     "@codemirror/lang-python": "^6.1.6",
