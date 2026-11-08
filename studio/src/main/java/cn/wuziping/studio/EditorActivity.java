@@ -24,10 +24,25 @@ public final class EditorActivity extends Activity {
     private WebView web;private AssetServer assets;private PackedAssets packed;private AtomicFile workspace,gameSave;
     private TextToSpeech tts;private boolean ttsReady=false,ttsInitializing=false,ttsRangeSeen=false;private String ttsError="",ttsCurrentId="";private int ttsCharIndex=0,ttsCurrentLength=0;
     private final ExecutorService io=Executors.newSingleThreadExecutor();private JSONObject pendingExport;private boolean pickerOpen=false,workspaceReadOnly=false,keyboardVisible=false;private AlertDialog exitDialog;
-    private static final int OPEN=30,FOLDER=31,EXPORT=32,GAME_OUT=33,GAME_IN=34,MIC=35,SLIDE=36,SLIDES=37,PPTX=38,TREE=39;
+    private static final int OPEN=30,FOLDER=31,EXPORT=32,GAME_OUT=33,GAME_IN=34,MIC=35,SLIDE=36,SLIDES=37,PPTX=38,TREE=39,MIC_WARM=40;
     private static final String SLIDE_PREFIX="slide-cache/";
-    private File slideCache;
+    /* 课堂模式的录音与 PPT 页面图存在这里，工作区 JSON 只留引用：
+       否则 2 小时录音 + 几十页 PPT 会撞上快照上限，整份草稿被丢弃。 */
+    private static final String MEDIA_PREFIX="lecture-media/";
+    private static final long WORKSPACE_LIMIT=30L*1024*1024;
+    /* 退出：最多等录音落盘 20 秒（2 小时录音关流+刷新草稿足够），超时才强退。 */
+    private static final long EXIT_SAVE_TIMEOUT=20000L;
+    private static final int EXIT_POLL_LIMIT=120;
+    /* 录音分片流式落盘：页面每秒把 MediaRecorder 的分片追加进来，宿主边收边写。
+       2 小时录音不再需要整段转 19 MB base64 过桥，也不会每 45 秒全量重写一次。 */
+    private static final class AudioSink{FileOutputStream out;File file;long bytes;}
+    private final java.util.Map<String,AudioSink> audioSinks=new java.util.concurrent.ConcurrentHashMap<>();
+    private final ExecutorService audioIo=Executors.newSingleThreadExecutor();
+    private File slideCache,mediaDir;
+    private boolean exitRequested=false;
+    private final Runnable exitWatchdog=new Runnable(){@Override public void run(){if(exitRequested){exitRequested=false;finish();}}};
     private android.webkit.PermissionRequest pendingMicRequest;
+    private int pendingMicWarmId=-1;
     private android.webkit.ValueCallback<Uri[]> pendingSlideChooser;
     private static final int SOURCE_ASSETS=0,SOURCE_LOOPBACK=1,SOURCE_PACKAGED=2;
     private final android.os.Handler ui=new android.os.Handler(android.os.Looper.getMainLooper());
@@ -43,6 +58,7 @@ public final class EditorActivity extends Activity {
         packed=new PackedAssets(this);slideCache=new File(getCacheDir(),"slide-cache");clearSlideCache();
         assistant=new AssistantTools(this,io,new AssistantTools.Emit(){@Override public void emit(JSONObject o){event(o);}});
         assistant.restoreAlarms();
+        mediaDir=new File(getFilesDir(),"lecture-media");if(!mediaDir.isDirectory()&&!mediaDir.mkdirs())android.util.Log.w("EmberStudio","lecture-media dir unavailable, media will stay inline");
         try{assets=new AssetServer(this::openAsset,false);}catch(IOException e){fatal("离线资源未能启动："+e.getMessage());return;}
         try{web=new WebView(this);}catch(RuntimeException e){fatal("系统 WebView 不可用，编辑器无法打开。请在系统设置中启用或更新 Android System WebView 后重试。");return;}
         web.setBackgroundColor(0xffffffff);web.setFocusable(true);web.setFocusableInTouchMode(true);web.setOverScrollMode(View.OVER_SCROLL_NEVER);WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setCacheMode(WebSettings.LOAD_NO_CACHE);settings.setUseWideViewPort(true);settings.setLoadWithOverviewMode(false);settings.setSupportZoom(false);settings.setTextZoom(100);settings.setDefaultTextEncodingName("UTF-8");settings.setMediaPlaybackRequiresUserGesture(true);settings.setSupportMultipleWindows(false);if(android.os.Build.VERSION.SDK_INT>=33)settings.setAlgorithmicDarkeningAllowed(false);else if(android.os.Build.VERSION.SDK_INT>=29)settings.setForceDark(WebSettings.FORCE_DARK_OFF);if(android.os.Build.VERSION.SDK_INT>=26)settings.setSafeBrowsingEnabled(false);
@@ -63,7 +79,7 @@ public final class EditorActivity extends Activity {
             if(!wantsAudio){try{request.deny();}catch(Exception ignored){}return;}
             android.util.Log.i("EmberStudio","onPermissionRequest: audio capture, self="+checkSelfPermission(android.Manifest.permission.RECORD_AUDIO));
             if(checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)==android.content.pm.PackageManager.PERMISSION_GRANTED){
-                try{request.grant(request.getResources());android.util.Log.i("EmberStudio","granted audio immediately");}catch(Exception e){try{request.deny();}catch(Exception ignored){}}
+                try{grantAudio(request);android.util.Log.i("EmberStudio","granted audio immediately");}catch(Exception e){try{request.deny();}catch(Exception ignored){}}
             }else{
                 pendingMicRequest=request;
                 try{requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO},MIC);android.util.Log.i("EmberStudio","requesting RECORD_AUDIO runtime permission");}
@@ -100,7 +116,24 @@ public final class EditorActivity extends Activity {
             if(!file.isFile())throw new FileNotFoundException(path);
             return new FileInputStream(file);
         }
+        /* 课堂模式的录音/PPT 页面图：页面用同源 URL fetch，音频因此可以拖动进度。 */
+        if(path.startsWith(MEDIA_PREFIX)){
+            String name=path.substring(MEDIA_PREFIX.length());
+            if(name.indexOf('/')>=0||!safeMediaName(name))throw new FileNotFoundException(path);
+            File file=new File(mediaDir,name);
+            if(!file.isFile())throw new FileNotFoundException(path);
+            return new FileInputStream(file);
+        }
         return packed.open(path);
+    }
+    private static boolean safeMediaName(String name){
+        if(name==null||name.isEmpty()||name.length()>80)return false;
+        for(int i=0;i<name.length();i++){
+            char c=name.charAt(i);
+            boolean ok=(c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='.'||c=='-'||c=='_';
+            if(!ok)return false;
+        }
+        return name.indexOf("..")<0&&!name.startsWith(".");
     }
     private void clearSlideCache(){
         try{
@@ -206,6 +239,135 @@ public final class EditorActivity extends Activity {
             android.util.Log.w("EmberStudio","pptx copy failed "+uri+" "+e.getMessage());
         }
     }
+    /* ---- 录音流式落盘 ----
+       页面在 MediaRecorder 每秒的 ondataavailable 里把这一片（约 2–6 KB）用 base64
+       推过来，这里按序追加到同一个文件。分片按序拼接就是合法的 webm，跟以前把
+       整个 Blob 一次转 base64 的结果完全一致，但省掉了「2 小时 → 19 MB 字符串 →
+       JS JSON.stringify → Java new JSONObject」这一整条主线程上的大对象搬运。
+       好处是顺带把检查点变成零成本：文件一直在写，页面只要记下时长与波形。 */
+    private void audioBegin(JSONObject m){
+        final String id=m.optString("id"),name=m.optString("name");
+        audioIo.execute(()->{
+            JSONObject o=message("audioStarted");put(o,"id",id);
+            try{
+                if(!safeMediaName(name))throw new IOException("录音文件名不合法");
+                if(!mediaDir.isDirectory()&&!mediaDir.mkdirs())throw new IOException("无法创建媒体目录");
+                closeAudioSink(id);
+                AudioSink sink=new AudioSink();
+                sink.file=new File(mediaDir,name);
+                sink.out=new FileOutputStream(sink.file,false);
+                audioSinks.put(id,sink);
+                put(o,"ok",true);put(o,"ref",MEDIA_PREFIX+name);
+            }catch(Exception e){put(o,"ok",false);put(o,"message",e.getMessage()==null?"录音文件创建失败":e.getMessage());}
+            event(o);
+        });
+    }
+    private void audioChunk(JSONObject m){
+        final String id=m.optString("id"),data=m.optString("data");
+        audioIo.execute(()->{
+            AudioSink sink=audioSinks.get(id);
+            if(sink==null||data.length()==0||data.length()>8*1024*1024)return;
+            try{
+                byte[] bytes=android.util.Base64.decode(data,android.util.Base64.DEFAULT);
+                if(bytes.length==0)return;
+                sink.out.write(bytes);
+                /* 每片都 flush：进程被系统杀掉时，磁盘上已经是最新的一片，
+                   而不是缓冲区里的几秒。 */
+                sink.out.flush();
+                sink.bytes+=bytes.length;
+            }catch(Exception e){android.util.Log.w("EmberStudio","audio chunk failed: "+e.getMessage());}
+        });
+    }
+    private void audioEnd(JSONObject m){
+        final String id=m.optString("id");
+        audioIo.execute(()->{
+            JSONObject o=message("audioSaved");put(o,"id",id);
+            AudioSink sink=audioSinks.remove(id);
+            try{
+                if(sink==null)throw new IOException("录音文件已关闭");
+                sink.out.flush();sink.out.close();
+                if(sink.bytes<=0){
+                    if(!sink.file.delete())android.util.Log.w("EmberStudio","empty audio delete failed");
+                    throw new IOException("录音没有产生数据");
+                }
+                put(o,"ok",true);put(o,"ref",MEDIA_PREFIX+sink.file.getName());put(o,"bytes",sink.bytes);
+            }catch(Exception e){put(o,"ok",false);put(o,"message",e.getMessage()==null?"录音写入失败":e.getMessage());}
+            event(o);
+        });
+    }
+    /* 录音没开始/被用户中途放弃：关流，空的就删掉，不留孤儿文件。 */
+    private void audioAbort(JSONObject m){
+        final String id=m.optString("id");
+        audioIo.execute(()->{
+            AudioSink sink=audioSinks.remove(id);
+            if(sink==null)return;
+            try{sink.out.close();}catch(Exception ignored){/* 已关闭 */}
+            if(sink.bytes<=0&&sink.file!=null&&!sink.file.delete())android.util.Log.w("EmberStudio","empty audio delete failed");
+        });
+    }
+    private void closeAudioSink(String id){
+        AudioSink sink=audioSinks.remove(id);
+        if(sink==null)return;
+        try{sink.out.close();}catch(Exception ignored){/* 已关闭 */}
+    }
+    /* 课堂模式媒体：录音与 PPT 页面图写进应用私有目录 lecture-media/，
+       页面用同源 URL 读回。base64 只是过桥手段，不再进工作区 JSON。 */
+    private void mediaPut(final JSONObject m){
+        final String id=m.optString("id"),name=m.optString("name"),data=m.optString("data");
+        io.execute(()->{
+            JSONObject o=message("mediaSaved");put(o,"id",id);
+            try{
+                if(!safeMediaName(name))throw new IOException("媒体文件名不合法");
+                if(data.length()==0)throw new IOException("媒体数据为空");
+                if(data.length()>64*1024*1024)throw new IOException("媒体数据超过 64 MB");
+                byte[] bytes=android.util.Base64.decode(data,android.util.Base64.DEFAULT);
+                if(bytes.length==0)throw new IOException("媒体数据为空");
+                if(!mediaDir.isDirectory()&&!mediaDir.mkdirs())throw new IOException("无法创建媒体目录");
+                atomic(new AtomicFile(new File(mediaDir,name)),bytes);
+                put(o,"ok",true);put(o,"ref",MEDIA_PREFIX+name);put(o,"bytes",bytes.length);
+            }catch(Exception e){put(o,"ok",false);put(o,"message",e.getMessage()==null?"媒体写入失败":e.getMessage());}
+            event(o);
+        });
+    }
+    private void mediaDelete(JSONObject m){
+        final String ref=m.optString("ref");
+        io.execute(()->{try{
+            if(ref!=null&&ref.startsWith(MEDIA_PREFIX)){
+                String name=ref.substring(MEDIA_PREFIX.length());
+                if(safeMediaName(name)){File file=new File(mediaDir,name);if(file.isFile()&&!file.delete())android.util.Log.w("EmberStudio","media delete failed "+name);}
+            }
+        }catch(Exception ignored){/* 删不掉不影响主流程 */}});
+    }
+    /* 只保留页面还在引用的媒体文件：换课、重录、删页面留下的孤儿文件一并清掉。 */
+    private void mediaGc(JSONObject m){
+        JSONArray keep=m.optJSONArray("keep");
+        final Set<String> names=Collections.synchronizedSet(new HashSet<String>());
+        if(keep!=null)for(int i=0;i<keep.length();i++){String name=keep.optString(i);if(safeMediaName(name))names.add(name);}
+        io.execute(()->{
+            try{
+                File[] files=mediaDir.listFiles();
+                if(files==null)return;
+                for(File file:files)if(!file.isDirectory()&&!names.contains(file.getName()))file.delete();
+            }catch(Exception ignored){/* 清理失败不提示，不影响使用 */}
+        });
+    }
+    /* 页面在真正调用 getUserMedia 之前先要这次授权。
+       原因：如果等 WebView 的 onPermissionRequest 回调里才弹系统权限框，
+       用户点完"允许"再回来 grant，音频源往往已经初始化失败，页面只会收到
+       NotReadableError（看起来就像"麦克风被别的应用占用"）。提前把运行时权限
+       拿到手，之后 getUserMedia 就只是一次 WebView 内部授权，稳定得多。 */
+    private void micPermission(JSONObject m){
+        final int id=m.optInt("id");
+        if(checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)==android.content.pm.PackageManager.PERMISSION_GRANTED){replyMic(id,true);return;}
+        if(pendingMicWarmId>=0){replyMic(id,false);return;}
+        pendingMicWarmId=id;
+        try{requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO},MIC_WARM);android.util.Log.i("EmberStudio","warming up RECORD_AUDIO before getUserMedia");}
+        catch(Exception e){pendingMicWarmId=-1;replyMic(id,true);}
+    }
+    private void replyMic(int id,boolean granted){
+        JSONObject o=message("micPermission");put(o,"id",id);put(o,"granted",granted);event(o);
+    }
+    private static String megabytes(long bytes){return String.valueOf(Math.round(bytes/1048576.0*10)/10.0);}
     private void resolveSlideChooser(Uri[] uris){
         android.webkit.ValueCallback<Uri[]> callback=pendingSlideChooser;
         pendingSlideChooser=null;
@@ -328,7 +490,12 @@ public final class EditorActivity extends Activity {
     private void trust(Uri uri){synchronized(trustedUris){trustedUris.add(uri.toString());getPreferences(0).edit().putStringSet("trustedUris",new HashSet<>(trustedUris)).apply();}}
     private void persistGrant(Uri uri,int flags){try{getContentResolver().takePersistableUriPermission(uri,flags&(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION));}catch(SecurityException ignored){/* Some providers grant access only for this session. */}}
     public final class Bridge {
-        @JavascriptInterface public void postMessage(String raw){if(raw==null||raw.length()>32*1024*1024)return;runOnUiThread(()->{if(web==null)return;try{JSONObject m=new JSONObject(raw);handle(m);}catch(Exception e){notice("操作未完成："+e.getMessage());}});}
+        @JavascriptInterface public void postMessage(String raw){
+            if(raw==null)return;
+            /* 以前超限直接 return，页面拿不到任何回执，用户只看到“保存中”卡住。 */
+            if(raw.length()>32*1024*1024){notice("这次保存的数据超过 32 MB，没有提交。请删掉一些 PPT 页面，或先导出草稿再清理。");return;}
+            runOnUiThread(()->{if(web==null)return;try{JSONObject m=new JSONObject(raw);handle(m);}catch(Exception e){notice("操作未完成："+e.getMessage());}});
+        }
     }
     private void handle(JSONObject m)throws Exception{
         String type=m.optString("type");
@@ -342,7 +509,32 @@ public final class EditorActivity extends Activity {
         if(type.equals("ttsSpeak")){speakTts(m);return;}
         if(type.equals("ttsPause")){pauseTts(m.optString("id",ttsCurrentId));return;}
         if(type.equals("ttsStop")){stopTts();return;}
-        if(type.equals("snapshot")){JSONObject data=m.getJSONObject("data");int id=m.optInt("id");if(data.optInt("version")!=1||data.getJSONArray("files").length()>160)throw new IOException("工作区过大");io.execute(()->{JSONObject o=message("snapshotSaved");put(o,"id",id);try{if(workspaceReadOnly)throw new IOException("请先恢复旧工作区");byte[] bytes=data.toString().getBytes("UTF-8");if(bytes.length>32*1024*1024)throw new IOException("工作区超过保存上限，请另存大文件");atomic(workspace,bytes);put(o,"ok",true);}catch(Exception e){put(o,"ok",false);}event(o);});return;}
+        if(type.equals("snapshot")){
+            final JSONObject data=m.getJSONObject("data");final int id=m.optInt("id");
+            if(data.optInt("version")!=1||data.getJSONArray("files").length()>160)throw new IOException("工作区过大");
+            io.execute(()->{
+                JSONObject o=message("snapshotSaved");put(o,"id",id);
+                try{
+                    if(workspaceReadOnly)throw new IOException("请先恢复旧工作区");
+                    byte[] bytes=data.toString().getBytes("UTF-8");
+                    /* 以前这里超 32 MB 直接 return，草稿被整份丢掉还没有任何提示。
+                       现在明确算好体积并回执，页面会把原因告诉用户。 */
+                    if(bytes.length>WORKSPACE_LIMIT)throw new IOException("草稿体积 "+megabytes(bytes.length)+" MB，超过 "+megabytes(WORKSPACE_LIMIT)+" MB 上限，这次改动没有保存。请删掉一些 PPT 页面，或把重要内容另存后再清理。");
+                    atomic(workspace,bytes);put(o,"ok",true);
+                }catch(Exception e){put(o,"ok",false);put(o,"message",e.getMessage()==null?"草稿写入失败":e.getMessage());}
+                event(o);
+                if(exitRequested){exitRequested=false;ui.removeCallbacks(exitWatchdog);runOnUiThread(EditorActivity.this::finish);}
+            });
+            return;
+        }
+        if(type.equals("audioBegin")){audioBegin(m);return;}
+        if(type.equals("audioChunk")){audioChunk(m);return;}
+        if(type.equals("audioEnd")){audioEnd(m);return;}
+        if(type.equals("audioAbort")){audioAbort(m);return;}
+        if(type.equals("mediaPut")){mediaPut(m);return;}
+        if(type.equals("mediaDelete")){mediaDelete(m);return;}
+        if(type.equals("mediaGc")){mediaGc(m);return;}
+        if(type.equals("micPermission")){micPermission(m);return;}
         if(type.equals("open")){pick(OPEN,new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*").putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true));return;}
         /* 上课模式：让原生相册直接选照片，不经过 WebView 的文件选择器。 */
         if(type.equals("pickSlides")){
@@ -522,14 +714,33 @@ public final class EditorActivity extends Activity {
     private void pick(int request,Intent intent){if(pickerOpen){notice("请先完成当前文件选择。");return;}intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);try{pickerOpen=true;startActivityForResult(intent,request);}catch(ActivityNotFoundException e){pickerOpen=false;notice("未找到系统文件选择器。");}}
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
         super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+        if(requestCode==MIC_WARM){
+            boolean warm=grantResults!=null&&grantResults.length>0;
+            if(warm)for(int result:grantResults)if(result!=android.content.pm.PackageManager.PERMISSION_GRANTED)warm=false;
+            int id=pendingMicWarmId;pendingMicWarmId=-1;
+            android.util.Log.i("EmberStudio","RECORD_AUDIO warmup granted="+warm);
+            if(id>=0)replyMic(id,warm);
+            return;
+        }
         if(requestCode!=MIC||pendingMicRequest==null)return;
-        boolean granted=grantResults!=null;
+        /* grantResults 为 null 或空数组时是“用户取消/系统直接拒绝”，
+           原来的写法会把这种情形当成已授权去 grant()，用户看到的是误导性失败。 */
+        boolean granted=grantResults!=null&&grantResults.length>0;
         if(granted)for(int result:grantResults)if(result!=android.content.pm.PackageManager.PERMISSION_GRANTED)granted=false;
+        android.util.Log.i("EmberStudio","RECORD_AUDIO result: granted="+granted+" ("+(grantResults==null?"null":grantResults.length+" items")+")");
         android.webkit.PermissionRequest request=pendingMicRequest;pendingMicRequest=null;
         try{
-            if(granted)request.grant(request.getResources());
+            if(granted)grantAudio(request);
             else{request.deny();notice("麦克风权限被拒绝，上课模式无法录音。可在系统设置 → 应用 → 天工 → 权限中开启。");}
-        }catch(Exception ignored){}
+        }catch(Exception ignored){/* 页面已切走 */}
+    }
+    /* 只授予页面真正需要、宿主也确实有权限的音频采集资源：
+       把摄像头之类的资源一起 grant() 出去，会让 Chromium 在采集初始化阶段
+       去开根本不存在的设备，整条采集链路直接报 NotReadableError。 */
+    private static void grantAudio(android.webkit.PermissionRequest request){
+        java.util.List<String> allow=new java.util.ArrayList<>();
+        for(String resource:request.getResources())if(android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource))allow.add(resource);
+        request.grant(allow.toArray(new String[0]));
     }
     @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);pickerOpen=false;if(result!=RESULT_OK||data==null){if(request==EXPORT&&pendingExport!=null){JSONObject o=message("saved");put(o,"id",pendingExport.optString("id"));put(o,"ok",false);put(o,"message","已取消导出，草稿仍保留。");event(o);pendingExport=null;}if(request==SLIDE&&pendingSlideChooser!=null){resolveSlideChooser(null);}return;}
         if(request==OPEN){final ArrayList<Uri> uris=new ArrayList<>();if(data.getClipData()!=null){ClipData clips=data.getClipData();for(int i=0;i<Math.min(160,clips.getItemCount());i++)uris.add(clips.getItemAt(i).getUri());}else if(data.getData()!=null)uris.add(data.getData());for(Uri uri:uris){persistGrant(uri,data.getFlags());trust(uri);}io.execute(()->importUris(uris));}
@@ -554,8 +765,16 @@ public final class EditorActivity extends Activity {
     private void backupGame()throws IOException{if(!gameSave.getBaseFile().exists()&&!new File(gameSave.getBaseFile().getPath()+".bak").exists())return;try(InputStream in=gameSave.openRead()){atomic(new AtomicFile(new File(getFilesDir(),"journey-backup-"+System.currentTimeMillis()+".wzpsave")),TextFiles.read(in,8*1024*1024));}}
     private static void atomic(AtomicFile file,byte[] bytes)throws IOException{FileOutputStream out=null;try{out=file.startWrite();out.write(bytes);file.finishWrite(out);}catch(IOException e){if(out!=null)file.failWrite(out);throw e;}}
     private void backup(File source,String prefix,String suffix)throws IOException{if(!source.exists())return;try(InputStream in=new FileInputStream(source)){atomic(new AtomicFile(new File(getFilesDir(),prefix+System.currentTimeMillis()+suffix)),TextFiles.read(in,32*1024*1024));}}
-    @Override protected void onResume(){super.onResume();if(web!=null){JSONObject o=message("gameState");put(o,"exists",gameSave.getBaseFile().exists()||new File(gameSave.getBaseFile().getPath()+".bak").exists());event(o);}}
-    @Override protected void onPause(){if(tts!=null&&ttsCurrentId.length()>0)pauseTts(ttsCurrentId);if(web!=null)web.evaluateJavascript("window.Studio&&window.Studio.flush()",null);super.onPause();}
+    @Override protected void onResume(){super.onResume();exitRequested=false;ui.removeCallbacks(exitWatchdog);if(web!=null){JSONObject o=message("gameState");put(o,"exists",gameSave.getBaseFile().exists()||new File(gameSave.getBaseFile().getPath()+".bak").exists());event(o);}}
+    @Override protected void onPause(){
+        if(tts!=null&&ttsCurrentId.length()>0)pauseTts(ttsCurrentId);
+        if(web!=null){
+            /* A photo or file picker also pauses the activity. That must not stop a lecture. */
+            if(!pickerOpen)web.evaluateJavascript("(function(){try{window.Studio&&window.Studio.lecture&&window.Studio.lecture.suspend({background:true});}catch(e){}})()",null);
+            web.evaluateJavascript("window.Studio&&window.Studio.flush()",null);
+        }
+        super.onPause();
+    }
     /** The editor is one page. WebView history would drop the workspace, so back never calls goBack(). */
     private void watchKeyboard(){
         final View decor=getWindow().getDecorView();
@@ -575,30 +794,71 @@ public final class EditorActivity extends Activity {
         }
         return raw;
     }
+    private void showExitDialog(String title,String message,String positive,Runnable action){
+        if(web==null||isFinishing()||isDestroyed())return;
+        if(exitDialog!=null&&exitDialog.isShowing())return;
+        exitDialog=new AlertDialog.Builder(this).setTitle(title).setMessage(message).setNegativeButton("留在天工",null).setPositiveButton(positive,(d,w)->action.run()).create();
+        exitDialog.setOnDismissListener(d->exitDialog=null);
+        exitDialog.show();
+    }
+    private void confirmRecordingExit(){
+        showExitDialog("正在录音","退出会结束本次录音，并把已经录到的部分保存进课堂笔记。要继续吗？","停止并保存后退出",this::saveAndExit);
+    }
     private void confirmExit(){
         if(web==null||isFinishing()||isDestroyed())return;
         if(exitDialog!=null&&exitDialog.isShowing())return;
         web.evaluateJavascript("window.Studio&&window.Studio.exitMessage?window.Studio.exitMessage():''",raw->{
             if(web==null||isFinishing()||isDestroyed())return;
-            if(exitDialog!=null&&exitDialog.isShowing())return;
             String message=decodeJsString(raw);
             if(message.isEmpty())message="草稿会留在本机。还没点「保存」的内容不会写回手机上的原文件。游戏存档另外保存。";
-            exitDialog=new AlertDialog.Builder(this).setTitle("退出天工？").setMessage(message).setNegativeButton("留在天工",null).setPositiveButton("退出",(d,w)->{
-                if(web==null)return;
-                web.evaluateJavascript("window.Studio&&window.Studio.flush()",v->io.execute(()->runOnUiThread(this::finish)));
-            }).create();
-            exitDialog.setOnDismissListener(d->exitDialog=null);
-            exitDialog.show();
+            showExitDialog("退出天工？",message,"退出",this::saveAndExit);
+        });
+    }
+    /* Leave only after the lecture file is closed and the draft is flushed.
+       finish() in the flush callback; the watchdog covers a hung WebView. */
+    private void saveAndExit(){
+        if(isFinishing()||isDestroyed())return;
+        if(web==null){exitRequested=false;finish();return;}
+        if(exitRequested)return;
+        exitRequested=true;
+        ui.postDelayed(exitWatchdog,EXIT_SAVE_TIMEOUT);
+        web.evaluateJavascript("(function(){try{return !!(window.Studio&&window.Studio.lecture&&window.Studio.lecture.suspend({exit:true}));}catch(e){return false;}})()",value->pollExitSave(0));
+    }
+    private void pollExitSave(int attempt){
+        if(!exitRequested)return;
+        if(web==null||isFinishing()||isDestroyed()){exitRequested=false;ui.removeCallbacks(exitWatchdog);finish();return;}
+        if(attempt>EXIT_POLL_LIMIT){flushAndExit();return;}
+        web.evaluateJavascript("(function(){try{return !!(window.Studio&&window.Studio.lecture&&window.Studio.lecture.busy());}catch(e){return false;}})()",value->{
+            if(!exitRequested)return;
+            if("true".equals(value)){ui.postDelayed(()->pollExitSave(attempt+1),150);return;}
+            flushAndExit();
+        });
+    }
+    private void flushAndExit(){
+        if(!exitRequested)return;
+        if(web==null){exitRequested=false;ui.removeCallbacks(exitWatchdog);finish();return;}
+        web.evaluateJavascript("(function(){try{window.Studio&&window.Studio.flush();}catch(e){}})()",value->{
+            if(!exitRequested)return;
+            exitRequested=false;
+            ui.removeCallbacks(exitWatchdog);
+            finish();
         });
     }
     @Override public void onBackPressed(){
-        if(web==null){finish();return;}
+        if(web==null){saveAndExit();return;}
         if(keyboardVisible){
             android.view.inputmethod.InputMethodManager imm=(android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);
             if(imm!=null)imm.hideSoftInputFromWindow(web.getWindowToken(),0);
             return;
         }
-        web.evaluateJavascript("window.Studio&&window.Studio.back?window.Studio.back():false",result->{if(!"true".equals(result))confirmExit();});
+        web.evaluateJavascript("window.Studio&&window.Studio.back?window.Studio.back():false",result->{
+            if("true".equals(result))return;
+            if(web==null||isFinishing()||isDestroyed())return;
+            web.evaluateJavascript("(function(){try{return !!(window.Studio&&window.Studio.lecture&&window.Studio.lecture.busy());}catch(e){return false;}})()",busy->{
+                if("true".equals(busy))confirmRecordingExit();
+                else confirmExit();
+            });
+        });
     }
-    @Override protected void onDestroy(){ui.removeCallbacksAndMessages(null);releaseTts();clearSlideCache();if(web!=null){web.removeJavascriptInterface("StudioBridge");web.destroy();web=null;}if(assets!=null)try{assets.close();}catch(IOException ignored){}if(packed!=null)packed.close();io.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){ui.removeCallbacksAndMessages(null);releaseTts();clearSlideCache();for(String id:new ArrayList<>(audioSinks.keySet()))closeAudioSink(id);audioIo.shutdown();if(web!=null){web.removeJavascriptInterface("StudioBridge");web.destroy();web=null;}if(assets!=null)try{assets.close();}catch(IOException ignored){}if(packed!=null)packed.close();io.shutdown();super.onDestroy();}
 }

@@ -11,8 +11,16 @@ JDK_ROOT="${JDK_ROOT:-${JAVA_HOME:-}}"
 SIGNING_KEY="${SIGNING_KEY:-}"
 PARALLEL="${PARALLEL_INSTALL:-0}"
 SKIP_WEB="${SKIP_WEB_BUILD:-0}"
-VERSION_NAME="0.1.17"
-VERSION_CODE="25"
+
+# Single source of truth for the version: parse it from studio/build.gradle,
+# matching tools/build-studio.ps1. versionName is single-quoted, versionCode is bare.
+GRADLE_FILE="$ROOT/studio/build.gradle"
+VERSION_CODE="$(sed -n 's/.*versionCode[[:space:]]\{1,\}\([0-9]\{1,\}\).*/\1/p' "$GRADLE_FILE" | head -n 1)"
+VERSION_NAME="$(sed -n "s/.*versionName[[:space:]]*'\\([^']*\\)'.*/\\1/p" "$GRADLE_FILE" | head -n 1)"
+if [[ -z "$VERSION_NAME" || -z "$VERSION_CODE" ]]; then
+  echo "Cannot parse versionName/versionCode from studio/build.gradle" >&2
+  exit 1
+fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

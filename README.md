@@ -35,7 +35,7 @@
 - 存档修复：格式 6、7 的读取和写入对齐。数学进度、名字和特效能按原样迁过来；格式 6 的物理工坊按未开始处理，格式 7 去掉后来新增的字段后，发射参数回到初始。
 - 记事本涂画：手指能在画布上画出笔画。画布按已经显示出来的图层量尺寸，不再把隐藏时的 0 宽度写进样式。
 
-当前源码版本：游戏 `app/build.gradle` 为 **0.7.1**（versionCode 8），天工 `studio/build.gradle` 为 **0.1.17**（versionCode 25）。文首的 **0.1.17**（versionCode 25）安装包已打进 `dist/`，0.1.15 的两个旧包也仍在。游戏 0.7.1 的标准包和共存包仍在 `dist/`。校验和：`dist/SHA256SUMS.txt` 是游戏 0.7.1，`dist/STUDIO-SHA256SUMS.txt` 覆盖天工 0.1.15 与 0.1.17 的四个包。`tools/package-source.py` 的目标是 `dist/WuziPingRPG-0.7.0-source.zip`，`tools/package-studio-source.py` 的目标是 `dist/Ember-Studio-0.1.15-source.zip`，这两个压缩包目前都不在仓库里。
+当前源码版本：游戏 `app/build.gradle` 为 **0.7.1**（versionCode 8），天工 `studio/build.gradle` 为 **0.1.23**（versionCode 31）。文首的 **0.1.17**（versionCode 25）安装包已打进 `dist/`，0.1.15 的两个旧包也仍在。0.1.23 只在源码里，没有新的安装包。游戏 0.7.1 的标准包和共存包仍在 `dist/`。校验和：`dist/SHA256SUMS.txt` 是游戏 0.7.1，`dist/STUDIO-SHA256SUMS.txt` 覆盖天工 0.1.15 与 0.1.17 的四个包。`tools/package-source.py` 的目标是 `dist/WuziPingRPG-0.7.0-source.zip`，`tools/package-studio-source.py` 的目标是 `dist/Ember-Studio-0.1.15-source.zip`，这两个压缩包目前都不在仓库里。
 
 [下载游戏 v0.7.1](dist/WuziPing-Emberbound-0.7.1-debug.apk) · [下载仓库源码 ZIP](https://github.com/ohGGBob/WuziPingRPG/archive/refs/heads/main.zip)
 
@@ -238,7 +238,7 @@ python .\tools\package-source.py
 
 Linux 上 `tools/verify-desktop.sh` 对应桌面检查。`tools/build-apk.sh` 的步骤相同，但版本戳还停在 0.7.0 / versionCode 7，输出文件名是 `WuziPing-Emberbound-0.7.0-*.apk`，并会用这些文件重写 `dist/SHA256SUMS.txt`。要得到 0.7.1，用上面的 PowerShell 脚本。可用 `SDK_ROOT` / `JDK_ROOT` 指定工具目录。
 
-天工用 `tools/build-studio.ps1`，Linux 上用 `tools/build-studio.sh`。源码版本戳是 0.1.17 / versionCode 25，重新构建会输出 `dist/Ember-Studio-0.1.17.apk` 和 `dist/Ember-Studio-0.1.17-parallel.apk`。仓库里已提交 0.1.17 标准包与共存包，0.1.15 的旧包也保留。前端和检查步骤见 `studio/README.md` 的构建一节。
+天工用 `tools/build-studio.ps1`，Linux 上用 `tools/build-studio.sh`。两个脚本都从 `studio/build.gradle` 读取版本，当前源码是 0.1.23 / versionCode 31，重新构建会输出 `dist/Ember-Studio-0.1.23.apk` 和 `dist/Ember-Studio-0.1.23-parallel.apk`。仓库里已提交的仍是 0.1.17 标准包与共存包，0.1.15 的旧包也保留。前端和检查步骤见 `studio/README.md` 的构建一节。
 
 可用 `-SdkRoot` / `-JdkRoot` 指定工具目录。打包复用 `build/manual/debug.keystore`，源码包排除签名私钥、缓存和本地存档。用于真实发布前应配置专门的发布签名。
 

@@ -4,6 +4,11 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- WebView 的 getUserMedia 由 Chromium 音频采集实现，初始化 AudioRecord 时要调整
+         音频参数。缺这条普通权限时，系统音频服务会直接拒绝分配麦克风，页面侧只会
+         收到 NotReadableError（被当成"其他应用占用"），与是否真的被占用无关。 -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-feature android:glEsVersion="0x00020000" android:required="false" />
     <queries>
         <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>

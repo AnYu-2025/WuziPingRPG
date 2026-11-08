@@ -1,9 +1,12 @@
 /* 上课模式：录音控制栏 + 三栏布局（笔记 / 时间轴 / PPT）+ 时间戳 gutter。 */
 
 /* ===== 录音控制栏 ===== */
+/* 只写 min-height：窄屏播放态会换行，条要能跟着内容长高。
+   flex-wrap 放在基础规则：481–511px 那段同样装不下播放态的一行，只收 480 以下会留缺陷窗口；
+   换行只在真放不下时发生，宽屏一行排得开时没有任何影响。 */
 #lectureBar{display:none}
 body.lecture #lectureBar{
-  display:flex;align-items:center;gap:8px;height:48px;min-height:48px;flex:none;
+  display:flex;align-items:center;gap:8px;min-height:48px;flex:none;flex-wrap:wrap;row-gap:6px;
   padding:0 10px;background:#fff1f2;border-bottom:1px solid #fecdd3;position:relative;z-index:8;
 }
 .recdot{width:11px;height:11px;border-radius:50%;background:#fb7185;flex:none}
@@ -35,6 +38,9 @@ body.lecture #lectureHint:not([hidden]){
 .rec-translate input[type="checkbox"]{width:14px;height:14px;accent-color:#e11d48;margin:0;cursor:pointer}
 .rec-translate .reccheck{display:none}
 .rec-translate .reclabel{letter-spacing:.02em}
+/* 播放态最右的锚点按钮：.grow 吃掉整行剩余空间，再补 margin-left:auto，
+   这样换行后 📌 依然贴右，不会缩在第二行行首。放在基础规则：换行已不局限于 480px 以下。 */
+#anchorBtn{margin-left:auto}
 @media(max-width:399px){
   .anchorbtntext{display:none}
   #anchorBtn{padding:0 10px;font-size:14px}
@@ -42,20 +48,35 @@ body.lecture #lectureHint:not([hidden]){
   .recalt{padding:0 9px}
   #recordBtn{padding:0 11px}
 }
+/* 窄屏收紧（≤480px）：换行能力已在基础规则里，这里只压缩内边距与计时常量，
+   让两行布局在 360px 也不挤。放在 399 块之后，min-width 才有意义：同特异性靠后者生效。 */
+@media(max-width:480px){
+  body.lecture #lectureBar{padding:6px 8px}
+  #recordTimer{min-width:56px}
+  .recalt,.recstop,.recanchor{padding:0 9px}
+  .rec-translate{padding:0 8px}
+}
 body.lecture .appbar{background:rgba(255,247,248,.92);border-bottom-color:#fbe0e5}
 body.lecture #activePath{color:#9f1239}
 body.lecture #runButton,body.lecture #stopButton,body.lecture .console,body.lecture .quickkeys{display:none!important}
+/* 全模式统一顶栏：更多按钮一律用黑白线框齿轮（颜色跟随主题，定义在 shell.css）。
+   Python 模式切文件走左上角 ☰ 文件抽屉；＋新建 / 进入游戏在齿轮菜单里。 */
+#moreButton{display:inline-flex;align-items:center;justify-content:center}
 body.lecture #editor{padding-bottom:0}
 body.lecture #noteCount{display:inline}
 
-/* ===== 三栏布局 ===== */
+/* ===== 三栏布局 =====
+   宽度只在 ≥900px 的三栏模式下写；窄屏走下面的上下分屏 + Tab 切换，
+   这里给固定宽度会把 600–899px 的笔记区挤成一条缝。 */
 #lectureTimeline,#lectureSlides,#lectureTabs{display:none}
 body.lecture #workbench{background:#fff}
-body.lecture #lectureTimeline{display:flex;flex-direction:column;width:250px;flex:none;min-height:0;border-left:1px solid var(--line);background:var(--surface)}
-body.lecture #lectureSlides{display:flex;flex-direction:column;width:200px;flex:none;min-height:0;border-left:1px solid var(--line);background:#fffdf7}
+body.lecture #lectureTimeline{display:flex;flex-direction:column;flex:none;min-height:0;border-left:1px solid var(--line);background:var(--surface)}
+body.lecture #lectureSlides{display:flex;flex-direction:column;flex:none;min-height:0;border-left:1px solid var(--line);background:#fffdf7}
 #timelineCanvas{width:100%;height:80px;display:block;touch-action:none;cursor:pointer}
 .tl-controls{display:flex;align-items:center;gap:4px;padding:2px 8px 4px;border-top:1px solid var(--line)}
 .tl-controls button{width:30px;min-width:30px;height:26px;min-height:26px;padding:0;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-size:14px}
+.tl-controls .tl-rate,.tl-controls .tl-line{width:auto;min-width:38px;padding:0 7px;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--accent-strong);border-color:#fecdd3;background:#fff5f7}
+.tl-controls .tl-line{color:#0f766e;border-color:#99f6e4;background:#f0fdfa}
 #tlRange{flex:1;text-align:right;font-size:10px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* 锚点列表 */
@@ -73,6 +94,16 @@ body.lecture #lectureSlides{display:flex;flex-direction:column;width:200px;flex:
 .anchorempty,.slidempty{font-size:11.5px;line-height:1.75;color:var(--faint);padding:8px 4px;margin:0}
 
 /* PPT 照片 */
+/* 当前页大图：录音/听课时不用点缩略图→预览→关闭，抬眼就能看 */
+#slideStage{flex:none;position:relative;margin:8px 8px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0f172a}
+#slideStage[hidden]{display:none}
+#slideStage img{display:block;width:100%;height:110px;object-fit:contain;background:#0f172a}
+#slideNowLabel{position:absolute;left:6px;bottom:6px;padding:2px 7px;border-radius:999px;background:rgba(15,23,42,.72);color:#fff;font-size:10px;letter-spacing:.02em}
+#slideNav{flex:none;display:flex;align-items:center;gap:4px;margin:6px 8px 0}
+#slideNav button{height:30px;min-height:30px;padding:0 9px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--text);font-size:12px;font-weight:600}
+#slideNav #slideMark{margin-left:auto;border-color:#fde68a;background:#fffbeb;color:#b45309;font-size:11.5px}
+#slideNav #slidePos{font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted);min-width:48px;text-align:center}
+.slideitem.active .slidethumb{border-color:#e11d48;box-shadow:0 0 0 2px rgba(225,29,72,.18)}
 #slideList{flex:1;min-height:0;overflow:auto;padding:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start;overscroll-behavior:contain}
 .slideitem{display:flex;flex-direction:column;gap:4px;min-width:0}
 .slidethumb{width:100%;height:64px;padding:0;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#fff;display:block}
@@ -91,26 +122,51 @@ body.lecture #lectureSlides{display:flex;flex-direction:column;width:200px;flex:
 .demoire-slider output{font:600 11px/1 ui-monospace,Menlo,Consolas,monospace;color:var(--accent-strong);min-width:34px;text-align:right}
 .demoire-row p{margin:0;font-size:10.5px;line-height:1.6;color:var(--faint)}
 
-/* 手机：单栏 + 底部 Tab */
-@media(max-width:599px){
+/* 窄屏与小平板（<900px）：上下分屏 —— 笔记照常写，下方留一块给时间轴 / PPT。
+   以前切到时间轴或 PPT 会把编辑区 display:none，录音时只能二选一。
+   三栏并列只在 ≥900px 出现（见文件末尾的 min-width:900px 块）。 */
+@media(max-width:899px){
+  body.lecture #workbench{flex-direction:column}
   body.lecture #lectureTabs{display:flex;gap:4px;padding:6px 8px;background:rgba(255,255,255,.95);border-top:1px solid var(--line)}
   .lecture-tab{flex:1;height:38px;min-height:38px;border-radius:10px;background:var(--surface-2);font-size:12.5px;color:var(--muted);border:1px solid var(--line)}
   .lecture-tab.active{background:#fff1f2;color:#be123c;font-weight:600;border-color:#fecdd3}
   body.lecture #lectureTimeline,body.lecture #lectureSlides{width:100%;border-left:0}
   body.lecture[data-lecture-tab="notes"] #lectureTimeline,
   body.lecture[data-lecture-tab="notes"] #lectureSlides{display:none}
-  body.lecture[data-lecture-tab="timeline"] .workspace,
+  /* 分屏：编辑区保留，面板压到下半屏 */
   body.lecture[data-lecture-tab="timeline"] #lectureSlides{display:none}
-  body.lecture[data-lecture-tab="slides"] .workspace,
   body.lecture[data-lecture-tab="slides"] #lectureTimeline{display:none}
+  body.lecture[data-lecture-tab="timeline"] .workspace,
+  body.lecture[data-lecture-tab="slides"] .workspace{flex:1;min-height:80px;display:flex}
+  body.lecture[data-lecture-tab="timeline"] #lectureTimeline,
+  body.lecture[data-lecture-tab="slides"] #lectureSlides{
+    flex:none;height:44vh;min-height:190px;border-top:1px solid var(--line);background:#fff;
+  }
   #timelineCanvas{height:110px}
   #slideList{grid-template-columns:1fr 1fr}
+  /* 分屏高度有限：大图、按钮、去摩尔纹设置都收紧，把空间留给缩略图/波形 */
+  #slideStage img{height:92px}
+  #slideStage{margin-top:6px}
+  #slideNav{margin-top:4px}
+  #slideNav button{height:28px;min-height:28px;padding:0 8px}
+  #importSlide{margin:4px 8px 2px;height:32px;min-height:32px}
+  #importPptx{margin:0 8px 4px;height:32px;min-height:32px}
+  .demoire-row{margin:0 8px 6px;padding:6px 8px}
+  .demoire-row p{display:none}
+  .demoire-slider{margin:4px 0 0}
+  body.lecture[data-lecture-tab="timeline"] #anchorList{padding-top:4px}
 }
 @media(min-width:900px){
-  #timelineCanvas{height:120px}
+  /* 三栏都在，底部 Tab 没有意义 */
+  body.lecture #lectureTabs{display:none}
   body.lecture #lectureTimeline{width:300px}
   body.lecture #lectureSlides{width:220px}
+  #timelineCanvas{height:120px}
+  #slideStage img{height:124px}
 }
+/* 上课只写一份笔记，≥900px 的文件侧栏（258px）会把三栏里的编辑区压到 100 出头；
+   这段时间不显示侧栏，宽度全给笔记 + 时间轴 + PPT。手机/平板的文件抽屉不受影响。 */
+@media(min-width:900px){body.lecture #explorer{display:none}}
 
 /* ===== 笔记时间戳 gutter 与播放高亮 ===== */
 .cm-note-times{background:#fffafa}
@@ -124,3 +180,8 @@ body.lecture #lectureSlides{display:flex;flex-direction:column;width:200px;flex:
 #anchorDialog .dialogactions button[value="delete"]{color:var(--danger);border:1px solid #fecaca;background:var(--danger-soft);margin-right:auto}
 #slideDialog img{width:100%;max-height:52vh;object-fit:contain;border-radius:10px;border:1px solid var(--line);background:#f8fafc;display:block}
 #slideDialog .dialogactions button:first-child{margin-right:auto}
+/* 管理行：前移 / 后移 / 删除，和主操作行分开，避免误触 */
+#slideDialog .slidemanage{gap:6px;margin-bottom:2px}
+#slideDialog .slidemanage button{height:32px;min-height:32px;padding:0 10px;border-radius:9px;font-size:12px}
+#slideDialog .slidemanage button:first-child{margin-right:0}
+#slideDialog #slideDelete{margin-left:auto;color:#b91c1c;border:1px solid #fecaca;background:#fef2f2}

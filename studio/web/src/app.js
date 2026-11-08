@@ -13,13 +13,16 @@ import {markdown} from '@codemirror/lang-markdown';
 import {HighlightStyle,syntaxHighlighting} from '@codemirror/language';
 import {tags} from '@lezer/highlight';
 import {closeSearchPanel,openSearchPanel} from '@codemirror/search';
-import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAfterRestore,lectureViewCreated,lectureModeEnter,lectureModeLeave,lectureBusy,lectureStatusText,lectureDebug} from './lecture.js';
+import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAfterRestore,lectureViewCreated,lectureModeEnter,lectureModeLeave,lectureBusy,lectureStatusText,lectureMediaMessage,lectureDebug} from './lecture.js';
 import {initTTS,ttsSerialize,ttsSanitize,ttsAfterRestore,ttsModeEnter,ttsModeLeave,ttsHideBar,ttsShowBar,ttsDocumentChanged,ttsStatusText,ttsReceive,ttsDebug} from './tts.js';
 import {initDraw,ensureDrawUI,enterDrawMode,exitDrawMode,isDrawMode,getDrawStrokes,loadDrawStrokes,getDrawView,loadDrawView} from './draw.js';
 import {initAI,aiSerialize,aiSanitize,aiRestore,aiModeEnter,aiModeLeave,aiHidePanel,aiEnterPanel,aiStatusText,aiReceive,aiDebug} from './ai.js';
 import {BACK,resolveBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS} from './back.js';
 
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
+/* 原生工作区快照的硬上限（EditorActivity 里是同一个数）。
+   以前超限是静默丢弃整份草稿，现在先在页面里算清楚再明确报错。 */
+const WORKSPACE_LIMIT=30*1024*1024;
 
 /* Light editor surface: calm paper background, quiet gutters, GitHub-like syntax colours. */
 const codeTheme=EditorView.theme({
@@ -55,6 +58,17 @@ const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
 const defaults=()=>({version:1,files:[makeFile('main.py','# 天工 · 离线 Python\n# 标准输入在下方面板填写，每行一项\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\nfor i in range(1, 4):\n    print("让想法运行起来", "✦" * i)\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这是手机上写出的第一个页面。</p>\n<button onclick="this.textContent=\'想法变成了现实 ✦\'">试着点一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},ai:aiSerialize()});
 let state=defaults(),view,restoring=false,worker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
+/* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
+const micWaiters=new Map();let micSeq=0;
+function requestMic(){
+  if(!native)return Promise.resolve(true);
+  return new Promise(resolve=>{
+    const id=++micSeq;
+    micWaiters.set(id,resolve);
+    send('micPermission',{id});
+    setTimeout(()=>{if(micWaiters.has(id)){micWaiters.delete(id);resolve(true);}},20000);
+  });
+}
 const langConfig=new Compartment(),wrapConfig=new Compartment(),editConfig=new Compartment();
 let editorStates=new Map();
 function active(){return state.files.find(f=>f.path===state.active)||state.files[0];}
@@ -62,7 +76,30 @@ function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
 function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize()};}
-function flush(){clearTimeout(saveTimer);if(!ready)return;state.stdin=$('stdin').value;const data=snapshot(),id=++revision;$('saveState').textContent='正在保存草稿…';if(native)send('snapshot',{data,id});else try{localStorage.setItem('ember-studio-v1',JSON.stringify(data));latestSaved=id;$('saveState').textContent='草稿已保存';}catch(e){$('saveState').textContent='草稿保存失败';notify('空间不足，请先另存重要文件。');}}
+/* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
+   不再让原生静默 return 掉整份草稿。 */
+function mb(bytes){return (bytes/1048576).toFixed(1);}
+function flush(){
+  clearTimeout(saveTimer);
+  if(!ready)return;
+  state.stdin=$('stdin').value;
+  const data=snapshot(),id=++revision;
+  $('saveState').textContent='正在保存草稿…';
+  if(native){
+    let text='';
+    try{text=JSON.stringify(data);}
+    catch(e){$('saveState').textContent='草稿保存失败';notify('草稿序列化失败：'+(e.message||e));return;}
+    if(text.length>WORKSPACE_LIMIT){
+      $('saveState').textContent='草稿过大，未保存';
+      notify('草稿体积 '+mb(text.length)+' MB，超过 '+mb(WORKSPACE_LIMIT)+' MB 上限，这次改动没有写入。请到「上课」里删掉一些 PPT 页面，或把重要内容另存后再清理。');
+      return;
+    }
+    window.StudioBridge.postMessage('{"type":"snapshot","id":'+id+',"data":'+text+'}');
+    return;
+  }
+  try{localStorage.setItem('ember-studio-v1',JSON.stringify(data));latestSaved=id;$('saveState').textContent='草稿已保存';}
+  catch(e){$('saveState').textContent='草稿保存失败';notify('空间不足，请先另存重要文件。');}
+}
 function scheduleSave(){if(restoring)return;$('saveState').textContent='草稿待保存';clearTimeout(saveTimer);saveTimer=setTimeout(flush,450);}
 function changed(){renderFiles();scheduleSave();}
 function loadState(data){
@@ -98,16 +135,14 @@ function createEditor(){
  ]};
  view=new EditorView({state:EditorState.create(config),parent:$('editor')});view.dom.style.fontSize=state.settings.fontSize+'px';editorStates.set(active().path,view.state);position();lectureViewCreated();
 }
-function position(){if(!view)return;const pos=view.state.selection.main.head,line=view.state.doc.lineAt(pos);$('position').textContent=`第 ${line.number} 行，第 ${pos-line.from+1} 列`;const note=$('noteCount');if(note&&document.body.classList.contains('notepad'))note.textContent=view.state.doc.length+' 字 · '+view.state.doc.lines+' 行';else if(note&&document.body.classList.contains('lecture'))note.textContent=lectureStatusText();else if(note&&document.body.classList.contains('tts'))note.textContent=ttsStatusText();else if(note&&document.body.classList.contains('aiview'))note.textContent=aiStatusText();const empty=$('noteEmpty');if(empty)empty.classList.toggle('show',document.body.classList.contains('notepad')&&view.state.doc.length===0);}
+function position(){if(!view)return;const pos=view.state.selection.main.head,line=view.state.doc.lineAt(pos);$('position').textContent=`第 ${line.number} 行，第 ${pos-line.from+1} 列`;const note=$('noteCount');if(note&&document.body.classList.contains('notepad'))note.textContent=view.state.doc.length+' 字 · '+view.state.doc.lines+' 行';else if(note&&document.body.classList.contains('lecture'))note.textContent=lectureStatusText();else if(note&&document.body.classList.contains('tts'))note.textContent=ttsStatusText();else if(note&&document.body.classList.contains('aiview'))note.textContent=aiStatusText();const empty=$('noteEmpty');if(empty){const blank=document.body.classList.contains('notepad')||document.body.classList.contains('lecture');empty.classList.toggle('show',blank&&view.state.doc.length===0);}}
 function renderFiles(){
  const list=$('fileList');list.replaceChildren();for(const f of state.files){const row=document.createElement('div');row.className='fileitem'+(f.path===state.active?' active':'');const b=document.createElement('button');b.className='fileopen';b.title=f.path;b.dataset.path=f.path;const glyph=document.createElement('span');glyph.className='fileglyph';glyph.textContent=extension(f.path).slice(0,3);const name=document.createElement('span');name.textContent=f.path+(f.text!==f.savedText?' •':'');b.append(glyph,name);b.onclick=()=>switchFile(f.path);const menu=document.createElement('button');menu.className='filemenu';menu.textContent='⋯';menu.setAttribute('aria-label','重命名 '+f.path);menu.onclick=()=>nameDialog(f.path);row.append(b,menu);list.append(row);}
- const tabs=$('tabs');tabs.replaceChildren();for(const path of state.opened){const f=state.files.find(f=>f.path===path);if(!f)continue;const b=document.createElement('button');b.role='tab';b.setAttribute('aria-selected',String(path===state.active));b.textContent=path.split('/').pop()+(f.text!==f.savedText?' •':'');b.title=path;b.dataset.path=path;b.className=path===state.active?'active':'';b.onclick=()=>switchFile(path);tabs.append(b);}
  refreshBadges();
 }
 function refreshBadges(){
  const f=active();if(!f)return;
  $('activePath').textContent=f.path;$('dirtyFlag').textContent=f.uri?(f.text===f.savedText?'已保存到原文件':'有修改 · 保存写回'):'本地草稿 · 自动保存';$('language').textContent=document.body.classList.contains('drawing')?'画画':language(f.path)[0];$('encoding').textContent=f.encoding||'UTF-8';$('runButton').textContent=['html','htm'].includes(extension(f.path))?'↗ 预览':'▶ 运行';
- for(const b of $('tabs').children){const p=b.dataset.path;if(!p)continue;const t=state.files.find(x=>x.path===p);if(!t)continue;const activeNow=p===state.active;b.textContent=p.split('/').pop()+(t.text!==t.savedText?' •':'');b.classList.toggle('active',activeNow);b.setAttribute('aria-selected',String(activeNow));}
  for(const b of $('fileList').querySelectorAll('.fileopen')){const p=b.dataset.path,t=state.files.find(x=>x.path===p);if(!t)continue;const name=b.lastElementChild;if(name)name.textContent=p+(t.text!==t.savedText?' •':'');b.closest('.fileitem').classList.toggle('active',p===state.active);}
 }
 function switchFile(path){if(worker){notify('请先停止运行，再切换文件。');return;}const f=state.files.find(f=>f.path===path);if(!f)return;if(workspaceMode==='tts')lastTtsPath=path;editorStates.set(state.active,view.state);state.active=path;if(!state.opened.includes(path))state.opened.push(path);restoring=true;const previous=editorStates.get(path);if(previous&&previous.doc.toString()===f.text){view.setState(previous);view.dispatch({effects:[langConfig.reconfigure(language(path)[1]()),wrapConfig.reconfigure(state.settings.wrap?EditorView.lineWrapping:[]),editConfig.reconfigure(EditorState.readOnly.of(false))]});}else createEditor();restoring=false;renderFiles();document.body.classList.remove('drawer');position();scheduleSave();if(workspaceMode==='tts')ttsDocumentChanged();}
@@ -118,7 +153,7 @@ for(const id of ['fontSize','wordWrap','timeLimit'])$(id).oninput=()=>{state.set
 function append(text,error=false){if($('output').textContent.length>=70000)return;const span=document.createElement('span');if(error)span.className='error';span.textContent=String(text).slice(0,70000-$('output').textContent.length);$('output').append(span);$('output').scrollTop=$('output').scrollHeight;}
 function setConsole(open){$('consolePanel').classList.toggle('folded',!open);$('foldConsole').setAttribute('aria-expanded',String(open));}
 function outputTab(input=false){$('output').hidden=input;$('stdin').hidden=!input;$('inputTab').classList.toggle('active',input);$('outputTab').classList.toggle('active',!input);setConsole(true);}
-function setRunning(running){$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','gameTab','newTab','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode']){const el=$(id);if(el)el.disabled=running;}if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
+function setRunning(running){$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode']){const el=$(id);if(el)el.disabled=running;}if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
 function stop(reason='已停止运行'){runToken++;if(worker)worker.terminate();worker=null;clearTimeout(timeout);setRunning(false);$('runState').textContent=reason;}
 function applyRunFiles(files){let updated=0;for(const f of files||[]){if(!validPath(f.path)||typeof f.text!=='string'||f.text.length>MAX_FILE)continue;const existing=state.files.find(x=>x.path===f.path);if(existing){if(existing.text===f.text)continue;existing.text=f.text;editorStates.delete(f.path);}else if(state.files.length<160)state.files.push(makeFile(f.path,f.text));else continue;updated++;}if(updated){restoring=true;createEditor();restoring=false;changed();append(`\n[工作区] 已保留 ${updated} 个新增或修改的文件，写回手机文件需点击保存。\n`);}}
 async function run(){
@@ -133,7 +168,32 @@ function preview(){flush();if(native){send('preview',{path:active().path,files:s
 function saveFile(as=false){flush();const f=active(),id=String(Date.now())+'-'+Math.random();if(native){pendingSaves.set(id,{path:f.path,text:f.text});send(as||!f.uri?'export':'save',{id,path:f.path,text:f.text,uri:f.uri,encoding:f.encoding});}else{const blob=new Blob([f.text],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=f.path.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);f.savedText=f.text;changed();notify('已导出文件。');}}
 function importFiles(files){if(worker){notify('请停止运行后再导入。');return null;}let first='',backups=0,accepted=0;for(const file of files){if(!validPath(file.path)||typeof file.text!=='string'||file.text.length>MAX_FILE)continue;let path=file.path;const existing=state.files.find(f=>f.path===path);if(existing&&existing.uri!==file.uri){if(state.files.length>=159){notify('文件过多，请先另存草稿后重试。');break;}const backup='_草稿备份/'+Date.now()+'_'+path.split('/').pop().slice(-140);existing.path=backup;existing.uri='';state.opened=state.opened.map(p=>p===path?backup:p);editorStates.delete(path);backups++;}else if(existing){if(existing.text!==existing.savedText){notify('文件存在未写回的编辑，已保留草稿。');continue;}Object.assign(existing,makeFile(path,file.text,file.uri,file.encoding));accepted++;if(!first)first=path;continue;}if(state.files.length>=160)break;state.files.push(makeFile(path,file.text,file.uri||'',file.encoding||'UTF-8'));accepted++;if(!first)first=path;}if(first)switchFile(first);changed();if(backups)notify('导入文件保留原名；同名旧稿已移到 _草稿备份。');return {accepted,backups};}
 async function browserImport(event){const files=[];let skipped=0;for(const f of [...event.target.files].slice(0,160)){if(f.size>MAX_FILE){skipped++;continue;}try{const bytes=new Uint8Array(await f.arrayBuffer());if(bytes.includes(0))throw Error('binary');const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);files.push({path:f.webkitRelativePath||f.name,text,uri:'browser:'+f.name});}catch(e){skipped++;}}const result=importFiles(files);notify(`已接收 ${result?.accepted||0} / ${files.length} 个文本文件${skipped?'，另跳过 '+skipped+' 个非文本或过大文件':''}`);event.target.value='';}
-window.StudioNative={receive(m){if(m.type==='aiToolResult'){const r=aiToolWaiters.get(m.id);if(r){aiToolWaiters.delete(m.id);r(m.data||(m.ok?'完成':'操作未完成'));}return;}if(m.type==='restore'){restore(m.data);if(m.error)notify(m.error);}else if(m.type==='snapshotSaved'){if(m.id>=latestSaved){latestSaved=m.id;if(m.id===revision)$('saveState').textContent=m.ok?'草稿已保存':'草稿保存失败';}}else if(m.type==='imported'){const result=importFiles(m.files||[]);if(result&&result.accepted<(m.files||[]).length)notify('工作区接收 '+result.accepted+' / '+m.files.length+' 个文件，其余因容量或未保存草稿冲突未导入；原文件保留。');else notify((m.message||'导入完成')+(result?.backups?'；同名旧稿已备份':''));}else if(m.type==='saved'){const pending=pendingSaves.get(m.id);pendingSaves.delete(m.id);if(m.ok&&pending){const f=state.files.find(f=>f.path===pending.path);if(f){f.savedText=pending.text;f.uri=m.uri||f.uri;f.encoding=m.encoding||f.encoding;changed();}notify('已保存到手机文件。');}else notify(m.message||'保存未完成，草稿仍保留。');}else if(ttsReceive(m)){}else if(aiReceive(m)){}else if(m.type==='notice')notify(m.message);else if(m.type==='gameState')$('gameSaveInfo').textContent=m.exists?'发现游戏存档 · 进入后点击“继续旅程”。':'尚无游戏存档 · 开始后会自动保存。';}};
+window.StudioNative={receive(m){
+  if(!m)return;
+  if(m.type==='aiToolResult'){const r=aiToolWaiters.get(m.id);if(r){aiToolWaiters.delete(m.id);r(m.data||(m.ok?'完成':'操作未完成'));}return;}
+  /* 课堂模式的媒体回执（mediaPut / mediaGc）先交给 lecture 处理。 */
+  if(lectureMediaMessage(m))return;
+  /* 上课前预热麦克风权限的回执（见 EditorActivity.micPermission）。 */
+  if(m.type==='micPermission'){const done=micWaiters.get(m.id);if(done){micWaiters.delete(m.id);done(!!m.granted);}return;}
+  if(m.type==='restore'){restore(m.data);if(m.error)notify(m.error);}
+  /* 草稿保存失败（体积超限、磁盘满、旧工作区只读）必须让用户看见，
+     不能只在状态栏留一句“草稿保存失败”。 */
+  else if(m.type==='snapshotSaved'){
+    if(m.id>=latestSaved){
+      latestSaved=m.id;
+      if(m.id===revision){
+        $('saveState').textContent=m.ok?'草稿已保存':'草稿保存失败';
+        if(!m.ok&&m.message)notify(m.message);
+      }
+    }
+  }
+  else if(m.type==='imported'){const result=importFiles(m.files||[]);if(result&&result.accepted<(m.files||[]).length)notify('工作区接收 '+result.accepted+' / '+m.files.length+' 个文件，其余因容量或未保存草稿冲突未导入；原文件保留。');else notify((m.message||'导入完成')+(result?.backups?'；同名旧稿已备份':''));}
+  else if(m.type==='saved'){const pending=pendingSaves.get(m.id);pendingSaves.delete(m.id);if(m.ok&&pending){const f=state.files.find(f=>f.path===pending.path);if(f){f.savedText=pending.text;f.uri=m.uri||f.uri;f.encoding=m.encoding||f.encoding;changed();}notify('已保存到手机文件。');}else notify(m.message||'保存未完成，草稿仍保留。');}
+  else if(ttsReceive(m)){}
+  else if(aiReceive(m)){}
+  else if(m.type==='notice')notify(m.message);
+  else if(m.type==='gameState')$('gameSaveInfo').textContent=m.exists?'发现游戏存档 · 进入后点击“继续旅程”。':'尚无游戏存档 · 开始后会自动保存。';
+}};
 /* One activation path per control. pointerup used to fire before click and let the
    interface change underneath the finger (drawer opening, Run becoming Stop), which
    made 0.1.7 buttons feel broken on phones. */
@@ -141,8 +201,10 @@ const on=(id,fn)=>{const el=$(id);if(el)el.addEventListener('click',fn);};
 const closeDrawer=()=>document.body.classList.remove('drawer');
 const closeMenu=()=>{const m=$('menuDialog');if(m&&m.open)m.close();};
 const menu=(id,fn)=>on(id,()=>{closeMenu();fn();});
-function showGame(){flush();closeDrawer();closeMenu();$('workbench').hidden=true;$('lounge').hidden=false;document.body.classList.add('gameview');$('activePath').textContent='游戏';$('dirtyFlag').textContent='伍子平 · 星火远征';$('gameTab').classList.add('selected');$('codeTab').classList.remove('selected');const backToFile=$('codeTab');if(backToFile)backToFile.textContent=workspaceMode==='game'?'← 回到首页':'← 返回刚才的文件';send('gameState');}
-function showCode(){closeMenu();$('workbench').hidden=false;$('lounge').hidden=true;document.body.classList.remove('gameview');$('gameTab').classList.remove('selected');$('codeTab').classList.add('selected');renderFiles();if(view)view.requestMeasure();}
+/* The file drawer lives inside #workbench. Hiding that section also hides the drawer,
+   so the game page only adds gameview and lets CSS collapse the editor. */
+function showGame(){flush();closeDrawer();closeMenu();$('lounge').hidden=false;document.body.classList.add('gameview');$('activePath').textContent='游戏';$('dirtyFlag').textContent='伍子平 · 星火远征';const gameTab=$('gameTab');if(gameTab)gameTab.classList.add('selected');const backToFile=$('codeTab');if(backToFile){backToFile.classList.remove('selected');backToFile.textContent=workspaceMode==='game'?'← 回到首页':'← 返回刚才的文件';}send('gameState');}
+function showCode(){closeMenu();$('workbench').hidden=false;$('lounge').hidden=true;document.body.classList.remove('gameview');const gameTab=$('gameTab');if(gameTab)gameTab.classList.remove('selected');const codeTab=$('codeTab');if(codeTab)codeTab.classList.add('selected');renderFiles();if(view)view.requestMeasure();}
 function setWorkspaceMode(mode){
   workspaceMode=selectedMode=mode;
   const drawToggle=$('drawToggle');if(drawToggle)drawToggle.hidden=mode!=='notepad';
@@ -153,10 +215,21 @@ function setWorkspaceMode(mode){
   if(mode!=='game')document.body.classList.remove('gameview');
 }
 on('filesToggle',()=>{closeMenu();document.body.classList.toggle('drawer');});on('backdrop',closeDrawer);on('closeExplorer',closeDrawer);on('newFile',()=>nameDialog());on('newTab',()=>nameDialog());menu('menuNew',()=>nameDialog());
-menu('findButton',()=>{openSearchPanel(view);view.focus();});menu('settingsButton',()=>$('settingsDialog').showModal());on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
-on('codeTab',()=>{if(workspaceMode==='game'){flush();openLanding(true);return;}showCode();});on('gameTab',showGame);menu('menuGame',showGame);menu('menuMode',()=>{flush();openLanding(true);});on('playGame',()=>{flush();if(native)send('play');else notify('此预览仅展示编辑器，安装 APK 后可直接进入原生游戏。');});on('exportGame',()=>native?send('exportGame'):notify('游戏存档备份在 Android APK 中使用。'));on('importGame',()=>native?send('importGame'):notify('安装 APK 后可导入游戏备份。'));
-on('drawToggle',()=>{if(workspaceMode!=='notepad')return;if(isDrawMode()){exitDrawMode();}else{enterDrawMode();}});
+menu('findButton',()=>{openSearchPanel(view);const searchInput=document.querySelector('.cm-search input');if(searchInput)searchInput.focus();else if(view)view.focus();});menu('settingsButton',()=>$('settingsDialog').showModal());on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
+on('codeTab',()=>{if(workspaceMode==='game'){flush();openLanding(true);return;}showCode();});on('gameTab',showGame);menu('menuGame',showGame);menu('menuMode',()=>{flush();openLanding(true);});on('playGame',()=>{flush();if(native)send('play');else notify('此预览仅展示编辑器，安装 APK 后可直接进入原生游戏。');});on('exportGame',()=>native?send('exportGame'):notify('游戏存档备份在 Android APK 中使用。'));on('importGame',()=>native?send('importGame'):notify('安装 APK 后可导入游戏备份。'));on('drawToggle',()=>{if(workspaceMode!=='notepad')return;if(isDrawMode()){exitDrawMode();}else{enterDrawMode();}});
 $('menuDialog').addEventListener('click',event=>{if(event.target===$('menuDialog'))$('menuDialog').close();});
+/* 菜单关掉以后焦点别丢在 body 上：没有别的对话框接着开、也没有谁自己接过焦点，
+   就还给齿轮按钮。老 WebView 的 focus(options) 可能不接受参数，兜一层。 */
+$('menuDialog').addEventListener('close',()=>{
+ if(document.querySelector('dialog[open]'))return;
+ const current=document.activeElement;
+ if(current&&current!==document.body)return;
+ const more=$('moreButton');if(!more)return;
+ try{more.focus({preventScroll:true});}catch(e){try{more.focus();}catch(ignored){}}
+});
+/* AI 输入区表单：内联 onsubmit="return false" 违反 CSP（script-src 不含 unsafe-inline），
+   换成显式监听阻止提交时的页面导航。发送逻辑（Ctrl+Enter / 点击）在 ai.js，不受影响。 */
+$('aiComposer').addEventListener('submit',event=>event.preventDefault());
 for(const b of document.querySelectorAll('.quickkeys button')){
  let startX=0,startY=0,moved=false;
  b.addEventListener('pointerdown',event=>{startX=event.clientX;startY=event.clientY;moved=false;});
@@ -222,8 +295,7 @@ function setLectureTab(name){
     button.classList.toggle('active',on);
     button.setAttribute('aria-selected',on?'true':'false');
   }
-}
-function handleSystemBack(){
+}function handleSystemBack(){
   const openDialog=document.querySelector('dialog[open]');
   try{
     const decision=resolveBack({
@@ -234,8 +306,7 @@ function handleSystemBack(){
       homeOpen:landingOpen,
       loungeOpen:!!$('lounge')&&!$('lounge').hidden,
       mode:workspaceMode,
-      lectureTab:document.body.dataset.lectureTab||'notes'
-    });
+      lectureTab:document.body.dataset.lectureTab||'notes'    });
     switch(decision.action){
       case BACK.DIALOG:
         if(openDialog)openDialog.close('cancel');
@@ -268,8 +339,7 @@ function handleSystemBack(){
     }
   }catch(error){
     console.error('[Studio] back handling failed',error);
-    return true;
-  }
+    return true;  }
 }
 function ensureNote(){let note=state.files.find(f=>f.path==='笔记.txt');if(!note){note=makeFile('笔记.txt','');state.files.push(note);}if(!state.opened.includes(note.path))state.opened.push(note.path);return note;}
 function ensureLectureNote(){let note=state.files.find(f=>f.path==='课堂笔记.md');if(!note){note=makeFile('课堂笔记.md','');state.files.push(note);changed();}if(!state.opened.includes(note.path))state.opened.push(note.path);return note;}
@@ -282,7 +352,8 @@ function applyMode(mode){
   if(mode==='tts'&&!ttsTarget)return false;
   if(workspaceMode==='tts'&&mode!=='tts')ttsModeLeave();
   const leavingAI=workspaceMode==='ai'&&mode!=='ai';
-  setWorkspaceMode(mode);
+  setWorkspaceMode(mode);  const noteEmpty=$('noteEmpty');
+  if(noteEmpty)noteEmpty.textContent=mode==='lecture'?'点上方「🎙 开始录音」，边听边记；每一行都会自动带上时间戳。':'从这里开始写点什么…';
   const drawToggle=$('drawToggle');
   if(leavingAI)aiModeLeave();
   const aiPanel=$('aiPanel');
@@ -316,8 +387,7 @@ for(const card of homeCards)card.addEventListener('click',()=>enterHomeMode(card
 const resume=$('resumeCard');if(resume)resume.addEventListener('click',()=>enterHomeMode(rememberedMode()));
 if(landingBack)landingBack.addEventListener('click',()=>hideLanding());
 on('homeButton',()=>{flush();openLanding(true);});
-on('aiHome',()=>{flush();openLanding(true);});
-window.__studioLandingReady=true;
+on('aiHome',()=>{flush();openLanding(true);});window.__studioLandingReady=true;
 initLecture({
   notify,
   send:(type,payload)=>send(type,payload),
@@ -331,6 +401,23 @@ initLecture({
   pickPptx:()=>{if(!native)return false;send('pickPptx');return true;},
   scheduleSave,
   flush,
+  /* 录音前先在原生层拿到 RECORD_AUDIO 运行时权限：WebView 的采集如果等到
+     onPermissionRequest 里才弹系统权限框，授权回来时音频源往往已经初始化失败。 */
+  requestMic,
+  /* 开始新一节录音时把上一节课的笔记正文另存一份，
+     时间戳会被清空，正文不能跟着丢。 */
+  archiveNote:text=>{
+    const value=String(text||'');
+    if(!value.trim())return '';
+    if(state.files.length>=160){notify('工作区文件已满，上节课笔记没有单独归档，正文仍保留在当前笔记里。');return '';}
+    const now=new Date(),p=n=>String(n).padStart(2,'0');
+    const stamp=now.getFullYear()+p(now.getMonth()+1)+p(now.getDate())+'-'+p(now.getHours())+p(now.getMinutes());
+    let name='课堂笔记-'+stamp+'.md',seq=2;
+    while(state.files.some(f=>f.path===name))name='课堂笔记-'+stamp+'-'+(seq++)+'.md';
+    state.files.push(makeFile(name,value));
+    changed();
+    return name;
+  },
   activePath:()=>state.active,
   view:()=>view,
   editorState:path=>editorStates.get(path)||null,
@@ -391,7 +478,6 @@ initAI({
  switchFile:path=>{const p=String(path).slice(0,200);if(!state.files.some(f=>f.path===p))return '文件不存在：'+p;switchFile(p);return '已打开：'+p;},
  runSnippet:aiRunSnippet
 });
-const aiComposer=$('aiComposer');if(aiComposer)aiComposer.addEventListener('submit',event=>event.preventDefault());
 openLanding(false);
 window.Studio={getState:()=>({...snapshot(),mode:workspaceMode,home:landingOpen}),get view(){return view;},run,stop,flush,importFiles,back:handleSystemBack,exitMessage:()=>exitCopy(state.files).message,lecture:lectureDebug,tts:ttsDebug,ai:aiDebug};
 if(native)send('ready');else{let saved=null;try{saved=JSON.parse(localStorage.getItem('ember-studio-v1'));}catch(e){}restore(saved);}

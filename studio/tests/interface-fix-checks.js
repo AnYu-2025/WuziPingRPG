@@ -62,7 +62,8 @@ await run('game lobby back returns to editor','workbench visible, lounge hidden,
   const bridgePage=await openBridge();
   try{
     await enterMode(bridgePage,'python');
-    await bridgePage.locator('#gameTab').click();
+    await bridgePage.locator('#moreButton').click();
+    await bridgePage.locator('#menuGame').click();
     await bridgePage.waitForSelector('#lounge:not([hidden])');
     equal(await bridgePage.evaluate(()=>window.Studio.back()),true,'Studio.back result');
     await bridgePage.waitForSelector('#lounge',{state:'hidden'});
@@ -320,7 +321,117 @@ await run('home layout stays reachable on short and landscape screens','logo, ti
   }finally{await closePage(bridgePage);}
 });
 
-const report={checks:passed.length+failed.length,passed,failed,env:{viewport:'412x915 plus home sizes',mode:'browser'}};
+
+await run('lecture panels stack below 900px and split above','tabs visible and full-width timeline at 800px; 300px column at 1000px',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    await enterMode(bridgePage,'lecture');
+    await bridgePage.setViewportSize({width:800,height:1000});
+    await bridgePage.locator('.lecture-tab[data-tab="timeline"]').click();
+    await bridgePage.waitForTimeout(150);
+    equal(await bridgePage.locator('#lectureTabs').isVisible(),true,'tabs visible at 800px');
+    const stacked=await bridgePage.evaluate(()=>{
+      const panel=document.getElementById('lectureTimeline');
+      return {panel:panel.getBoundingClientRect().width,visible:panel.offsetParent!==null,workbench:document.getElementById('workbench').clientWidth};
+    });
+    equal(stacked.visible&&stacked.panel>0,true,'timeline visible at 800px');
+    equal(Math.abs(stacked.panel-stacked.workbench)<2,true,'timeline spans the workbench');
+    await bridgePage.setViewportSize({width:1000,height:800});
+    await bridgePage.waitForTimeout(150);
+    equal(await bridgePage.locator('#lectureTabs').isVisible(),false,'tabs hidden at 1000px');
+    const wide=await bridgePage.evaluate(()=>({width:document.getElementById('lectureTimeline').getBoundingClientRect().width,visible:document.getElementById('lectureTimeline').offsetParent!==null}));
+    equal(wide.visible&&wide.width>0,true,'timeline column visible at 1000px');
+    equal(wide.width>=295&&wide.width<=305,true,'timeline is a 300px column');
+  }finally{await closePage(bridgePage);}
+});
+
+await run('lecture bar fits narrow widths while playing','no overflow at 360/412/431/440/481 and the anchor stays inside',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    await enterMode(bridgePage,'lecture');
+    for(const width of [360,412,431,440,481]){
+      await bridgePage.setViewportSize({width,height:740});
+      await bridgePage.waitForTimeout(80);
+      const fit=await bridgePage.evaluate(()=>{
+        const bar=document.getElementById('lectureBar');
+        bar.dataset.state='playing';
+        document.getElementById('recordBtn').dataset.role='play';
+        document.getElementById('recordLabel').textContent='⏸ 暂停';
+        document.getElementById('pauseBtn').hidden=true;
+        document.getElementById('newRecBtn').hidden=false;
+        document.getElementById('stopBtn').hidden=false;
+        document.getElementById('anchorBtn').hidden=false;
+        const anchor=document.getElementById('anchorBtn').getBoundingClientRect();
+        const own=bar.getBoundingClientRect();
+        return {scroll:bar.scrollWidth,client:bar.clientWidth,width:own.width,visible:bar.offsetParent!==null,anchorRight:anchor.right,barRight:own.right};
+      });
+      equal(fit.visible&&fit.width>300,true,'lecture bar visible at '+width);
+      equal(fit.scroll<=fit.client+1,true,'no horizontal scroll at '+width);
+      equal(fit.anchorRight<=fit.barRight+1,true,'anchor inside the bar at '+width);
+    }
+  }finally{await closePage(bridgePage);}
+});
+
+await run('lecture empty note points at the record button','hint visible on a blank note and hidden after typing',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    await enterMode(bridgePage,'lecture');
+    await bridgePage.evaluate(()=>{const v=window.Studio.view;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:''}});});
+    await bridgePage.waitForTimeout(60);
+    const empty=await bridgePage.evaluate(()=>{
+      const el=document.getElementById('noteEmpty');
+      return {visible:el.offsetParent!==null&&getComputedStyle(el).display!=='none',text:el.textContent};
+    });
+    equal(empty.visible,true,'noteEmpty visible');
+    equal(empty.text.includes('开始录音'),true,'hint mentions recording');
+    await bridgePage.evaluate(()=>{const v=window.Studio.view;v.dispatch({changes:{from:0,insert:'a'}});});
+    await bridgePage.waitForTimeout(60);
+    equal(await bridgePage.evaluate(()=>document.getElementById('noteEmpty').offsetParent!==null),false,'noteEmpty hidden after typing');
+  }finally{await closePage(bridgePage);}
+});
+
+await run('lecture tabs expose one selected tab','aria-selected matches the active tab',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    await enterMode(bridgePage,'lecture');
+    await bridgePage.locator('.lecture-tab[data-tab="timeline"]').click();
+    await bridgePage.waitForTimeout(80);
+    const tabs=await bridgePage.evaluate(()=>[...document.querySelectorAll('.lecture-tab')].map(t=>({tab:t.dataset.tab,selected:t.getAttribute('aria-selected'),active:t.classList.contains('active')})));
+    equal(tabs.length,3,'three lecture tabs');
+    equal(tabs.filter(t=>t.selected==='true').length,1,'one selected tab');
+    equal(tabs.find(t=>t.selected==='true').tab,'timeline','timeline selected');
+    equal(tabs.find(t=>t.active).tab,'timeline','active class matches');
+  }finally{await closePage(bridgePage);}
+});
+
+await run('editor actions stay reachable with safe-area padding','home, save, run and more do not overlap at 320, 360 and landscape',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    await enterMode(bridgePage,'python');
+    for(const [width,height] of [[320,568],[360,640],[640,360]]){
+      await bridgePage.setViewportSize({width,height});
+      const fit=await bridgePage.evaluate(insets=>{
+        const bar=document.querySelector('.appbar');
+        bar.style.paddingTop='0px';
+        bar.style.paddingLeft=(4+insets.left)+'px';
+        bar.style.paddingRight=(4+insets.right)+'px';
+        bar.style.marginTop=insets.top+'px';
+        const ids=['filesToggle','saveButton','homeButton','runButton','moreButton'];
+        const boxes=ids.map(id=>{const r=document.getElementById(id).getBoundingClientRect();return {id,left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};});
+        const overlap=(a,b)=>a.left<b.right-1&&a.right>b.left+1&&a.top<b.bottom-1&&a.bottom>b.top+1;
+        const hits=[];
+        for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++)if(overlap(boxes[i],boxes[j]))hits.push(boxes[i].id+'/'+boxes[j].id);
+        const outside=boxes.filter(b=>b.width<24||b.height<24||b.left<-1||b.top<-1||b.right>innerWidth+1||b.bottom>innerHeight+1).map(b=>b.id+':'+Math.round(b.width)+'x'+Math.round(b.height));
+        return {hits,outside,scroll:document.documentElement.scrollWidth,inner:innerWidth};
+      },{top:47,right:34,bottom:21,left:34});
+      equal(fit.hits, [], width+'x'+height+' overlaps');
+      equal(fit.outside, [], width+'x'+height+' clipped '+JSON.stringify(fit.outside));
+      equal(fit.scroll<=fit.inner+1, true, width+'x'+height+' overflow');
+    }
+  }finally{await closePage(bridgePage);}
+});
+
+const report={checks:passed.length+failed.length,passed,failed,env:{viewport:'412x915 plus home, lecture and chrome sizes',mode:'browser'}};
 await fs.mkdir(root+'/artifacts/studio-v0.1',{recursive:true});
 if(failed.length===0){
   await fs.writeFile(root+'/artifacts/studio-v0.1/interface-fix-checks.json',JSON.stringify(report,null,2)+'\n');
