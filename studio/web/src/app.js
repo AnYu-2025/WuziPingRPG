@@ -135,16 +135,14 @@ function createEditor(){
  ]};
  view=new EditorView({state:EditorState.create(config),parent:$('editor')});view.dom.style.fontSize=state.settings.fontSize+'px';editorStates.set(active().path,view.state);position();lectureViewCreated();
 }
-function position(){if(!view)return;const pos=view.state.selection.main.head,line=view.state.doc.lineAt(pos);$('position').textContent=`第 ${line.number} 行，第 ${pos-line.from+1} 列`;const note=$('noteCount');if(note&&document.body.classList.contains('notepad'))note.textContent=view.state.doc.length+' 字 · '+view.state.doc.lines+' 行';else if(note&&document.body.classList.contains('lecture'))note.textContent=lectureStatusText();else if(note&&document.body.classList.contains('tts'))note.textContent=ttsStatusText();else if(note&&document.body.classList.contains('aiview'))note.textContent=aiStatusText();const empty=$('noteEmpty');if(empty)empty.classList.toggle('show',document.body.classList.contains('notepad')&&view.state.doc.length===0);}
+function position(){if(!view)return;const pos=view.state.selection.main.head,line=view.state.doc.lineAt(pos);$('position').textContent=`第 ${line.number} 行，第 ${pos-line.from+1} 列`;const note=$('noteCount');if(note&&document.body.classList.contains('notepad'))note.textContent=view.state.doc.length+' 字 · '+view.state.doc.lines+' 行';else if(note&&document.body.classList.contains('lecture'))note.textContent=lectureStatusText();else if(note&&document.body.classList.contains('tts'))note.textContent=ttsStatusText();else if(note&&document.body.classList.contains('aiview'))note.textContent=aiStatusText();const empty=$('noteEmpty');if(empty){const blank=document.body.classList.contains('notepad')||document.body.classList.contains('lecture');empty.classList.toggle('show',blank&&view.state.doc.length===0);}}
 function renderFiles(){
  const list=$('fileList');list.replaceChildren();for(const f of state.files){const row=document.createElement('div');row.className='fileitem'+(f.path===state.active?' active':'');const b=document.createElement('button');b.className='fileopen';b.title=f.path;b.dataset.path=f.path;const glyph=document.createElement('span');glyph.className='fileglyph';glyph.textContent=extension(f.path).slice(0,3);const name=document.createElement('span');name.textContent=f.path+(f.text!==f.savedText?' •':'');b.append(glyph,name);b.onclick=()=>switchFile(f.path);const menu=document.createElement('button');menu.className='filemenu';menu.textContent='⋯';menu.setAttribute('aria-label','重命名 '+f.path);menu.onclick=()=>nameDialog(f.path);row.append(b,menu);list.append(row);}
- const tabs=$('tabs');tabs.replaceChildren();for(const path of state.opened){const f=state.files.find(f=>f.path===path);if(!f)continue;const b=document.createElement('button');b.role='tab';b.setAttribute('aria-selected',String(path===state.active));b.textContent=path.split('/').pop()+(f.text!==f.savedText?' •':'');b.title=path;b.dataset.path=path;b.className=path===state.active?'active':'';b.onclick=()=>switchFile(path);tabs.append(b);}
  refreshBadges();
 }
 function refreshBadges(){
  const f=active();if(!f)return;
  $('activePath').textContent=f.path;$('dirtyFlag').textContent=f.uri?(f.text===f.savedText?'已保存到原文件':'有修改 · 保存写回'):'本地草稿 · 自动保存';$('language').textContent=document.body.classList.contains('drawing')?'画画':language(f.path)[0];$('encoding').textContent=f.encoding||'UTF-8';$('runButton').textContent=['html','htm'].includes(extension(f.path))?'↗ 预览':'▶ 运行';
- for(const b of $('tabs').children){const p=b.dataset.path;if(!p)continue;const t=state.files.find(x=>x.path===p);if(!t)continue;const activeNow=p===state.active;b.textContent=p.split('/').pop()+(t.text!==t.savedText?' •':'');b.classList.toggle('active',activeNow);b.setAttribute('aria-selected',String(activeNow));}
  for(const b of $('fileList').querySelectorAll('.fileopen')){const p=b.dataset.path,t=state.files.find(x=>x.path===p);if(!t)continue;const name=b.lastElementChild;if(name)name.textContent=p+(t.text!==t.savedText?' •':'');b.closest('.fileitem').classList.toggle('active',p===state.active);}
 }
 function switchFile(path){if(worker){notify('请先停止运行，再切换文件。');return;}const f=state.files.find(f=>f.path===path);if(!f)return;if(workspaceMode==='tts')lastTtsPath=path;editorStates.set(state.active,view.state);state.active=path;if(!state.opened.includes(path))state.opened.push(path);restoring=true;const previous=editorStates.get(path);if(previous&&previous.doc.toString()===f.text){view.setState(previous);view.dispatch({effects:[langConfig.reconfigure(language(path)[1]()),wrapConfig.reconfigure(state.settings.wrap?EditorView.lineWrapping:[]),editConfig.reconfigure(EditorState.readOnly.of(false))]});}else createEditor();restoring=false;renderFiles();document.body.classList.remove('drawer');position();scheduleSave();if(workspaceMode==='tts')ttsDocumentChanged();}
@@ -155,7 +153,7 @@ for(const id of ['fontSize','wordWrap','timeLimit'])$(id).oninput=()=>{state.set
 function append(text,error=false){if($('output').textContent.length>=70000)return;const span=document.createElement('span');if(error)span.className='error';span.textContent=String(text).slice(0,70000-$('output').textContent.length);$('output').append(span);$('output').scrollTop=$('output').scrollHeight;}
 function setConsole(open){$('consolePanel').classList.toggle('folded',!open);$('foldConsole').setAttribute('aria-expanded',String(open));}
 function outputTab(input=false){$('output').hidden=input;$('stdin').hidden=!input;$('inputTab').classList.toggle('active',input);$('outputTab').classList.toggle('active',!input);setConsole(true);}
-function setRunning(running){$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','gameTab','newTab','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode']){const el=$(id);if(el)el.disabled=running;}if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
+function setRunning(running){$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode']){const el=$(id);if(el)el.disabled=running;}if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
 function stop(reason='已停止运行'){runToken++;if(worker)worker.terminate();worker=null;clearTimeout(timeout);setRunning(false);$('runState').textContent=reason;}
 function applyRunFiles(files){let updated=0;for(const f of files||[]){if(!validPath(f.path)||typeof f.text!=='string'||f.text.length>MAX_FILE)continue;const existing=state.files.find(x=>x.path===f.path);if(existing){if(existing.text===f.text)continue;existing.text=f.text;editorStates.delete(f.path);}else if(state.files.length<160)state.files.push(makeFile(f.path,f.text));else continue;updated++;}if(updated){restoring=true;createEditor();restoring=false;changed();append(`\n[工作区] 已保留 ${updated} 个新增或修改的文件，写回手机文件需点击保存。\n`);}}
 async function run(){
@@ -203,8 +201,10 @@ const on=(id,fn)=>{const el=$(id);if(el)el.addEventListener('click',fn);};
 const closeDrawer=()=>document.body.classList.remove('drawer');
 const closeMenu=()=>{const m=$('menuDialog');if(m&&m.open)m.close();};
 const menu=(id,fn)=>on(id,()=>{closeMenu();fn();});
-function showGame(){flush();closeDrawer();closeMenu();$('workbench').hidden=true;$('lounge').hidden=false;document.body.classList.add('gameview');$('activePath').textContent='游戏';$('dirtyFlag').textContent='伍子平 · 星火远征';$('gameTab').classList.add('selected');$('codeTab').classList.remove('selected');send('gameState');}
-function showCode(){closeMenu();$('workbench').hidden=false;$('lounge').hidden=true;document.body.classList.remove('gameview');$('gameTab').classList.remove('selected');$('codeTab').classList.add('selected');renderFiles();if(view)view.requestMeasure();}
+/* 游戏页只切 body 上的 gameview 类：工作区由 CSS 收起，显示文件抽屉的固定定位元素留着，
+   所以手机上点 ☰ 还能拉出文件列表（以前这里 hidden=true 把抽屉一起藏了）。 */
+function showGame(){flush();closeDrawer();closeMenu();$('lounge').hidden=false;document.body.classList.add('gameview');$('activePath').textContent='游戏';$('dirtyFlag').textContent='伍子平 · 星火远征';send('gameState');}
+function showCode(){closeMenu();$('workbench').hidden=false;$('lounge').hidden=true;document.body.classList.remove('gameview');renderFiles();if(view)view.requestMeasure();}
 function setWorkspaceMode(mode){
   workspaceMode=selectedMode=mode;
   const drawToggle=$('drawToggle');if(drawToggle)drawToggle.hidden=mode!=='notepad';
@@ -214,11 +214,27 @@ function setWorkspaceMode(mode){
   if(mode!=='ai')document.body.classList.remove('aiview');
   if(mode!=='game')document.body.classList.remove('gameview');
 }
-on('filesToggle',()=>{closeMenu();document.body.classList.toggle('drawer');});on('backdrop',closeDrawer);on('closeExplorer',closeDrawer);on('newFile',()=>nameDialog());on('newTab',()=>nameDialog());menu('menuNew',()=>nameDialog());
-menu('findButton',()=>{openSearchPanel(view);view.focus();});menu('settingsButton',()=>$('settingsDialog').showModal());on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
-on('codeTab',showCode);on('gameTab',showGame);menu('menuGame',showGame);menu('menuMode',()=>openLanding(true));on('playGame',()=>{flush();if(native)send('play');else notify('此预览仅展示编辑器，安装 APK 后可直接进入原生游戏。');});on('exportGame',()=>native?send('exportGame'):notify('游戏存档备份在 Android APK 中使用。'));on('importGame',()=>native?send('importGame'):notify('安装 APK 后可导入游戏备份。'));
+on('filesToggle',()=>{closeMenu();document.body.classList.toggle('drawer');});on('backdrop',closeDrawer);on('closeExplorer',closeDrawer);on('newFile',()=>nameDialog());menu('menuNew',()=>nameDialog());
+/* 查找替换：openSearchPanel 首次只挂面板，随后的 view.focus() 会把焦点从搜索框抢回编辑器。
+   优先聚焦面板里的搜索输入框；面板没渲染出来再退回编辑器。
+   与 #menuDialog 的 close 处理器不冲突：它只在 activeElement===body 时才把焦点还给齿轮，
+   而这里焦点已落在搜索框上。 */
+menu('findButton',()=>{openSearchPanel(view);const searchInput=document.querySelector('.cm-search input');if(searchInput)searchInput.focus();else view.focus();});menu('settingsButton',()=>$('settingsDialog').showModal());on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
+on('codeTab',showCode);menu('menuGame',showGame);menu('menuMode',()=>openLanding(true));on('playGame',()=>{flush();if(native)send('play');else notify('此预览仅展示编辑器，安装 APK 后可直接进入原生游戏。');});on('exportGame',()=>native?send('exportGame'):notify('游戏存档备份在 Android APK 中使用。'));on('importGame',()=>native?send('importGame'):notify('安装 APK 后可导入游戏备份。'));
 on('drawToggle',()=>{if(workspaceMode!=='notepad')return;if(isDrawMode()){exitDrawMode();}else{enterDrawMode();}});
 $('menuDialog').addEventListener('click',event=>{if(event.target===$('menuDialog'))$('menuDialog').close();});
+/* 菜单关掉以后焦点别丢在 body 上：没有别的对话框接着开、也没有谁自己接过焦点，
+   就还给齿轮按钮。老 WebView 的 focus(options) 可能不接受参数，兜一层。 */
+$('menuDialog').addEventListener('close',()=>{
+ if(document.querySelector('dialog[open]'))return;
+ const current=document.activeElement;
+ if(current&&current!==document.body)return;
+ const more=$('moreButton');if(!more)return;
+ try{more.focus({preventScroll:true});}catch(e){try{more.focus();}catch(ignored){}}
+});
+/* AI 输入区表单：内联 onsubmit="return false" 违反 CSP（script-src 不含 unsafe-inline），
+   换成显式监听阻止提交时的页面导航。发送逻辑（Ctrl+Enter / 点击）在 ai.js，不受影响。 */
+$('aiComposer').addEventListener('submit',event=>event.preventDefault());
 for(const b of document.querySelectorAll('.quickkeys button')){
  let startX=0,startY=0,moved=false;
  b.addEventListener('pointerdown',event=>{startX=event.clientX;startY=event.clientY;moved=false;});
@@ -316,6 +332,14 @@ function applyMode(mode){
   if(workspaceMode==='tts'&&mode!=='tts')ttsModeLeave();
   const leavingAI=workspaceMode==='ai'&&mode!=='ai';
   workspaceMode=mode;
+  /* 离开游戏页统一摘掉 gameview：以前只在 showCode() 里摘，ai 分支不调 showCode，
+     从游戏页切到 AI 后 body 上残留 gameview，工作区仍按游戏页收起。
+     放在所有非 game 分支的公共位置；进 game 时 showGame() 会自己加回来。 */
+  if(mode!=='game')document.body.classList.remove('gameview');
+  /* 空笔记的起点提示跟着模式换文案：上课说的是「点录音」，其它模式说的是「写点什么」。
+     每次切模式都写一遍，避免上课文案漏到记事本。 */
+  const noteEmpty=$('noteEmpty');
+  if(noteEmpty)noteEmpty.textContent=mode==='lecture'?'点上方「🎙 开始录音」，边听边记；每一行都会自动带上时间戳。':'从这里开始写点什么…';
   const drawToggle=$('drawToggle');
   if(leavingAI)aiModeLeave();
   const aiPanel=$('aiPanel');

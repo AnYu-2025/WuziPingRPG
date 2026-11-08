@@ -93,11 +93,22 @@ Android 11 及以后，清单里的 `<queries>` 只声明启动器、浏览器�
 
 ## 安装与原游戏进度
 
-仓库里可以直接下载的安装包仍是文首的 **0.1.15**（versionCode 23）。当前源码是 **0.1.22**（versionCode 30），统一页面外壳、录音修复、PPTX 导入都在源码里，需要本地重新构建才会进入安装包。本地构建运行 `tools/build-studio.ps1` 或 `tools/build-studio.sh`（JDK 17、Android SDK 34、`build/manual/debug.keystore`），产物写到 `dist/Ember-Studio-0.1.22.apk` 和 `dist/Ember-Studio-0.1.22-parallel.apk`。这两个包目前不在仓库里。
+仓库里可以直接下载的安装包仍是文首的 **0.1.15**（versionCode 23）。当前源码是 **0.1.23**（versionCode 31），统一页面外壳、录音修复、PPTX 导入都在源码里，需要本地重新构建才会进入安装包。本地构建运行 `tools/build-studio.ps1` 或 `tools/build-studio.sh`（JDK 17、Android SDK 34、`build/manual/debug.keystore`），产物写到 `dist/Ember-Studio-0.1.23.apk` 和 `dist/Ember-Studio-0.1.23-parallel.apk`。这两个包目前不在仓库里。
 
 0.1.15 标准包的包名是 `cn.wuziping.ember`，共存包是 `cn.wuziping.ember.preview07`。编辑器成为应用首页。标准包与已经安装的 0.1.13、0.1.14 或同证书的 0.7 直接覆盖，**不要先卸载**，原 `journey-v1.bin` 继续留着。外部 0.6 用的是另一张证书，盖不上去。共存包和标准包可以同时留在手机上，但不能读取对方的私有存档。实际 Android 安装还没有在真机上验收。
 
 启动页选择「游戏」后点击「进入游戏」，仍是原生 Canvas 游戏。游戏中按 Android 返回键可选择「保存并返回编辑器」，标题界面按返回键直接回到编辑器。进入后选择「继续旅程」续玩。娱乐区也提供 `.wzpsave` 存档导出、导入；导入先验证格式，再确认替换，并在私有目录保留一份原进度备份。
+
+## 0.1.23 更新
+
+- **上课三栏只在 ≥900px 出现**：600–1023px 宽度改为上下分屏（编辑区在上、面板压到下半屏），≥900px 时隐藏文件侧栏，避免三栏互相挤压。
+- **窄屏录音栏允许换行**：控制按钮溢出时折行显示，不再把「标记锚点」裁掉。
+- **游戏页文件抽屉可用**：游戏模式下 `☰` 抽屉不再失效。
+- **上课首屏笔记空态提示**：没有笔记时给出引导文案。
+- **上课 Tab 同步 `aria-selected`**：底部「笔记 / 时间轴 / PPT」切换时同步无障碍选中态。
+- **toast 按模式定位**：提示条跟随当前模式的控制条位置，不再固定悬挂。
+- **清理已废弃的标签栏与 `.more-dots` / `.more-gear`**：删除不再使用的 DOM 与样式。
+- 版本号 0.1.23（versionCode 31）。
 
 ## 0.1.22 更新
 

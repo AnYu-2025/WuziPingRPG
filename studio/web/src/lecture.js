@@ -246,7 +246,10 @@ function ensureUI(){
   for(const tab of ui.tabs.querySelectorAll('.lecture-tab')){
     tab.addEventListener('click',()=>{
       document.body.dataset.lectureTab=tab.dataset.tab;
-      for(const t of ui.tabs.querySelectorAll('.lecture-tab'))t.classList.toggle('active',t===tab);
+      for(const t of ui.tabs.querySelectorAll('.lecture-tab')){
+        t.classList.toggle('active',t===tab);
+        t.setAttribute('aria-selected',String(t===tab));
+      }
       if(timeline)timeline.schedule();
     });
   }

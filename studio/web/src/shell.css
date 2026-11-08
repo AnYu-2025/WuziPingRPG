@@ -42,12 +42,9 @@ body:not(.gameview) #runButton{flex:none;height:32px;min-height:32px;padding:0 1
 body:not(.gameview) #stopButton{flex:none;height:32px;min-height:32px;padding:0 12px;border-radius:999px;font-size:13px}
 
 /* 齿轮：纯黑白线条图标，跟随主题文字色，不带任何彩色底 */
-body:not(.gameview) #moreButton{color:#000}
+body:not(.gameview) #moreButton{color:var(--shell-ink)}
 #moreButton svg{width:21px;height:21px;display:block;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-@media(hover:hover){body:not(.gameview) #moreButton:hover{background:rgba(0,0,0,.05);color:#000}}
-
-/* 文件标签行按新布局收进「☰ 文件」抽屉，页面只保留一行顶栏 */
-body:not(.gameview) .tabbar{display:none!important}
+@media(hover:hover){body:not(.gameview) #moreButton:hover{background:rgba(0,0,0,.05);color:var(--shell-ink)}}
 
 /* ===== 内容卡片 ===== */
 body:not(.gameview) #workbench{
@@ -63,13 +60,21 @@ body.lecture .cm-gutters{background:#fffafa!important}
 body.lecture .cm-note-times{background:#fffafa}
 
 /* ===== 上课：录音控制条卡片 ===== */
+/* min-height 而不是 height：窄屏播放态允许换行，条要能自己变高。 */
 body.lecture #lectureBar{
-  height:52px;min-height:52px;margin:0 var(--shell-gap) 6px;padding:0 10px;
+  min-height:52px;margin:0 var(--shell-gap) 6px;padding:0 10px;
   border:1px solid var(--shell-line);border-radius:var(--shell-radius);
   background:#fff;box-shadow:0 1px 2px rgba(225,29,72,.06);
 }
 body.lecture #lectureBar[data-state="error"]{background:#fffbeb;border-color:#fde68a}
 body.lecture #lectureHint:not([hidden]){margin:0 var(--shell-gap) 6px;border-radius:12px;border:0;background:#fffbeb}
+/* 窄屏播放态换行时收紧内边距（与 lecture.css 的 max-width:480px 块配套：
+   shell.css 在 lecture.css 之后加载，同名属性必须在这里再写一遍才生效，
+   否则这里的 padding:0 10px / .rec-translate 的 0 12px 会把窄屏收紧规则覆盖掉）。 */
+@media(max-width:480px){
+  body.lecture #lectureBar{padding:6px 8px}
+  body.lecture #lectureBar .rec-translate{padding:0 8px}
+}
 
 /* 翻译：改成一枚胶囊开关，去掉原生勾选框 */
 .rec-translate{height:30px;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid #fecdd3;background:#fff;color:#9f1239;font-size:12.5px;font-weight:600;gap:0}
@@ -84,17 +89,20 @@ body.tts #ttsBar{
   border:1px solid var(--shell-line);background:#fff;box-shadow:0 1px 2px rgba(13,148,136,.06);
 }
 
-/* ===== 底部子面板：分段标签 ===== */
+/* ===== 底部子面板：分段标签 =====
+   只在 <900px 的上下分屏里出现；≥900px 是三栏，Tab 无意义（见 lecture.css）。 */
 #lectureTabs{display:none}
-body.lecture #lectureTabs{
-  display:flex;gap:4px;margin:0 var(--shell-gap) 4px;padding:5px;border-radius:14px;
-  background:#f1f4f2;border:1px solid rgba(16,45,36,.06);
+@media(max-width:899px){
+  body.lecture #lectureTabs{
+    display:flex;gap:4px;margin:0 var(--shell-gap) 4px;padding:5px;border-radius:14px;
+    background:#f1f4f2;border:1px solid rgba(16,45,36,.06);
+  }
+  body.lecture .lecture-tab{
+    flex:1;height:36px;min-height:36px;border:0;border-radius:9px;
+    background:transparent;color:#5f6f66;font-size:12.5px;font-weight:500;
+  }
+  body.lecture .lecture-tab.active{background:#fff;color:#be123c;font-weight:600;box-shadow:0 1px 3px rgba(16,45,36,.12)}
 }
-body.lecture .lecture-tab{
-  flex:1;height:36px;min-height:36px;border:0;border-radius:9px;
-  background:transparent;color:#5f6f66;font-size:12.5px;font-weight:500;
-}
-body.lecture .lecture-tab.active{background:#fff;color:#be123c;font-weight:600;box-shadow:0 1px 3px rgba(16,45,36,.12)}
 
 /* Python 控制台里的「输出 / 输入」用同一套分段样式 */
 body:not(.gameview) .console{left:6px;right:6px;bottom:6px;border-radius:14px;border-color:var(--shell-line);box-shadow:0 10px 26px rgba(16,45,36,.10)}

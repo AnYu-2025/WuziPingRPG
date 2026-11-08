@@ -63,7 +63,8 @@ await run('game lobby back returns to editor','workbench visible, lounge hidden,
   const bridgePage=await openBridge();
   try{
     await enterMode(bridgePage,'python');
-    await bridgePage.locator('#gameTab').click();
+    await bridgePage.locator('#moreButton').click();
+    await bridgePage.locator('#menuGame').click();
     await bridgePage.waitForSelector('#lounge:not([hidden])');
     equal(await bridgePage.evaluate(()=>window.Studio.back()),'handled','Studio.back result');
     await bridgePage.waitForSelector('#lounge',{state:'hidden'});
@@ -210,6 +211,141 @@ await run('flush happens before landing','snapshot request precedes visible land
     equal(result.order[0],'snapshot','request order');
     equal(result.order.includes('landing'),true,'landing observed');
     equal(result.snapshots.some(request=>request.data.files.some(file=>file.text.includes('saved-first'))),true,'snapshot draft');
+  }finally{await closePage(bridgePage);}
+});
+
+/* 600–899px 曾是空白断点：三栏的固定宽度把笔记区挤成一条缝，底部 Tab 点了布局不动。
+   现在 <900px 一律上下分屏（面板全宽），≥900px 才是 300px 侧栏。
+   前置断言目标元素真实可见且有宽度：面板被藏掉时 0 vs 0 也会「差 <2」假绿。 */
+await run('lecture panels stack below 900px and split above','tabs visible + full-width timeline at 800px, tabs hidden + 300px timeline at 1000px',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    await enterMode(bridgePage,'lecture');
+    await bridgePage.setViewportSize({width:800,height:1000});
+    /* 默认停在「笔记」Tab，时间轴面板是收起的；先切到时间轴才量得到它的宽度。 */
+    await bridgePage.locator('.lecture-tab[data-tab="timeline"]').click();
+    await bridgePage.waitForTimeout(150);
+    equal(await bridgePage.locator('#lectureTabs').isVisible(),true,'tabs visible at 800px');
+    const stacked=await bridgePage.evaluate(()=>{
+      const panel=document.getElementById('lectureTimeline');
+      return {
+        panel:panel.getBoundingClientRect().width,
+        visible:panel.offsetParent!==null,
+        workbench:document.getElementById('workbench').clientWidth
+      };
+    });
+    equal(stacked.visible&&stacked.panel>0,true,'timeline panel is visible with real width at 800px');
+    equal(Math.abs(stacked.panel-stacked.workbench)<2,true,'timeline spans the workbench width');
+    await bridgePage.setViewportSize({width:1000,height:800});
+    await bridgePage.waitForTimeout(150);
+    equal(await bridgePage.locator('#lectureTabs').isVisible(),false,'tabs hidden at 1000px');
+    const wide=await bridgePage.evaluate(()=>({
+      width:document.getElementById('lectureTimeline').getBoundingClientRect().width,
+      visible:document.getElementById('lectureTimeline').offsetParent!==null
+    }));
+    equal(wide.visible&&wide.width>0,true,'timeline column is visible with real width at 1000px');
+    equal(wide.width>=295&&wide.width<=305,true,'timeline is a 300px column');
+  }finally{await closePage(bridgePage);}
+});
+
+/* 窄屏播放态：播放 / 新录音 / 停止 / 计时 / 翻译 / 📌 一行放不下，条必须能换行且不横向溢出。
+   参数化 360/412/431/440/481 五档：431–441 与 481–511 都是 QA 抓到过溢出的缺陷窗口。
+   前置断言条本身可见、宽度 >300：元素被藏掉时 scrollWidth 0 <= clientWidth 0 会假绿。 */
+await run('lecture bar fits narrow widths while playing','no overflow at 360/412/431/440/481px and anchor button inside the bar',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    await enterMode(bridgePage,'lecture');
+    for(const width of [360,412,431,440,481]){
+      await bridgePage.setViewportSize({width,height:740});
+      await bridgePage.waitForTimeout(80);
+      /* 录音需要麦克风，测试里直接摆出播放态的可见集合（setBar('playing') 的效果），
+         并且同一次 evaluate 里立刻量尺寸：中间不留任务，避免被别的刷新改回去。 */
+      const fit=await bridgePage.evaluate(()=>{
+        const bar=document.getElementById('lectureBar');
+        bar.dataset.state='playing';
+        document.getElementById('recordBtn').dataset.role='play';
+        document.getElementById('recordLabel').textContent='⏸ 暂停';
+        document.getElementById('pauseBtn').hidden=true;
+        document.getElementById('newRecBtn').hidden=false;
+        document.getElementById('stopBtn').hidden=false;
+        document.getElementById('anchorBtn').hidden=false;
+        const anchor=document.getElementById('anchorBtn').getBoundingClientRect();
+        const own=bar.getBoundingClientRect();
+        return {scroll:bar.scrollWidth,client:bar.clientWidth,width:own.width,visible:bar.offsetParent!==null,anchorRight:anchor.right,barRight:own.right};
+      });
+      equal(fit.visible&&fit.width>0,true,'lecture bar visible with real width at '+width+'px');
+      equal(fit.width>300,true,'lecture bar wider than 300px at '+width+'px');
+      equal(fit.scroll<=fit.client+1,true,'no horizontal scroll in the lecture bar at '+width+'px');
+      equal(fit.anchorRight<=fit.barRight,true,'anchor button stays inside the bar at '+width+'px');
+    }
+  }finally{await closePage(bridgePage);}
+});
+
+/* 空笔记的起点提示：上课时文案必须说「开始录音」，写下一个字就消失。 */
+await run('lecture 空笔记有起点','noteEmpty visible with 开始录音 hint on blank note, hidden after typing',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    await enterMode(bridgePage,'lecture');
+    /* 课堂笔记是新文件，本就为空；显式清空一遍，保证断言不依赖初始内容。 */
+    await bridgePage.evaluate(()=>{const v=window.Studio.view;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:''}});});
+    await bridgePage.waitForTimeout(60);
+    const empty=await bridgePage.evaluate(()=>{
+      const el=document.getElementById('noteEmpty');
+      return {visible:el.offsetParent!==null&&getComputedStyle(el).display!=='none',text:el.textContent};
+    });
+    equal(empty.visible,true,'noteEmpty visible on blank lecture note');
+    equal(empty.text.includes('开始录音'),true,'hint mentions 开始录音');
+    await bridgePage.evaluate(()=>{const v=window.Studio.view;v.dispatch({changes:{from:0,insert:'a'}});});
+    await bridgePage.waitForTimeout(60);
+    equal(await bridgePage.evaluate(()=>document.getElementById('noteEmpty').offsetParent!==null),false,'noteEmpty hidden after typing');
+  }finally{await closePage(bridgePage);}
+});
+
+/* Tab 切换要同步 aria-selected：恰好一个 true，且与 .active 是同一个按钮。 */
+await run('lecture Tab 同步 aria-selected','exactly one aria-selected=true matching .active after switching tabs',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    await enterMode(bridgePage,'lecture');
+    await bridgePage.locator('.lecture-tab[data-tab="timeline"]').click();
+    await bridgePage.waitForTimeout(80);
+    const tabs=await bridgePage.evaluate(()=>[...document.querySelectorAll('.lecture-tab')].map(t=>({tab:t.dataset.tab,selected:t.getAttribute('aria-selected'),active:t.classList.contains('active')})));
+    equal(tabs.length,3,'three lecture tabs');
+    equal(tabs.filter(t=>t.selected==='true').length,1,'exactly one aria-selected=true');
+    equal(tabs.find(t=>t.selected==='true').tab,tabs.find(t=>t.active).tab,'aria-selected matches .active');
+    equal(tabs.find(t=>t.selected==='true').tab,'timeline','timeline tab selected');
+  }finally{await closePage(bridgePage);}
+});
+
+/* Toast 的停靠位置跟着模式走：python 压状态栏上方、上课抬到控制条上方、朗读贴控制条下沿，
+   AI 页改从顶部出现（底部是输入框，不能压）。 */
+await run('toast 不悬空不压输入框','bottom 92px python / 84px lecture / 36px tts; aiview top 64px bottom auto',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    const readToast=()=>bridgePage.evaluate(()=>{const style=getComputedStyle(document.getElementById('toast'));return {top:style.top,bottom:style.bottom};});
+    for(const [mode,bottom] of [['python','92px'],['lecture','84px'],['tts','36px']]){
+      await enterMode(bridgePage,mode);
+      equal((await readToast()).bottom,bottom,'toast bottom offset in '+mode);
+      equal(await bridgePage.evaluate(()=>window.Studio.back()),'handled','back from '+mode);
+      await bridgePage.waitForSelector('#landing:not([hidden])');
+    }
+    await enterMode(bridgePage,'ai');
+    const aiToast=await readToast();
+    equal(aiToast.top,'64px','toast top offset in ai mode');
+    equal(aiToast.bottom,'auto','toast bottom is auto in ai mode');
+  }finally{await closePage(bridgePage);}
+});
+
+/* 齿轮颜色跟随主题变量：上课是胭脂色系，Python 是青绿墨色。 */
+await run('齿轮跟随主题','gear color rgb(159, 18, 57) in lecture, rgb(16, 33, 27) in python',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    const gearColor=()=>bridgePage.evaluate(()=>getComputedStyle(document.getElementById('moreButton')).color);
+    await enterMode(bridgePage,'lecture');
+    equal(await gearColor(),'rgb(159, 18, 57)','gear color in lecture');
+    equal(await bridgePage.evaluate(()=>window.Studio.back()),'handled','back from lecture');
+    await bridgePage.waitForSelector('#landing:not([hidden])');
+    await enterMode(bridgePage,'python');
+    equal(await gearColor(),'rgb(16, 33, 27)','gear color in python');
   }finally{await closePage(bridgePage);}
 });
 
