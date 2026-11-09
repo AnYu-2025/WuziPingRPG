@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: 规范 · 构建 · 类型检查 · 单测
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出
+        uses: actions/checkout@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      # 排在 build 之前：lint 不依赖构建产物，几秒就能出结果，
+      # 让它先失败可以省掉后面几分钟的构建。本地 `npm run verify` 同序。
+      - name: 代码规范
+        run: npm run lint
+
+      # 顺序不能反：跨包 import 一律解析到 packages/*/dist 的**构建产物**
+      # （见 docs/ARCHITECTURE.md D6 / §5.3(a)）。干净检出上 dist 不存在，
+      # 先跑类型检查必然报"找不到模块 @photo/core"。
+      # 本地 `npm run verify` 的编排也是 lint → build → typecheck → test。
+      - name: 构建全部包产物
+        run: npm run build
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 单元测试
+        run: npm run test
+
+      # 桌面壳的冒烟（真实 Electron 渲染进程）暂未接入 CI：
+      # ubuntu runner 需要 xvfb + 一整套 Electron 系统库，未在本机验证过，
+      # 贸然加一条会变红的 job 不如先留白。本地跑 `npm run smoke`。
+      # 它覆盖的是单测**测不到**的一类缺陷（结构化对象 ≠ 宿主对象），
+      # 接 CI 的优先级不低 —— 见 docs/P6C-PLAN.md §6.2。

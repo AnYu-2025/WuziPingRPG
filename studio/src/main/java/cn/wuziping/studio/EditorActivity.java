@@ -457,6 +457,31 @@ public final class EditorActivity extends Activity {
             else escalateTransport();
         });
     }
+    /* 首页的功能卡片：网页模块在页面内切换，原生模块（扫描、修图）由这里拉起独立 Activity。
+       用户在模块里按返回键或点「‹ 天工」结束该 Activity，onResume 再通知页面回到首页并刷新「继续」卡片。 */
+    private String openedModule;
+    private static final String SCAN_ACTIVITY="com.scan.camera.MainActivity";
+    private boolean scanAvailable(){
+        if(android.os.Build.VERSION.SDK_INT<29)return false;
+        if(!getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_CAMERA_ANY))return false;
+        try{return new Intent().setClassName(this,SCAN_ACTIVITY).resolveActivity(getPackageManager())!=null;}catch(Exception e){return false;}
+    }
+    private void sendCapabilities(){
+        JSONObject o=message("capabilities");
+        put(o,"scan",scanAvailable());put(o,"photo",true);put(o,"game",true);put(o,"sdk",android.os.Build.VERSION.SDK_INT);
+        event(o);
+    }
+    private void openModule(String id){
+        Intent intent;
+        if("photo".equals(id))intent=new Intent(this,PhotoActivity.class);
+        else if("scan".equals(id)){
+            if(android.os.Build.VERSION.SDK_INT<29){notice("扫描需要 Android 10 或更高版本。");return;}
+            if(!scanAvailable()){notice("这台设备没有可用的相机，或安装包没有包含扫描模块。");return;}
+            intent=new Intent().setClassName(this,SCAN_ACTIVITY);
+        }else{notice("未知模块："+id);return;}
+        if(web!=null)web.evaluateJavascript("window.Studio&&window.Studio.flush()",null);
+        try{startActivity(intent);openedModule=id;}catch(Exception e){openedModule=null;notice("模块没能打开："+e.getMessage());}
+    }
     private void deliverRestore(){
         lastRestoreAt=android.os.SystemClock.uptimeMillis();
         io.execute(()->{JSONObject o=message("restore");try{if(workspace.getBaseFile().exists()||new File(workspace.getBaseFile().getPath()+".bak").exists()){try(InputStream in=workspace.openRead()){JSONObject data=new JSONObject(new String(TextFiles.read(in,32*1024*1024),"UTF-8"));if(data.optInt("version")!=1||data.optJSONArray("files")==null)throw new IOException("工作区格式错误");put(o,"data",data);}}else put(o,"data",JSONObject.NULL);}catch(Exception e){try{backup(workspace.getBaseFile(),"workspace-recovery-",".json");put(o,"error","旧工作区读取失败，已保留恢复副本。");}catch(IOException failed){workspaceReadOnly=true;put(o,"error","旧工作区读取失败，未覆盖原文件。请先另存重要内容。");}}event(o);});
@@ -499,7 +524,8 @@ public final class EditorActivity extends Activity {
     }
     private void handle(JSONObject m)throws Exception{
         String type=m.optString("type");
-        if(type.equals("ready")){deliverRestore();return;}
+        if(type.equals("ready")){deliverRestore();sendCapabilities();return;}
+        if(type.equals("openModule")){openModule(m.optString("id"));return;}
         if(type.equals("aiRequest")){assistant.aiRequest(m);return;}
         if(type.equals("aiCancel")){assistant.aiCancel(m.optString("id",""));return;}
         if(type.equals("aiTool")){assistant.tool(m);return;}
@@ -765,7 +791,7 @@ public final class EditorActivity extends Activity {
     private void backupGame()throws IOException{if(!gameSave.getBaseFile().exists()&&!new File(gameSave.getBaseFile().getPath()+".bak").exists())return;try(InputStream in=gameSave.openRead()){atomic(new AtomicFile(new File(getFilesDir(),"journey-backup-"+System.currentTimeMillis()+".wzpsave")),TextFiles.read(in,8*1024*1024));}}
     private static void atomic(AtomicFile file,byte[] bytes)throws IOException{FileOutputStream out=null;try{out=file.startWrite();out.write(bytes);file.finishWrite(out);}catch(IOException e){if(out!=null)file.failWrite(out);throw e;}}
     private void backup(File source,String prefix,String suffix)throws IOException{if(!source.exists())return;try(InputStream in=new FileInputStream(source)){atomic(new AtomicFile(new File(getFilesDir(),prefix+System.currentTimeMillis()+suffix)),TextFiles.read(in,32*1024*1024));}}
-    @Override protected void onResume(){super.onResume();exitRequested=false;ui.removeCallbacks(exitWatchdog);if(web!=null){JSONObject o=message("gameState");put(o,"exists",gameSave.getBaseFile().exists()||new File(gameSave.getBaseFile().getPath()+".bak").exists());event(o);}}
+    @Override protected void onResume(){super.onResume();exitRequested=false;ui.removeCallbacks(exitWatchdog);if(web!=null){JSONObject o=message("gameState");put(o,"exists",gameSave.getBaseFile().exists()||new File(gameSave.getBaseFile().getPath()+".bak").exists());event(o);if(openedModule!=null){JSONObject back=message("moduleReturned");put(back,"id",openedModule);openedModule=null;event(back);}}}
     @Override protected void onPause(){
         if(tts!=null&&ttsCurrentId.length()>0)pauseTts(ttsCurrentId);
         if(web!=null){

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>浮生图梦 · 冒烟自检</title>
+    <!-- 与 index.html 完全相同的 import map —— 冒烟必须跑在与正式页面
+         一致的模块解析环境下，否则它证明不了正式页面能加载。 -->
+    <script type="importmap">
+      {
+        "imports": {
+          "@photo/core": "app://core/index.js",
+          "@photo/io": "app://io/index.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <!-- 冒烟不需要界面，但**需要一个真实的渲染进程**：
+         它要验证的是真实 Canvas 编解码、preload 桥与窗口配置。 -->
+    <pre id="out">冒烟自检进行中……</pre>
+    <script type="module" src="app://app/dist/smoke.js"></script>
+  </body>
+</html>

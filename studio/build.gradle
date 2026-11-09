@@ -1,8 +1,9 @@
 plugins { id 'com.android.application' }
+def studioParallel = project.findProperty('studioParallel') == 'true'
 android {
     namespace 'cn.wuziping.studio'
     compileSdk 34
-    defaultConfig { applicationId 'cn.wuziping.ember'; minSdk 23; targetSdk 34; versionCode 32; versionName '0.1.24' }
+    defaultConfig { applicationId (studioParallel ? 'cn.wuziping.ember.preview07' : 'cn.wuziping.ember'); manifestPlaceholders = [studioLabel: studioParallel ? '天工 · 试玩' : '天工']; minSdk 23; targetSdk 34; versionCode 33; versionName '0.2.1' }
     sourceSets {
         main.java.srcDirs += ['../core/src/main/java','../app/src/main/java']
         main.assets.srcDirs += ['../app/src/main/assets']
@@ -10,4 +11,9 @@ android {
     compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
     androidResources { noCompress 'wasm','zip','wav','js','mjs' }
     buildTypes { release { minifyEnabled false } }
+}
+
+dependencies {
+    // 扫描相机模块（minSdk 29）。Android 10 以下设备上首页会把「扫描」标成不可用。
+    implementation project(':scan')
 }

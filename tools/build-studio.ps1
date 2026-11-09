@@ -28,7 +28,8 @@ $resources=Join-Path $work 'resources.zip'
 Checked (Join-Path $bt 'aapt2.exe') @('compile','--dir',(Join-Path $root 'studio/src/main/res'),'-o',$resources)
 $id=if($ParallelInstall){'cn.wuziping.ember.preview07'}else{'cn.wuziping.ember'}
 $text=[IO.File]::ReadAllText((Join-Path $root 'studio/src/main/AndroidManifest.xml')).Replace('<manifest ',"<manifest package=`"$id`" ")
-if($ParallelInstall){$text=$text.Replace('android:label="天工"','android:label="天工 · 试玩"')}
+$label=if($ParallelInstall){'天工 · 试玩'}else{'天工'}
+$text=$text.Replace('${studioLabel}',$label)
 $manifest=Join-Path $work 'AndroidManifest.xml'
 [IO.File]::WriteAllText($manifest,$text,[Text.UTF8Encoding]::new($false))
 $unsigned=Join-Path $work 'unsigned.apk'

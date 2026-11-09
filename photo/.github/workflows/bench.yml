@@ -1,0 +1,80 @@
+name: Bench
+
+# 24MP 真实性能基线 —— **定时跑，不进 PR 门**。
+#
+# 为什么不进 PR 门：整套场景（5 冷启动 + 2 缓存复用 + 3 编解码微测）
+# 在 24MP 下要跑几分钟，还要现生成一张 ~150 MB 的测试图。每次 PR 都跑
+# 既慢又不稳定（共享 runner 抖动大），只会让人学会无视红叉。
+#
+# 但它必须有：性能回退是**静默**的 —— 功能测试全绿、代码看起来更"优雅"，
+# 而导出从 21 s 变成 40 s 没人知道。周跑 + 跨周对比是发现它的最省力方式。
+#
+# 判据与背景见 docs/P6D-PLAN.md §2.2（序 0.5）。
+
+on:
+  schedule:
+    # 每周一 03:17 UTC（北京时间 11:17）。错开整点，避开 runner 排队高峰。
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: bench
+  cancel-in-progress: false
+
+jobs:
+  bench:
+    name: 24MP 真实性能基线
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: 检出
+        uses: actions/checkout@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      # bench-one.mjs 直接从 packages/*/dist 与 apps/cli/dist 取代码，
+      # 所以必须先构建（与 ci.yml 同一条规矩）。
+      - name: 构建全部包产物
+        run: npm run build
+
+      # 取回上周基线。key 每次不同 + restore-keys 前缀匹配 ⇒ 总是拿到**最新**那份；
+      # 首次运行时缓存为空，对比脚本会识别为"首次运行"。
+      - name: 取回上周基线
+        uses: actions/cache/restore@v4
+        with:
+          path: bench-baseline
+          key: bench-baseline-${{ github.run_id }}
+          restore-keys: bench-baseline-
+
+      - name: 跑 24MP 真实性能实测
+        run: npm run bench -w @photo/cli | tee bench-report.md
+
+      # 非阻塞：显著回退只发 ::warning:: 并写进 Step Summary，不让 job 变红。
+      # 理由见脚本头部注释（周跑任务一旦会红，很快会被当成噪声无视）。
+      - name: 与上周基线对比
+        run: >-
+          node apps/cli/scripts/bench-compare.mjs
+          bench-baseline/bench-result.json
+          apps/cli/tmp/bench-result.json
+
+      - name: 上传本报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ github.run_number }}
+          path: |
+            bench-report.md
+            apps/cli/tmp/bench-result.json
+          retention-days: 90
+
+      - name: 保存本周基线
+        uses: actions/cache/save@v4
+        with:
+          path: bench-baseline
+          key: bench-baseline-${{ github.run_id }}

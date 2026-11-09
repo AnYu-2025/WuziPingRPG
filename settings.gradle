@@ -3,3 +3,5 @@ dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_P
 rootProject.name = 'WuziPingRPG'
 include ':app'
 include ':studio'
+// 扫描相机（Kotlin + CameraX + ML Kit），作为天工的扫描模块
+include ':scan'

@@ -1,0 +1,18 @@
+{
+  "cards": [
+    "lecture",
+    "tts",
+    "scan",
+    "python",
+    "notepad",
+    "photo",
+    "ai",
+    "game"
+  ],
+  "webModes": 6,
+  "nativeModules": 2,
+  "consoleErrors": [],
+  "version": "0.2.1",
+  "native_bridge": "simulated",
+  "android_device_tested": false
+}

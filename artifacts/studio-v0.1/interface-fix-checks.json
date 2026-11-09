@@ -1,20 +1,25 @@
 {
-  "checks": 10,
+  "checks": 15,
   "passed": [
     "game lobby back returns to editor",
-    "landing back collapses picker",
-    "third back exits after picker toggle",
+    "back from a mode opens home and a second back asks to exit",
+    "home return button restores the same work",
     "draw mode back closes drawing layer",
     "search back closes search panel",
     "AI queue survives picker",
     "TTS is not stopped by picker",
     "running code blocks notepad switch",
     "Ctrl+Enter sends AI only",
-    "flush happens before landing"
+    "flush happens before landing",
+    "new AI session cancels the in-flight request",
+    "reselecting the current card does not leave the file",
+    "lecture subview back returns to notes before home",
+    "game opened from home returns home",
+    "home layout stays reachable on short and landscape screens"
   ],
   "failed": [],
   "env": {
-    "viewport": "412x915",
+    "viewport": "412x915 plus home sizes",
     "mode": "browser"
   }
 }

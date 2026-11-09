@@ -2,39 +2,50 @@
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"><meta name="theme-color" content="#ffffff"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 23V9h4v5.4L17.2 9h5.2l-5.8 6.1L23 23h-5.2l-3.7-5.4L12 19.4V23z' fill='white'/%3E%3C/svg%3E"><meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'"><title>天工</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lecture.css"><link rel="stylesheet" href="tts.css"><link rel="stylesheet" href="ai.css"><link rel="stylesheet" href="shell.css"></head>
 <body>
 <section id="landing" class="home" aria-label="天工首页" data-ready="0">
+<div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><span class="brandspark" aria-hidden="true">✦</span><div><strong>天工</strong><span class="brandsub">随身工作台</span></div><span class="brandver">0.1.23</span></div>
- <button id="landingBack" class="home-return" type="button" hidden>返回刚才的工作</button>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.2.1</span></div>
+ <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div class="home-scroll" id="homeScroll">
- <p class="home-status"><span class="status-dot" aria-hidden="true"></span><span id="landingStatus">正在读取草稿</span></p>
- <h1 id="homeTitle">今天从这里开始</h1>
- <p class="home-lead">点一下就进入。返回键先回到这个首页，再按一次才会问你要不要退出。</p>
+ <div class="home-hero">
+  <p class="home-status"><span class="status-dot" aria-hidden="true"></span><span id="landingStatus">正在读取草稿</span></p>
+  <h1 id="homeTitle">今天从这里开始</h1>
+  <p class="home-lead" id="homeLead">所有功能都从这里进。返回键一层层退回首页，在首页再按一次才会问你要不要退出。</p>
+ </div>
  <button id="resumeCard" class="home-resume" type="button" hidden disabled>
-  <span class="home-kicker">接着做</span>
-  <strong id="resumeTitle">继续写 Python</strong>
-  <small id="resumeDetail">草稿留在本机</small>
+  <span class="home-resume-icon" id="resumeIcon" aria-hidden="true">↺</span>
+  <span class="home-resume-copy"><span class="home-kicker">接着做</span><strong id="resumeTitle">继续写 Python</strong><small id="resumeDetail">草稿留在本机</small></span>
+  <span class="home-resume-go" aria-hidden="true">›</span>
  </button>
- <section class="home-group" aria-label="常用">
-  <h2>常用</h2>
+ <section class="home-group" data-group="study" aria-label="学习">
+  <div class="home-ghead"><h2>学习</h2><span>课堂、朗读和纸质资料</span></div>
   <div class="home-grid">
-   <button class="home-card" type="button" data-mode="python" disabled><span class="home-icon" aria-hidden="true">&lt;/&gt;</span><span class="home-copy"><strong>写 Python</strong><small>离线运行代码和项目文件</small></span></button>
-   <button class="home-card" type="button" data-mode="notepad" disabled><span class="home-icon" aria-hidden="true">✎</span><span class="home-copy"><strong>记事本</strong><small>写字，草稿自动留在本机</small></span></button>
-   <button class="home-card" type="button" data-mode="ai" disabled><span class="home-icon" aria-hidden="true">✧</span><span class="home-copy"><strong>AI 助手</strong><small>对话和手机工具，敏感操作要你点允许</small></span></button>
+   <button class="home-card" type="button" data-mode="lecture" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🎙</span><span class="home-tag">录音</span></span><span class="home-copy"><strong>上课</strong><small>录音、笔记、PPT 同一条时间轴</small></span></button>
+   <button class="home-card" type="button" data-mode="tts" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">EN</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>英文朗读</strong><small>按句子朗读英文，可调语速</small></span></button>
+   <button class="home-card" type="button" data-mode="scan" data-kind="native" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">▣</span><span class="home-tag">相机</span></span><span class="home-copy"><strong>扫描文档</strong><small>拍书页和讲义，自动裁边，导出 PDF</small></span></button>
   </div>
  </section>
- <section class="home-group" aria-label="其他">
-  <h2>其他</h2>
-  <div class="home-list">
-   <button class="home-card home-row" type="button" data-mode="lecture" disabled><span class="home-icon" aria-hidden="true">🎙</span><span class="home-copy"><strong>上课</strong><small>录音、笔记和时间轴</small></span></button>
-   <button class="home-card home-row" type="button" data-mode="tts" disabled><span class="home-icon" aria-hidden="true">EN</span><span class="home-copy"><strong>英文朗读</strong><small>按句子朗读英文</small></span></button>
-   <button class="home-card home-row" type="button" data-mode="game" disabled><span class="home-icon" aria-hidden="true">✦</span><span class="home-copy"><strong>星火远征</strong><small>原来的游戏存档还在</small></span></button>
+ <section class="home-group" data-group="create" aria-label="创作">
+  <div class="home-ghead"><h2>创作</h2><span>代码、文字和照片</span></div>
+  <div class="home-grid">
+   <button class="home-card" type="button" data-mode="python" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">&lt;/&gt;</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>写 Python</strong><small>离线运行代码和项目文件</small></span></button>
+   <button class="home-card" type="button" data-mode="notepad" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✎</span><span class="home-tag">草稿</span></span><span class="home-copy"><strong>记事本</strong><small>写字、手绘，草稿自动留在本机</small></span></button>
+   <button class="home-card" type="button" data-mode="photo" data-kind="native" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">◐</span><span class="home-tag">照片</span></span><span class="home-copy"><strong>修图</strong><small>浮生图梦：调色、裁剪、拼图、水印</small></span></button>
   </div>
  </section>
- <p class="home-foot">草稿自动留在本机。要写回手机上的原文件，进到文件里点「保存」。</p>
+ <section class="home-group" data-group="more" aria-label="助手与休息">
+  <div class="home-ghead"><h2>助手与休息</h2><span>问问题，或者玩一会儿</span></div>
+  <div class="home-grid">
+   <button class="home-card" type="button" data-mode="ai" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✧</span><span class="home-tag">联网</span></span><span class="home-copy"><strong>AI 助手</strong><small>对话和手机工具，敏感操作要你点允许</small></span></button>
+   <button class="home-card" type="button" data-mode="game" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✦</span><span class="home-tag">游戏</span></span><span class="home-copy"><strong>星火远征</strong><small>原来的游戏存档还在</small></span></button>
+  </div>
+ </section>
+ <p class="home-foot">草稿自动留在本机。要写回手机上的原文件，进到文件里点「保存」。扫描和修图在独立页面里打开，用返回键或左上角「‹ 天工」回到这里。</p>
 </div>
 </section>
-<header class="appbar"><button id="filesToggle" class="icon" aria-label="文件列表" title="文件列表">☰</button><div class="doc"><strong id="activePath">main.py</strong><small id="dirtyFlag">本地草稿</small></div><button id="drawToggle" class="icon drawtoggle" aria-label="画画" title="画画" aria-pressed="false" hidden>🖌️</button><button id="saveButton" class="icon saveicon" aria-label="保存" title="保存">保存</button><button id="homeButton" class="textbtn" type="button" aria-label="回到首页" title="回到首页">首页</button><button id="runButton" class="primary">▶ 运行</button><button id="stopButton" class="danger" hidden>■ 停止</button><button id="moreButton" class="icon" aria-label="更多操作" title="更多操作"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></header><section id="lectureBar" aria-label="上课录音控制" data-state="idle"><span class="recdot" aria-hidden="true"></span><button id="recordBtn" data-role="rec"><span id="recordLabel">🎙 开始录音</span></button><button id="pauseBtn" class="recalt" hidden>⏸ 暂停</button><button id="stopBtn" class="recstop" hidden>⏹ 停止</button><button id="newRecBtn" class="recalt" hidden>🎙 新录音</button><strong id="recordTimer">00:00</strong><label class="rec-translate" id="translateToggle"><input type="checkbox" id="translateCheck"><span class="reccheck"></span><span class="reclabel">翻译</span></label><span class="grow"></span><button id="anchorBtn" class="recanchor" hidden>📌<span class="anchorbtntext"> 标记锚点</span></button></section>
+<header class="appbar"><button id="homeButton" class="homeback" type="button" aria-label="回到首页" title="回到首页"><span class="homeback-chev" aria-hidden="true">‹</span><span class="homeback-label">首页</span></button><button id="filesToggle" class="icon" aria-label="文件列表" title="文件列表">☰</button><div class="doc"><strong id="activePath">main.py</strong><small id="dirtyFlag">本地草稿</small></div><button id="drawToggle" class="icon drawtoggle" aria-label="画画" title="画画" aria-pressed="false" hidden>🖌️</button><button id="saveButton" class="icon saveicon" aria-label="保存" title="保存">保存</button><button id="runButton" class="primary">▶ 运行</button><button id="stopButton" class="danger" hidden>■ 停止</button><button id="moreButton" class="icon" aria-label="更多操作" title="更多操作">⋯</button></header>
+<section id="lectureBar" aria-label="上课录音控制" data-state="idle"><span class="recdot" aria-hidden="true"></span><button id="recordBtn" data-role="rec"><span id="recordLabel">🎙 开始录音</span></button><button id="pauseBtn" class="recalt" hidden>⏸ 暂停</button><button id="stopBtn" class="recstop" hidden>⏹ 停止</button><button id="newRecBtn" class="recalt" hidden>🎙 新录音</button><strong id="recordTimer">00:00</strong><label class="rec-translate" id="translateToggle"><input type="checkbox" id="translateCheck"><span class="reccheck"></span><span class="reclabel">翻译</span></label><span class="grow"></span><button id="anchorBtn" class="recanchor" hidden>📌<span class="anchorbtntext"> 标记锚点</span></button></section>
 <section id="ttsBar" aria-label="英文朗读控制" data-state="idle">
 <div class="tts-main"><span class="tts-mark" aria-hidden="true">EN</span><div class="tts-summary"><strong>英文朗读</strong><small id="ttsMeta" aria-live="off">在编辑器里输入或打开英文文本</small></div><button id="ttsPlay" class="tts-play" aria-label="开始英语朗读"><span id="ttsPlayText">朗读</span></button><button id="ttsStop" class="tts-stop" aria-label="停止英语朗读" title="停止">■</button></div>
 <div class="tts-options"><label class="tts-field"><span>语音</span><select id="ttsVoice" aria-label="英语语音"><option value="">系统默认 · English</option></select></label><label class="tts-field tts-rate-field"><span>语速</span><input id="ttsRate" type="range" min="0.75" max="1.5" step="0.05" value="1" aria-label="英语朗读语速"><output id="ttsRateValue">1x</output></label><span id="ttsStatus" role="status">正在准备英语语音…</span><div class="tts-progress" role="progressbar" aria-live="off" aria-label="朗读进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="ttsProgressFill"></span></div></div>
@@ -101,12 +112,12 @@
  </div></div>
 </aside>
 <div class="ai-main">
- <header class="ai-head"><button id="aiHome" type="button">首页</button><h2 id="aiTitle">AI 助手</h2><span class="ai-status" id="aiStatus">联网未开启</span><span class="grow"></span>
-  <select id="aiLang" aria-label="语言"><option value="zh">中文</option><option value="en">English</option></select>
+ <header class="ai-head"><button id="aiHome" class="homeback" type="button" aria-label="回到首页"><span class="homeback-chev" aria-hidden="true">‹</span><span class="homeback-label">首页</span></button><h2 id="aiTitle">AI 助手</h2><button id="aiSettingsToggle" type="button" aria-expanded="false" aria-controls="aiPanel">设置</button><span class="ai-status" id="aiStatus">联网未开启</span><span class="grow"></span>
+  <div class="ai-headtools"><select id="aiLang" aria-label="语言"><option value="zh">中文</option><option value="en">English</option></select>
   <select id="aiTheme" aria-label="主题"><option value="jade">青绿</option><option value="ink">墨蓝</option><option value="amber">琥珀</option><option value="rose">胭脂</option><option value="ocean">湖蓝</option><option value="violet">紫藤</option></select>
   <select id="aiView" aria-label="视图"><option value="chat">对话</option><option value="web">网页</option></select>
   <button id="aiNewSession" type="button">新会话</button><button id="aiExport" type="button">导出会话</button>
-  <button id="aiImport" type="button">导入回放</button><button id="aiShare" type="button">分享卡</button>
+  <button id="aiImport" type="button">导入回放</button><button id="aiShare" type="button">分享卡</button></div>
  </header>
  <div class="ai-gate" id="aiGate"><p id="aiGateText">AI 助手默认不联网。开启后，请求只发往你填写的服务，密钥仅保存在本机工作区。</p><button id="aiGateBtn" type="button">我了解，开启联网</button></div>
  <p class="ai-status-hint" id="aiStatusHint">打开其他应用、分享、短信草稿、剪贴板和写文件之前，需要你点「允许」。</p>

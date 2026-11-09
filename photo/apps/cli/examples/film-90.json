@@ -1,0 +1,10 @@
+{
+  "name": "film-90",
+  "ops": [
+    { "k": "applyPreset", "key": "film", "intensity": 0.8 },
+    { "k": "setAdjust", "value": { "vignette": 40, "grain": 12 } },
+    { "k": "setGeometry", "value": { "rotate": 90 } },
+    { "k": "setCollage", "value": { "mode": "single", "borderWidth": 24, "borderColor": "#ffffff" } },
+    { "k": "setWatermark", "value": { "text": "© 尤利乌斯", "pos": "br", "size": 3 } }
+  ]
+}

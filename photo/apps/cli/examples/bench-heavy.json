@@ -1,0 +1,26 @@
+{
+  "name": "bench-heavy",
+  "ops": [
+    {
+      "k": "setAdjust",
+      "value": {
+        "brightness": 105,
+        "contrast": 112,
+        "saturate": 118,
+        "warm": 12,
+        "soften": 25,
+        "vignette": 40,
+        "grain": 12,
+        "sharpen": 35,
+        "dehaze": 20
+      }
+    },
+    { "k": "setCurves", "value": { "rgb": [[0, 0], [64, 52], [160, 178], [255, 255]] } },
+    {
+      "k": "setBands",
+      "value": { "red": { "h": 4, "s": 6, "l": 2 }, "blue": { "h": -3, "s": 4, "l": 0 } }
+    },
+    { "k": "setGeometry", "value": { "rotate": 90, "straighten": 3 } },
+    { "k": "setCollage", "value": { "mode": "single", "borderWidth": 24, "borderColor": "#ffffff" } }
+  ]
+}

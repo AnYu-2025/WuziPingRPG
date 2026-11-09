@@ -1,0 +1,26 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    /* 外壳允许依赖平台 —— 这是与内核相反的半边。
+     *
+     * packages/core 与 packages/io 的 tsconfig 写的是 lib:["ES2022"] + types:[]，
+     * 它们连 document 都引用不到（写了就编译失败）。桌面壳恰好相反：
+     * 它要用 OffscreenCanvas、ImageData、createImageBitmap、DOM —— 那是它的职责。
+     *
+     * 边界依旧单向：内核只依赖语言，外壳依赖内核 + 平台。
+     * 于是"同一份内核换壳"是编译期成立的，而不是靠自觉。 */
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+
+    /* 跨包引用同样只认一条规则：解析到 node_modules 里 workspace 软链指向的
+     * 构建产物（packages/<pkg>/dist）。理由与 apps/cli 完全一致（见 ARCHITECTURE §5.3(a)）：
+     * paths 指向源码会让 tsc 把内核源码当成本项目输入，构建直接炸 TS6059。
+     * 因此 typecheck / build 之前必须先构建 core 与 io —— 根 verify 脚本已钉死顺序。
+     *
+     * 注：这里刻意不写 `packages` + 星号 + `/dist` 的 glob 写法。块注释里出现
+     * 星号紧跟斜杠会**提前闭合注释**，后面的中文就成了非法 JSON（本文件第一版
+     * 正是这么挂的）。apps/cli 的 tsconfig 出于同样理由写成了逐个列名。 */
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "vitest.config.ts"]
+}

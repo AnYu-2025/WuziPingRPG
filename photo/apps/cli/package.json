@@ -1,0 +1,45 @@
+{
+  "name": "@photo/cli",
+  "version": "0.7.0",
+  "private": true,
+  "description": "无头批处理外壳：把同一份内核跑在 Node 上（批处理 / CI / 服务端）。",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/render.js",
+  "types": "./dist/render.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/render.d.ts",
+      "import": "./dist/render.js"
+    }
+  },
+  "bin": {
+    "photo": "./bin/photo.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "bin"
+  ],
+  "scripts": {
+    "build": "node ../../scripts/tsc-retry.mjs tsconfig.build.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "node ./bin/photo.js",
+    "sample": "node scripts/make-sample.mjs",
+    "photo": "node scripts/make-photo.mjs",
+    "bench": "node scripts/bench.mjs",
+    "bench:compare": "node scripts/bench-compare.mjs"
+  },
+  "dependencies": {
+    "@photo/core": "*",
+    "@photo/io": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  }
+}

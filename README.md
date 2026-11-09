@@ -2,7 +2,21 @@
 
 仓库里现在有两样可以装到手机上的东西：原来的离线像素 RPG，以及手机工作台「天工」。上课模式和离线 Python 写在 [天工使用与安装说明](studio/README.md)。
 
-## 下载天工 0.1.17
+## 0.2.1：统一工作台
+
+[下载标准包](dist/Ember-Studio-0.2.1.apk) · [下载共存包](dist/Ember-Studio-0.2.1-parallel.apk)
+
+标准包与共存包是独立安装的数据空间；升级前请保留原有应用及数据。签名一致性已核对，实际手机覆盖升级仍待验证。首页使用随包提供的多彩流星背景、柔焦和动态玻璃效果。
+
+源码版本 **0.2.1**（versionCode 33），合并 0.1.24 的课堂录音改进和 0.2.0 的扫描、修图与首页模块。完整包需要 Gradle 编译扫描模块；手工 javac 打包不包含扫描模块。
+
+- **首页重做**：按「学习 / 创作 / 助手与休息」三组排列八个功能卡片，顶部是问候语和「接着做」卡片。卡片上标着离线、联网、相机等标签，当前设备不能用的功能会直接写明原因。
+- **统一的返回机制**：每个功能都登记在 `studio/web/src/back.js` 的模块表里，分成网页模块（同一个 WebView 内切换）和原生模块（独立页面）。返回键一次只关一层：对话框 → 抽屉 → 画画 → 查找 → 模块子层（如 AI 设置、上课时间轴）→ 首页 → 询问退出。原生模块关掉后由宿主发 `moduleReturned`，页面回到首页并更新「接着做」。新功能只需在模块表加一行，再登记自己的子层。
+- **扫描文档**：原「扫描相机」2.4.0（Kotlin、CameraX、ML Kit 离线中文 OCR）以 Gradle 库模块 `scan/` 并入，需要 Android 10 及以上和相机。
+- **修图**：原「浮生图梦」整套源码放在 `photo/`，新增手机页 `photo/apps/mobile/`，由 `studio/web/build-photo.mjs` 打包到 `studio/src/main/assets/photo/`，宿主是 `PhotoActivity`。导出的图片写进相册 `Pictures/浮生图梦`，ZIP 和工程文件写进 `Download/浮生图梦`。
+- **构建**：含扫描模块的完整包用 Gradle 构建：`gradle :studio:assembleDebug`（JDK 17、Android SDK 34）。`tools/build-studio.sh` / `.ps1` 不经 Gradle，打出的包里没有扫描模块，首页会把「扫描文档」标成不可用，其余功能不受影响。
+
+## 历史版本：下载天工 0.1.17
 
 手机浏览器直接打开链接就会下载，不用先克隆仓库。版本名 **0.1.17**，versionCode **25**。
 
@@ -35,7 +49,7 @@
 - 存档修复：格式 6、7 的读取和写入对齐。数学进度、名字和特效能按原样迁过来；格式 6 的物理工坊按未开始处理，格式 7 去掉后来新增的字段后，发射参数回到初始。
 - 记事本涂画：手指能在画布上画出笔画。画布按已经显示出来的图层量尺寸，不再把隐藏时的 0 宽度写进样式。
 
-当前源码版本：游戏 `app/build.gradle` 为 **0.7.1**（versionCode 8），天工 `studio/build.gradle` 为 **0.1.23**（versionCode 31）。文首的 **0.1.17**（versionCode 25）安装包已打进 `dist/`，0.1.15 的两个旧包也仍在。0.1.23 只在源码里，没有新的安装包。游戏 0.7.1 的标准包和共存包仍在 `dist/`。校验和：`dist/SHA256SUMS.txt` 是游戏 0.7.1，`dist/STUDIO-SHA256SUMS.txt` 覆盖天工 0.1.15 与 0.1.17 的四个包。`tools/package-source.py` 的目标是 `dist/WuziPingRPG-0.7.0-source.zip`，`tools/package-studio-source.py` 的目标是 `dist/Ember-Studio-0.1.15-source.zip`，这两个压缩包目前都不在仓库里。
+当前源码版本：游戏 **0.7.1**，天工 **0.2.1**（versionCode 33）。历史版本说明如下：游戏 `app/build.gradle` 为 **0.7.1**（versionCode 8），当时天工 `studio/build.gradle` 为 **0.1.23**（versionCode 31）。文首的 **0.1.17**（versionCode 25）安装包已打进 `dist/`，0.1.15 的两个旧包也仍在。0.1.23 只在源码里，没有新的安装包。游戏 0.7.1 的标准包和共存包仍在 `dist/`。校验和：`dist/SHA256SUMS.txt` 是游戏 0.7.1，`dist/STUDIO-SHA256SUMS.txt` 覆盖天工 0.1.15 与 0.1.17 的四个包。`tools/package-source.py` 的目标是 `dist/WuziPingRPG-0.7.0-source.zip`，`tools/package-studio-source.py` 的目标是 `dist/Ember-Studio-0.1.15-source.zip`，这两个压缩包目前都不在仓库里。
 
 [下载游戏 v0.7.1](dist/WuziPing-Emberbound-0.7.1-debug.apk) · [下载仓库源码 ZIP](https://github.com/ohGGBob/WuziPingRPG/archive/refs/heads/main.zip)
 
@@ -238,7 +252,7 @@ python .\tools\package-source.py
 
 Linux 上 `tools/verify-desktop.sh` 对应桌面检查。`tools/build-apk.sh` 的步骤相同，但版本戳还停在 0.7.0 / versionCode 7，输出文件名是 `WuziPing-Emberbound-0.7.0-*.apk`，并会用这些文件重写 `dist/SHA256SUMS.txt`。要得到 0.7.1，用上面的 PowerShell 脚本。可用 `SDK_ROOT` / `JDK_ROOT` 指定工具目录。
 
-天工用 `tools/build-studio.ps1`，Linux 上用 `tools/build-studio.sh`。两个脚本都从 `studio/build.gradle` 读取版本，当前源码是 0.1.23 / versionCode 31，重新构建会输出 `dist/Ember-Studio-0.1.23.apk` 和 `dist/Ember-Studio-0.1.23-parallel.apk`。仓库里已提交的仍是 0.1.17 标准包与共存包，0.1.15 的旧包也保留。前端和检查步骤见 `studio/README.md` 的构建一节。
+天工用 `tools/build-studio.ps1`，Linux 上用 `tools/build-studio.sh`。两个手工脚本从 `studio/build.gradle` 读取 0.2.1 / versionCode 33；它们不编译 Kotlin 扫描模块，完整包请用 Gradle 构建。历史记录：仓库里已提交的仍是 0.1.17 标准包与共存包，0.1.15 的旧包也保留。前端和检查步骤见 `studio/README.md` 的构建一节。
 
 可用 `-SdkRoot` / `-JdkRoot` 指定工具目录。打包复用 `build/manual/debug.keystore`，源码包排除签名私钥、缓存和本地存档。用于真实发布前应配置专门的发布签名。
 

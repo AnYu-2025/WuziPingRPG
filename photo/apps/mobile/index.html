@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#14141a" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' data: blob:; frame-src 'none'; object-src 'none'; base-uri 'none'" />
+    <title>浮生图梦 · 天工修图</title>
+    <!-- 桌面样式原样复用，移动端只在 mobile.css 里改布局。 -->
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="mobile.css" />
+    <!-- 外壳桥：页面加载 app.js 之前就要有 window.photoShell。 -->
+    <script src="mobile-shell.js"></script>
+  </head>
+  <body>
+    <!-- 移动端顶栏：左上角回天工，右上角导出。返回键的处理见 mobile-shell.js。 -->
+    <nav class="m-top" aria-label="修图顶栏">
+      <button id="m-home" type="button" class="m-home" aria-label="回到天工首页"><span aria-hidden="true">‹</span> 天工</button>
+      <div class="m-title"><strong>修图</strong><small>浮生图梦</small></div>
+      <span class="m-slot" id="m-export-slot"></span>
+    </nav>
+    <header class="bar" aria-label="修图工具">
+      <span class="brand" hidden>浮生图梦</span>
+
+      <div class="group">
+        <button id="btn-open" type="button">打开图片</button>
+        <button id="btn-add" type="button">添加图片</button>
+        <button id="btn-sample" type="button">新建示例图</button>
+      </div>
+
+      <!-- 工程文件：只存引用与操作，不存像素（内核 photo.doc/v1）。 -->
+      <div class="group">
+        <button id="btn-save-project" type="button">保存工程</button>
+        <button id="btn-open-project" type="button">打开工程</button>
+      </div>
+
+      <div class="group">
+        <button id="btn-undo" type="button">撤销</button>
+        <button id="btn-redo" type="button">重做</button>
+        <button id="btn-rotate" type="button">旋转 90°</button>
+        <button id="btn-flip" type="button">水平镜像</button>
+        <button id="btn-flip-v" type="button">垂直镜像</button>
+        <button id="btn-crop" type="button">裁剪</button>
+      </div>
+
+      <div class="spacer"></div>
+      <button id="btn-export" type="button" class="primary">导出</button>
+    </header>
+
+    <main>
+      <div class="stage-col">
+        <div id="thumbs" class="thumbs" hidden>
+          <div id="thumb-list" class="thumb-list"></div>
+          <div class="thumb-actions">
+            <button id="btn-del-current" type="button" class="btn-ghost">删除当前</button>
+            <button id="btn-clear" type="button" class="btn-ghost">清空</button>
+          </div>
+        </div>
+
+        <!-- 视图缩放：纯展示层，不进编辑状态、不参与撤销（与 legacy 一致）。
+             Ctrl+滚轮 / 双击画布 = 适应窗口。 -->
+        <div class="zoombar">
+          <button id="btn-zoom-out" type="button" title="缩小">－</button>
+          <span id="zoom-label" title="双击图片 = 适应窗口">100%</span>
+          <button id="btn-zoom-in" type="button" title="放大">＋</button>
+          <button id="btn-zoom-fit" type="button" title="适应窗口">适应</button>
+          <button id="btn-compare" type="button" title="按住看原图（观感归零，取景不变）">
+            👁 按住看原图
+          </button>
+        </div>
+
+        <section class="stage">
+          <canvas id="preview" width="1" height="1"></canvas>
+          <canvas id="crop-overlay" width="1" height="1" hidden></canvas>
+          <canvas id="grid-overlay" width="1" height="1" hidden></canvas>
+          <p id="empty" class="empty">
+            尚未导入图片。<br />
+            点「打开图片」，或点「新建示例图」直接试。
+          </p>
+        </section>
+      </div>
+
+      <aside class="panel" id="m-panel" data-tab="tone">
+        <div class="m-tabs" role="tablist" aria-label="面板分区">
+          <button type="button" class="m-tab" data-tab="tone" role="tab">调色</button>
+          <button type="button" class="m-tab" data-tab="geo" role="tab">几何</button>
+          <button type="button" class="m-tab" data-tab="text" role="tab">文字</button>
+          <button type="button" class="m-tab" data-tab="collage" role="tab">拼图</button>
+          <button type="button" class="m-tab" data-tab="export" role="tab">导出</button>
+          <button type="button" class="m-tab" data-tab="info" role="tab">信息</button>
+          <button type="button" class="m-fold" id="m-fold" aria-label="展开或收起面板" aria-expanded="false">⌃</button>
+        </div>
+        <label class="field" data-sec="tone">
+          <span>预设</span>
+          <select id="preset"></select>
+        </label>
+
+        <label class="field" data-sec="tone" id="preset-intensity-field" title="换预设时沿用当前强度；手调滑杆后回到 100%">
+          <span>预设强度</span>
+          <input id="preset-intensity" type="range" min="0" max="100" step="1" value="100" />
+          <span id="preset-intensity-val">100%</span>
+        </label>
+
+        <div class="auto-actions" data-sec="tone">
+          <button id="btn-auto" type="button">✨ 自动增强</button>
+          <button id="btn-auto-clear" type="button" class="btn-ghost">还原色阶</button>
+        </div>
+
+        <!-- 自定义预设（台账 #4）：名字即身份，同名覆盖。库里存的是 photo.preset/v1。 -->
+        <div class="field" data-sec="tone" id="preset-save-field">
+          <span>自定义预设</span>
+          <input id="preset-name" type="text" maxlength="40" placeholder="把当前观感存为预设" />
+          <button id="btn-save-preset" type="button">存为预设</button>
+        </div>
+
+        <div id="sliders" class="sliders" data-sec="tone"></div>
+
+        <label class="field" data-sec="geo">
+          <span>水平校正</span>
+          <input id="straighten" type="range" min="-15" max="15" step="1" value="0" />
+          <span id="straighten-val">0</span>
+        </label>
+
+        <fieldset class="export-opts" data-sec="text">
+          <legend>水印</legend>
+          <label class="field">
+            <span>文字</span>
+            <input id="watermark" type="text" placeholder="留空则不画" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>位置</span>
+            <select id="wm-pos">
+              <option value="br">右下</option>
+              <option value="bl">左下</option>
+              <option value="tr">右上</option>
+              <option value="tl">左上</option>
+              <option value="c">居中</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>颜色</span>
+            <input id="wm-color" type="color" value="#ffffff" />
+          </label>
+          <label class="field field--inline">
+            <input id="wm-stroke" type="checkbox" />
+            <span>描边</span>
+          </label>
+          <label class="field">
+            <span>字号</span>
+            <input id="wm-size" type="range" min="1" max="8" step="1" value="4" />
+            <span id="wm-size-val">4</span>
+          </label>
+          <label class="field">
+            <span>不透明度</span>
+            <input id="wm-alpha" type="range" min="10" max="100" step="1" value="80" />
+            <span id="wm-alpha-val">80</span>
+          </label>
+        </fieldset>
+
+        <fieldset class="export-opts" data-sec="text">
+          <legend>贴纸</legend>
+          <label class="field">
+            <span>文字</span>
+            <input id="sticker-text" type="text" placeholder="留空则不画" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>样式</span>
+            <select id="sticker-style">
+              <option value="white">白</option>
+              <option value="black">黑</option>
+              <option value="gold">金</option>
+              <option value="seal">印章</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>位置</span>
+            <select id="sticker-pos">
+              <option value="bottom">底部</option>
+              <option value="top">顶部</option>
+              <option value="center">居中</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>字号</span>
+            <input id="sticker-size" type="range" min="3" max="12" step="1" value="6" />
+            <span id="sticker-size-val">6</span>
+          </label>
+        </fieldset>
+
+        <fieldset class="export-opts" data-sec="tone">
+          <legend>HSL 分色</legend>
+          <label class="field">
+            <span>色彩带</span>
+            <select id="hsl-band"></select>
+          </label>
+          <label class="field">
+            <span>色相 H</span>
+            <input id="hsl-h" type="range" min="-100" max="100" step="1" value="0" />
+            <span id="hsl-h-val">0</span>
+          </label>
+          <label class="field">
+            <span>饱和 S</span>
+            <input id="hsl-s" type="range" min="-100" max="100" step="1" value="0" />
+            <span id="hsl-s-val">0</span>
+          </label>
+          <label class="field">
+            <span>明度 L</span>
+            <input id="hsl-l" type="range" min="-100" max="100" step="1" value="0" />
+            <span id="hsl-l-val">0</span>
+          </label>
+        </fieldset>
+
+        <fieldset class="export-opts" data-sec="tone">
+          <legend>曲线</legend>
+          <label class="field">
+            <span>通道</span>
+            <select id="curve-channel"></select>
+          </label>
+          <canvas id="curve-canvas" width="256" height="256"></canvas>
+          <button id="curve-reset" type="button" class="btn-ghost">重置本通道</button>
+        </fieldset>
+
+        <fieldset class="export-opts" data-sec="tone">
+          <legend>口语指令</legend>
+          <div class="kouyu-row">
+            <input id="kouyu-input" type="text" placeholder="说句话，例如：亮一点、横向拼、套个胶片" autocomplete="off" />
+            <button id="kouyu-btn" type="button" class="btn-ghost">执行</button>
+          </div>
+          <div id="kouyu-tip" class="kouyu-tip" hidden></div>
+        </fieldset>
+
+        <p class="m-hint" data-sec="geo">旋转、镜像和裁剪在上方工具条里；点「裁剪」后在图上拖框，返回键可取消裁剪。</p>
+        <fieldset id="crop-panel" class="export-opts" data-sec="geo" hidden>
+          <legend>裁剪</legend>
+          <label class="field">
+            <span>比例</span>
+            <select id="crop-ratio">
+              <option value="free">自由</option>
+              <option value="1">1 : 1</option>
+              <option value="1.333333">4 : 3</option>
+              <option value="0.75">3 : 4</option>
+              <option value="1.777778">16 : 9</option>
+              <option value="0.5625">9 : 16</option>
+            </select>
+          </label>
+          <div class="crop-actions">
+            <button id="crop-apply" type="button" class="primary">应用裁剪</button>
+            <button id="crop-cancel" type="button" class="btn-ghost">取消</button>
+          </div>
+          <div class="crop-hint">在图上拖拽框选；框内拖动可移动，拖角可缩放。</div>
+        </fieldset>
+
+        <fieldset class="export-opts" data-sec="collage">
+          <legend>拼图 / 切图</legend>
+          <label class="field">
+            <span>模式</span>
+            <select id="collage-mode">
+              <option value="single">单图精修</option>
+              <option value="h">横向拼接</option>
+              <option value="v">纵向拼接</option>
+              <option value="grid">网格拼图</option>
+              <option value="cut">切图（宫格）</option>
+            </select>
+          </label>
+          <label class="field" id="collage-gap-field">
+            <span>缝隙</span>
+            <input id="collage-gap" type="range" min="0" max="40" step="1" value="0" />
+            <span id="collage-gap-val">0</span>
+          </label>
+          <label class="field" id="collage-bg-field">
+            <span>背景</span>
+            <select id="collage-bg">
+              <option value="color">纯色</option>
+              <option value="blur">模糊</option>
+            </select>
+          </label>
+          <label class="field" id="cut-cols-field">
+            <span>切图列</span>
+            <select id="cut-cols">
+              <option value="2">2 列</option>
+              <option value="3">3 列</option>
+              <option value="4">4 列</option>
+            </select>
+          </label>
+          <label class="field" id="cut-rows-field">
+            <span>切图行</span>
+            <select id="cut-rows">
+              <option value="2">2 行</option>
+              <option value="3">3 行</option>
+              <option value="4">4 行</option>
+            </select>
+          </label>
+          <label class="field" id="border-width-field">
+            <span>边框</span>
+            <input id="border-width" type="range" min="0" max="80" step="1" value="0" />
+            <span id="border-width-val">0</span>
+          </label>
+          <label class="field" id="border-color-field">
+            <span>边框色</span>
+            <select id="border-color">
+              <option value="#ffffff">白</option>
+              <option value="#000000">黑</option>
+            </select>
+          </label>
+          <div class="crop-hint">
+            横/竖/网格拼图按源图顺序排列（先「添加图片」再切模式）；切图在预览上显示宫格线，宫格线不进导出。
+          </div>
+        </fieldset>
+
+        <fieldset class="export-opts" data-sec="export">
+          <legend>导出</legend>
+
+          <label class="field">
+            <span>格式</span>
+            <select id="format">
+              <option value="png">PNG（无损）</option>
+              <option value="jpeg">JPEG</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>画质</span>
+            <input id="quality" type="range" min="10" max="100" step="1" value="92" />
+            <span id="quality-val">92</span>
+          </label>
+
+          <label class="field">
+            <span>长边</span>
+            <select id="longEdge">
+              <option value="0">原尺寸</option>
+              <option value="640">640</option>
+              <option value="800">800</option>
+              <option value="1024">1024</option>
+              <option value="1280">1280</option>
+              <option value="1600">1600</option>
+              <option value="1920">1920</option>
+              <option value="2048">2048</option>
+              <option value="2560">2560</option>
+            </select>
+          </label>
+
+          <!-- 导出前的体积预估。写「约」是刻意的：它按比例外推，不是实测，
+               不给用户错误的安全感（见 session.estimateExportSize 注释）。 -->
+          <div id="size-tip" class="size-tip" hidden></div>
+
+          <div id="gate" class="gate" data-decision="run" hidden></div>
+
+          <button
+            id="btn-export-zip"
+            type="button"
+            class="wide"
+            title="单图模式：库中每张图各套一份当前编辑；切图模式：按宫格线切成分片。两种都打成一个 ZIP。"
+          >
+            批量导出 ZIP
+          </button>
+        </fieldset>
+
+        <fieldset class="export-opts" data-sec="info">
+          <legend>直方图</legend>
+          <canvas id="histogram" width="240" height="96"></canvas>
+        </fieldset>
+
+        <dl id="status" class="status" data-sec="info"></dl>
+      </aside>
+    </main>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

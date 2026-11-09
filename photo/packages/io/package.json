@@ -1,0 +1,31 @@
+{
+  "name": "@photo/io",
+  "version": "0.7.0",
+  "private": true,
+  "description": "图片编解码：零依赖的 BMP / PPM 编解码 + baseline JPEG 解码，以及格式探测。PNG 由各端平台能力提供（Node 用 zlib，浏览器用 Canvas）。",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/jpeg-synth.d.ts",
+      "import": "./dist/jpeg-synth.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "node ../../scripts/tsc-retry.mjs tsconfig.build.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  }
+}

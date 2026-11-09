@@ -1,0 +1,42 @@
+# ---- 依赖 ----
+node_modules/
+.pnpm-store/
+.yarn/
+
+# ---- 构建产物 ----
+dist/
+out/
+build/
+release*/
+*.asar
+*.blockmap
+
+# ---- 缓存 ----
+.cache/
+.vite/
+*.tsbuildinfo
+.eslintcache
+
+# ---- 日志与临时 ----
+*.log
+npm-debug.log*
+yarn-error.log*
+tmp/
+temp/
+
+# ---- AI 工作目录（工具产物，非产品源码）----
+.workbuddy/
+.learnbuddy/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 本地环境与密钥 ----
+.env
+.env.local
+.env.*.local
+*.pem

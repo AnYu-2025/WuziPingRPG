@@ -85,8 +85,7 @@ import pathlib, sys
 src, dest, app_id, parallel = sys.argv[1:]
 text = pathlib.Path(src).read_text(encoding="utf-8")
 text = text.replace("<manifest ", '<manifest package="%s" ' % app_id, 1)
-if parallel == "1":
-    text = text.replace('android:label="天工"', 'android:label="天工 · 试玩"', 1)
+text = text.replace('${studioLabel}', '天工 · 试玩' if parallel == "1" else '天工')
 pathlib.Path(dest).write_text(text, encoding="utf-8", newline="\n")
 PY
 
