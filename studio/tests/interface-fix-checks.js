@@ -155,6 +155,39 @@ await run('TTS is not stopped by picker','no ttsStop or ttsPause request',async(
   }finally{await closePage(bridgePage);}
 });
 
+/* 播放中当前句轻微加深：.cm-tts-active 必须存在、颜色是 #0b3b34、内容正好是当前段。 */
+await run('TTS highlights the sentence being read','body.tts playing shows .cm-tts-active in #0b3b34 with the current segment text',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    await enterMode(bridgePage,'tts');
+    await bridgePage.waitForFunction(()=>nativeRequests.some(request=>request.type==='ttsStatus'));
+    await bridgePage.locator('#ttsPlay').click();
+    await bridgePage.waitForSelector('.cm-tts-active');
+    const highlight=await bridgePage.evaluate(()=>{
+      const el=document.querySelector('.cm-tts-active');
+      return {text:el.textContent,color:getComputedStyle(el).color,ttsMode:document.body.classList.contains('tts')};
+    });
+    equal(highlight.ttsMode,true,'tts mode class on body');
+    equal(highlight.color,'rgb(11, 59, 52)','highlight colour #0b3b34');
+    const expected=await bridgePage.evaluate(()=>window.Studio.tts.segments(window.Studio.view.state.doc.toString()).segments[0].text);
+    equal(highlight.text,expected,'highlighted text is the current segment');
+  }finally{await closePage(bridgePage);}
+});
+
+/* 停止朗读立即清掉当前句高亮。 */
+await run('TTS highlight clears on stop','no .cm-tts-active after stop',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    await enterMode(bridgePage,'tts');
+    await bridgePage.waitForFunction(()=>nativeRequests.some(request=>request.type==='ttsStatus'));
+    await bridgePage.locator('#ttsPlay').click();
+    await bridgePage.waitForSelector('.cm-tts-active');
+    await bridgePage.locator('#ttsStop').click();
+    await bridgePage.waitForTimeout(120);
+    equal(await bridgePage.locator('.cm-tts-active').count(),0,'highlight count after stop');
+  }finally{await closePage(bridgePage);}
+});
+
 await run('running code blocks notepad switch','notepad class absent, file count unchanged, stop available',async()=>{
   const bridgePage=await openBridge();
   try{
