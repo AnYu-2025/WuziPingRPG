@@ -265,6 +265,20 @@ test('pause without range support estimates position from elapsed time',()=>{
   assert.ok(/[A-Za-z0-9]/.test(text.charAt(info.offset))&&!/[A-Za-z0-9'-]/.test(text.charAt(info.offset-1)),'aligned to a word boundary');
 });
 
+test('a late unsupported pause reply does not skip words spoken after the tap',()=>{
+  const env=timedHarness(longText);
+  ttsDebug.start();
+  env.advance(4000);
+  ttsDebug.pause();
+  const frozen=ttsDebug.info().offset;
+  assert.ok(frozen>0);
+  env.advance(5000);
+  const pause=env.requests.find(request=>request.type==='ttsPause');
+  ttsReceive({type:'ttsPaused',id:pause.id,supported:false});
+  assert.equal(ttsDebug.info().offset,frozen);
+  assert.equal(ttsDebug.info().exactPause,false);
+});
+
 test('estimated pause converges forward, never back to the segment start',()=>{
   const env=timedHarness(longText);
   ttsDebug.start();

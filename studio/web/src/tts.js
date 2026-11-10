@@ -284,6 +284,9 @@ let lastPersistAt=0;
 /* 本次发声的起点（文档偏移）、开始时刻与语速：供无 onRangeStart 引擎做暂停估算。 */
 let utteranceBase=0;
 let utteranceStartAt=0;
+/* 用户按下暂停的那一刻。之后到来的 ttsPaused 不得用更晚的墙钟再估一次，
+   否则桥接延迟会被当成「又读了若干字」。0 表示还没采样。 */
+let pauseSampledAt=0;
 let utteranceRate=1;
 let utteranceChars=0;
 /* segments 构建时的文档指纹与文件路径：切文件/切模式回来后判断位置是否仍有效。 */
@@ -629,6 +632,7 @@ function speakCurrent(offsetWithinSegment=0){
   utteranceRate=current.rate;
   utteranceChars=text.length;
   exactPause=true;
+  pauseSampledAt=0;
   persistPosition(activeOffset,true);
   setStatus('playing');
   if(nativeBridge()){
@@ -689,7 +693,8 @@ function wordBoundaryAfter(text,offset,limit){
 function estimatePauseOffset(){
   const segment=segments[segmentIndex];
   if(!segment)return activeOffset;
-  const elapsed=Math.max(0,(now()-utteranceStartAt)/1000);
+  const sampled=pauseSampledAt||now();
+  const elapsed=Math.max(0,(sampled-utteranceStartAt)/1000);
   const spoken=Math.floor(elapsed*CHARS_PER_SECOND*Math.max(MIN_RATE,utteranceRate||1));
   const guess=utteranceBase+spoken;
   if(guess<=utteranceBase)return wordBoundaryAfter(documentText,utteranceBase,segment.end);
@@ -711,7 +716,9 @@ function pause(){
   currentId='';
   if(nativeBridge())bridgeSend({type:'ttsPause',id});
   else if(browserSpeechSupported())window.speechSynthesis.cancel();
-  /* 先按已播时长把暂停点推进到词边界；原生随后回执精确 charIndex 时再精修。 */
+  /* 先按已播时长把暂停点推进到词边界，并冻住采样时刻。
+     原生随后回执精确 charIndex 时再精修；不支持区间时不得用更晚的墙钟重估。 */
+  if(!pauseSampledAt)pauseSampledAt=now();
   refinePausePosition();
   persistPosition(activeOffset,true);
   setStatus('paused');
@@ -771,6 +778,7 @@ function resetRuntimeState(){
   lastPersistAt=0;
   utteranceBase=0;
   utteranceStartAt=0;
+  pauseSampledAt=0;
   utteranceRate=1;
   utteranceChars=0;
   segmentsFingerprint='';
@@ -953,8 +961,10 @@ export function ttsReceive(message){
         exactPause=true;
         activeOffset=Math.max(activeSliceBase,Math.min(documentText.length,activeSliceBase+start));
       }else{
-        /* 不支持区间回执：按已播时长估算，向前对齐词边界，绝不退回段首。 */
+        /* 不支持区间回执：按已播时长估算，向前对齐词边界，绝不退回段首。
+           页面里的暂停键已经在按下时采样过；这里只补原生侧主动暂停的那一次。 */
         exactPause=false;
+        if(!pauseSampledAt)pauseSampledAt=now();
         refinePausePosition();
       }
       persistPosition(activeOffset,true);
