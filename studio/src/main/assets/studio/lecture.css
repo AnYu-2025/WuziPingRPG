@@ -169,7 +169,12 @@ body.lecture #lectureSlides{display:flex;flex-direction:column;flex:none;min-hei
 @media(min-width:900px){body.lecture #explorer{display:none}}
 
 /* ===== 笔记时间戳 gutter 与播放高亮 ===== */
+/* 只在上课显示。CodeMirror 自己的 .cm-gutter 写了 display:flex !important，
+   所以这里也得用 !important。其它模式里这列会在光标可见时被空的当前行元素撑开，
+   光标滚出屏幕后又塌掉，正文宽度就跟着上下滑动变来变去。 */
 .cm-note-times{background:#fffafa}
+body:not(.lecture) .cm-gutter.cm-note-times{display:none !important}
+body.lecture .cm-gutter.cm-note-times{display:flex !important}
 .cm-note-times .cm-gutterElement{padding:0 6px 0 8px;min-width:40px;text-align:right}
 .cm-note-time{font:500 9.5px/19px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#be123c;opacity:.7;letter-spacing:-.02em}
 .cm-note-time.on{opacity:1;font-weight:700}

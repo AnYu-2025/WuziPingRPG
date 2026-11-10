@@ -73,6 +73,10 @@ function currentNotePos(f){
 }
 const timeGutter=gutter({
   class:'cm-note-times',
+  /* 光标行的高亮会在每个 gutter 上放一个空元素。时间戳列的 min-width
+     把这个空元素撑开；光标滚出视口后元素被拆掉，列宽掉成 0，正文跟着变宽。
+     占位符一直在，滚动不再改列宽。最长格式是 hh:mm:ss。 */
+  initialSpacer:()=>new TimeMark('00:00:00',false),
   lineMarker(view,line){
     const f=view.state.field(stampField,false);
     if(!f||!f.stamps.length)return null;

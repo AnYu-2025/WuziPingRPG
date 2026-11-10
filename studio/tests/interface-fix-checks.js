@@ -464,6 +464,61 @@ await run('editor actions stay reachable with safe-area padding','home, save, ru
   }finally{await closePage(bridgePage);}
 });
 
+await run('editor pane width stays put while the text scrolls','gutter and text column keep the same width at the top and after scrolling past the cursor',async()=>{
+  const bridgePage=await openBridge();
+  try{
+    const lines=Array.from({length:80},(_,i)=>'Line '+(i+1)+'. The sound is not clear, but the first line still takes me back to that time.');
+    let entered=false;
+    for(const [width,height,mode] of [[360,780,'tts'],[320,568,'tts'],[360,780,'python'],[360,780,'lecture']]){
+      await bridgePage.setViewportSize({width,height});
+      if(entered){
+        await bridgePage.evaluate(()=>window.Studio.back());
+        await bridgePage.waitForSelector('#landing:not([hidden])');
+      }
+      await enterMode(bridgePage,mode);
+      entered=true;
+      await bridgePage.evaluate(value=>{
+        const view=window.Studio.view;
+        view.dispatch({changes:{from:0,to:view.state.doc.length,insert:value},selection:{anchor:0}});
+      },lines.join('\n'));
+      await bridgePage.waitForTimeout(80);
+      const read=()=>bridgePage.evaluate(()=>{
+        const content=document.querySelector('.cm-content').getBoundingClientRect();
+        const gutters=document.querySelector('.cm-gutters').getBoundingClientRect();
+        const editor=document.getElementById('editor').getBoundingClientRect();
+        const times=document.querySelector('.cm-note-times');
+        const timesBox=times?times.getBoundingClientRect():{width:0};
+        return {
+          content:Math.round(content.width),
+          gutters:Math.round(gutters.width),
+          editor:Math.round(editor.width),
+          editorHeight:Math.round(editor.height),
+          times:Math.round(timesBox.width)
+        };
+      });
+      const top=await read();
+      await bridgePage.evaluate(()=>{
+        const scroller=document.querySelector('.cm-scroller');
+        scroller.scrollTop=Math.max(0,scroller.scrollHeight-scroller.clientHeight);
+      });
+      await bridgePage.waitForTimeout(80);
+      const bottom=await read();
+      await bridgePage.evaluate(()=>{document.querySelector('.cm-scroller').scrollTop=0;});
+      await bridgePage.waitForTimeout(40);
+      const back=await read();
+      equal(bottom.content,top.content,width+'x'+height+' '+mode+' text width after scrolling down');
+      equal(bottom.gutters,top.gutters,width+'x'+height+' '+mode+' gutter width after scrolling down');
+      equal(bottom.editor,top.editor,width+'x'+height+' '+mode+' editor width');
+      equal(bottom.editorHeight,top.editorHeight,width+'x'+height+' '+mode+' editor height');
+      equal(bottom.times,top.times,width+'x'+height+' '+mode+' time gutter');
+      equal(back.content,top.content,width+'x'+height+' '+mode+' text width after scrolling back');
+      equal(back.gutters,top.gutters,width+'x'+height+' '+mode+' gutter width after scrolling back');
+      if(mode==='lecture')equal(top.times>0,true,width+'x'+height+' lecture keeps the time column');
+      else equal(top.times,0,width+'x'+height+' '+mode+' hides the time column');
+    }
+  }finally{await closePage(bridgePage);}
+});
+
 const report={checks:passed.length+failed.length,passed,failed,env:{viewport:'412x915 plus home, lecture and chrome sizes',mode:'browser'}};
 await fs.mkdir(root+'/artifacts/studio-v0.1',{recursive:true});
 if(failed.length===0){
