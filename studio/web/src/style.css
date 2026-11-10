@@ -527,3 +527,21 @@ body.drawing #editor{visibility:hidden}
   .template-card{min-height:58px}
   .quiz-actions button{flex:1 1 100%}
 }
+
+/* Visible offline sky, with a safe opaque fallback and independent foreground layer. */
+#landing { background:#131634 url("meteor-sky.webp") center / cover no-repeat; isolation:isolate; }
+#landing::before { z-index:0; inset:-24px; background:linear-gradient(180deg,rgba(10,8,32,.14),rgba(10,8,32,.30)),url("meteor-sky.webp") center / cover no-repeat; filter:blur(3px); }
+#landing::after { z-index:0; background:linear-gradient(180deg,rgba(9,11,29,.08),rgba(9,11,29,.32)); }
+#landing .home-top,#landing .home-scroll { position:relative; z-index:2; }
+#landing .meteor-field { z-index:1; filter:blur(.55px); }
+#landing .meteor-field i { top:-5%; left:100%; width:clamp(120px,36vw,260px); height:3px; opacity:0; border-radius:50%; background:linear-gradient(90deg,var(--meteor-color),transparent 95%); box-shadow:0 0 8px 1px var(--meteor-color); transform:rotate(-37deg); animation:meteor-cross 5s linear infinite; }
+#landing .meteor-field i:nth-child(1) { left:30%; --meteor-color:#ffcf7a; animation-duration:4.5s; animation-delay:-2.2s; }
+#landing .meteor-field i:nth-child(2) { left:80%; --meteor-color:#f4a5ff; animation-duration:5.5s; animation-delay:-1s; }
+#landing .meteor-field i:nth-child(3) { left:120%; --meteor-color:#8fc0ff; animation-duration:4.2s; animation-delay:-3.1s; }
+#landing .meteor-field i:nth-child(4) { left:160%; --meteor-color:#ffadb9; animation-duration:6s; animation-delay:-4.3s; }
+#landing .meteor-field i:nth-child(5) { left:65%; --meteor-color:#f9edff; animation-duration:5s; animation-delay:-4s; }
+#landing .meteor-field i:nth-child(6) { left:140%; --meteor-color:#dbb1ff; animation-duration:4.8s; animation-delay:-2.7s; }
+#landing .meteor-field i:nth-child(7) { left:105%; --meteor-color:#ffd58f; animation-duration:5.7s; animation-delay:-.5s; }
+#landing .meteor-field i:nth-child(8) { left:180%; --meteor-color:#9bbaff; animation-duration:6.3s; animation-delay:-1.7s; }
+@keyframes meteor-cross { 0% { opacity:0; transform:translate3d(0,0,0) rotate(-37deg); } 5% { opacity:.9; } 80% { opacity:.8; } 100% { opacity:0; transform:translate3d(-130vw,105vh,0) rotate(-37deg); } }
+@media(prefers-reduced-motion:reduce) { #landing .meteor-field i { animation:none; } }
