@@ -63,11 +63,12 @@ public final class Controls {
             else if(box(x,y,340,399,280,40)){g.title();clear();}
             return;
         }
+        if(g.mode==Game.DEAD&&g.history.failed()){if(box(x,y,310,350,340,46))g.history.restart(g);else if(box(x,y,310,410,340,36))g.history.exit(g);clear();return;}
         if(g.mode==Game.DEAD||g.mode==Game.VICTORY){if(box(x,y,310,350,340,46)){if(g.math.failed)g.math.recover(g);else if(g.story.enabled){if(g.story.defeated)g.story.recover(g);else g.story.enterTown(g);}else g.startRun();clear();}else if(box(x,y,310,410,340,36))g.title();return;}
         if(g.mode!=Game.PLAY)return;
         float rx=x-layout.right,ty=y-layout.top,by=y-layout.bottom,cx=x-layout.centerX,cy=y-layout.centerY;
-        if(g.body.enabled&&box(x-layout.left,ty,207,226,66,38)){g.mode=Arsenal.MENU;clear();return;}
-        if((g.body.enabled||g.inMath()||g.inPhysics()||g.inTown())&&box(rx,ty,813,226,127,g.inBody()?174:g.inPhysics()?37:37)){mapReturn=Game.PLAY;g.mode=g.inBody()?BodyJourney.MAP:g.inPhysics()?PhysicsJourney.MAP:MathJourney.MAP;clear();return;}
+        if((g.body.enabled||g.inHistory())&&box(x-layout.left,ty,207,226,66,38)){g.mode=Arsenal.MENU;clear();return;}
+        if(!g.inHistory()&&(g.body.enabled||g.inMath()||g.inPhysics()||g.inTown())&&box(rx,ty,813,226,127,g.inBody()?174:g.inPhysics()?37:37)){mapReturn=Game.PLAY;g.mode=g.inBody()?BodyJourney.MAP:g.inPhysics()?PhysicsJourney.MAP:MathJourney.MAP;clear();return;}
         if(g.inPhysics()&&box(x,y,layout.left+26,layout.bottom+375,120,36)){g.physics.returnTown(g);clear();return;}
         if(g.inMath()&&box(rx,by,741,337,132,31)){g.math.retry(g);clear();return;}
         if(box(rx,ty,862,19,78,38)){g.pause();clear();return;}
@@ -87,7 +88,7 @@ public final class Controls {
             for(Town.Npc n:Town.NPCS)if(circle(x,y,(n.x-camX)*2,(n.y-camY)*2-18,30)){if(!g.story.talk(g,n.id))g.announce("再靠近"+n.name+"一些，就可以交谈。");clear();break;}
         }
         else if(g.story.enabled&&box(cx,cy,g.inBody()?348:371,281,g.inBody()?264:218,34)&&!g.story.interaction(g).isEmpty()){g.story.interact(g);clear();}
-        else if(g.inBody()){
+        else if(g.inBody()||g.inHistory()){
             if(circle(rx,by,645,330,31)){input.ultimate=true;return;}
             if(circle(rx,by,866,462,49)){attackPointer=pointer;input.attack=true;}
             else if(circle(rx,by,768,470,41))input.skill=true;
@@ -122,8 +123,8 @@ public final class Controls {
         if(g.mode==Game.DIALOGUE&&pressed){dirty=true;Story.Dialogue d=g.story.dialogue;if(d!=null){if("1".equals(key))g.story.choose(g,0);else if("2".equals(key))g.story.choose(g,1);else if("E".equals(key)||"ENTER".equals(key)||"SPACE".equals(key)){if(d.complete()&&d.last())g.story.choose(g,0);else g.story.advance(g);}}clear();return;}
         if(g.mode==Game.UPGRADE&&pressed){if("1".equals(key))g.choose(0);if("2".equals(key))g.choose(1);if("3".equals(key))g.choose(2);clear();return;}
         if(g.mode!=Game.PLAY)return;
-        if(pressed&&"B".equals(key)&&g.body.enabled){g.mode=Arsenal.MENU;dirty=true;clear();return;}
-        if(pressed&&"Q".equals(key)&&g.body.enabled){for(int i=1;i<Arsenal.COUNT;i++){int next=(g.arsenal.selected+i)%Arsenal.COUNT;if(g.arsenal.owned(next)){g.arsenal.equip(g,next);break;}}dirty=true;return;}
+        if(pressed&&"B".equals(key)&&(g.body.enabled||g.inHistory())){g.mode=Arsenal.MENU;dirty=true;clear();return;}
+        if(pressed&&"Q".equals(key)&&(g.body.enabled||g.inHistory())){for(int i=1;i<Arsenal.COUNT;i++){int next=(g.arsenal.selected+i)%Arsenal.COUNT;if(g.arsenal.owned(next)){g.arsenal.equip(g,next);break;}}dirty=true;return;}
         if(pressed&&"R".equals(key))input.ultimate=true;
         if(pressed&&("M".equals(key)||"N".equals(key))&&g.story.enabled){mapReturn=Game.PLAY;g.mode=g.inBody()&&!"N".equals(key)?BodyJourney.MAP:g.inPhysics()?PhysicsJourney.MAP:MathJourney.MAP;dirty=true;clear();return;}
         if(pressed&&"T".equals(key)&&g.inMath()){g.math.retry(g);dirty=true;clear();return;}

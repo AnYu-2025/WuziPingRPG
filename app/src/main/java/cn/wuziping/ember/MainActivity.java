@@ -30,8 +30,8 @@ public final class MainActivity extends Activity {
     public boolean isEditorHost(){return getIntent().getBooleanExtra("editorHost",false);}
     @Override public void onBackPressed(){if(view!=null){if(view.game.mode==Game.TITLE){persist(view.game);finish();}else if(getIntent().getBooleanExtra("editorHost",false)){
         view.suspend();persist(view.game);
-        new android.app.AlertDialog.Builder(this).setTitle("旅途小憩").setMessage("游戏进度已保存，可以回到编辑器继续创作。")
-            .setPositiveButton("保存并返回编辑器",(d,w)->{persist(view.game);finish();})
+        new android.app.AlertDialog.Builder(this).setTitle("旅途小憩").setMessage(view.game.inHistory()?"退出历史副本后剧情从头开始，经验和成长保留。":"游戏进度已保存，可以回到编辑器继续创作。")
+            .setPositiveButton("保存并返回编辑器",(d,w)->{if(view.game.inHistory())view.game.history.exit(view.game);persist(view.game);finish();})
             .setNegativeButton("继续游戏",(d,w)->resumeHostedGame())
             .setNeutralButton("游戏主界面",(d,w)->{view.game.title();view.resumeView();})
             .setOnCancelListener(d->resumeHostedGame()).show();

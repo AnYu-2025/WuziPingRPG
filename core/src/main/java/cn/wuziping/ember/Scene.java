@@ -34,6 +34,7 @@ public final class Scene {
     private float sx(float x){return (x-camX)*2;}private float sy(float y){return (y-camY)*2;}
     private void world(){
         if(g.inBody())BodyRenderer.terrain(p,g,camX,camY,clock,W,H);
+        else if(g.inHistory())historyTerrain();
         else{
         p.rect(0,0,W,H,0xff193a2e);
         int tx=(int)camX/16,ty=(int)camY/16;
@@ -51,7 +52,7 @@ public final class Scene {
         p.oval(sx(640)-45,sy(501)-40,90,75,0x10f6b755);
         }
         drawCount=0;
-        if(!g.inBody())for(Game.Obstacle o:g.obstacles)if(o.x>camX-40&&o.x<camX+W/2+40&&o.y>camY-20&&o.y<camY+H/2+50)addDraw(o.y,o);
+        if(!g.inBody()&&!g.inHistory())for(Game.Obstacle o:g.obstacles)if(o.x>camX-40&&o.x<camX+W/2+40&&o.y>camY-20&&o.y<camY+H/2+50)addDraw(o.y,o);
         for(Game.Enemy e:g.enemies)addDraw(e.y,e);addDraw(g.y,g);
         for(Game.Drop d:g.drops){int id=d.type==0?8:d.type==1?9:10;float bounce=(float)Math.sin(clock*4+d.x)*1.3f;
             int glow=d.type==1?0x33e8c27a:d.type==2?0x3391e3a0:0x339fd7c8;p.oval(sx(d.x)-12,sy(d.y)-8,24,14,glow);
@@ -74,12 +75,12 @@ public final class Scene {
         }
         if(g.swing>0&&(!g.inBody()||g.arsenal.selected!=3&&g.arsenal.selected!=4))slashTrail();
         popups();
-        if(g.inBody()){
+        if(g.inBody()||g.inHistory()){
             for(Arsenal.Bolt b:g.arsenal.bolts){
                 p.line(sx(b.x-b.vx*.07f),sy(b.y-b.vy*.07f),sx(b.x),sy(b.y),4,(0x66<<24)|(b.color&0xffffff));
                 p.oval(sx(b.x)-8,sy(b.y)-8,16,16,(0x44<<24)|(b.color&0xffffff));p.rect(sx(b.x)-3,sy(b.y)-3,6,6,b.color);p.rect(sx(b.x)-1,sy(b.y)-1,2,2,0xfffff6df);
             }
-            BodyRenderer.supplies(p,g,camX,camY,clock,W,H);
+            if(g.inBody())BodyRenderer.supplies(p,g,camX,camY,clock,W,H);
         }
         for(int i=0;i<17;i++){
             float xx=(float)((i*71+Math.sin(clock*.25+i)*22)%W),yy=(float)((i*47+clock*(i%2==0?2:-2)+H*10)%H);
@@ -219,7 +220,7 @@ public final class Scene {
         for(int i=g.vfx.ga.length-1;i>=0;i--)if(g.vfx.ga[i]>0)p.image("actors.png",col*32,0,32,32,sx(g.vfx.gx[i])-29,sy(g.vfx.gy[i])-48,58,58,g.vfx.ga[i]*.38f,flip);
         if(g.dashTime>0){p.oval(px-26,py-14,52,20,0x5584d1bc);p.oval(px-16,py-10,32,12,0x339fd8cc);}
         p.image("actors.png",col*32,0,32,32,px-29,py-48,58,58,alpha,flip);
-        if(g.body.enabled){
+        if(g.body.enabled||g.inHistory()){
             int weapon=g.arsenal.selected;float progress=Game.clamp(1-g.swing/.2f,0,1),base=(float)Math.toDegrees(g.facing)+90;
             boolean striking=g.swing>0&&!g.inTown()&&!g.inMath()&&!g.inPhysics();float angle=base-25,extension=0;
             if(striking){
@@ -237,8 +238,44 @@ public final class Scene {
         }
         if(g.mode==Game.PLAY){float tagW=Math.max(60,Math.min(112,g.heroName.codePointCount(0,g.heroName.length())*11+12));p.rect(px-tagW/2,py-66,tagW,16,0xcc101820);p.rect(px-tagW/2,py-66,tagW,2,GOLD);p.text(g.heroName,px,py-53,Math.min(11,100f/Math.max(1,g.heroName.codePointCount(0,g.heroName.length()))),CREAM,1);}
     }
+    private void historyTerrain(){
+        boolean ford=g.history.stage==6;int ground=ford?0xff51483f:0xff615144;
+        p.rect(0,0,W,H,ground);
+        for(int y=(int)camY/24-1;y<(camY+H/2)/24+2;y++)for(int x=(int)camX/24-1;x<(camX+W/2)/24+2;x++){
+            int h=(x*97+y*157)^(x*y*13);float xx=sx(x*24),yy=sy(y*24);
+            p.rect(xx,yy,48,48,(h&1)==0?(ford?0xff514a41:0xff625349):(ford?0xff504941:0xff615249));
+            if((h&7)==0)p.rect(xx+8,yy+19,5,3,0xff88705a);
+        }
+        if(ford){p.rect(0,sy(520),W,Math.max(0,sy(580)-sy(520)),0xff284f5b);for(int i=0;i<24;i++){float xx=(i*87+clock*8)%W;p.rect(xx,sy(528+(i%3)*16),28,2,0x667da0a4);}p.rect(sx(480),sy(530),640,18,0xff977456);p.rect(sx(500),sy(542),600,10,0xff473a32);}
+        else {p.rect(sx(230),sy(610),sx(1050)-sx(230),55,0xff776652);for(int i=0;i<8;i++){float xx=sx(280+i*100);p.rect(xx,sy(630),15,24,0xff554034);p.rect(xx-8,sy(633),30,5,0xffae8c66);}}
+        for(int i=0;i<6;i++){float xx=sx(250+i*155),yy=sy(510+(i%2)*225);p.rect(xx,yy,5,55,0xff302d2b);p.rect(xx+5,yy,32,18,ford?0xffa94f45:0xff776a4a);p.rect(xx+10,yy+4,15,2,0xffdfbd88);}
+        // A supply cart and refugees make the protected convoy visible on the road.
+        float cartX=sx(690),cartY=sy(ford?565:620);
+        p.rect(cartX-42,cartY-16,84,20,0xff594332);p.rect(cartX-37,cartY-24,74,11,0xff967250);
+        p.oval(cartX-37,cartY,18,18,0xff292625);p.oval(cartX+19,cartY,18,18,0xff292625);
+        p.rect(cartX-22,cartY-38,22,13,0xffae9670);p.rect(cartX+2,cartY-34,26,10,0xffc0a783);
+        for(int i=0;i<3;i++){float xx=cartX-65+i*18; p.rect(xx,cartY-34,11,12,0xffd3ac86);p.rect(xx-2,cartY-22,15,20,i==1?0xff6f7c7b:0xff88745e);p.rect(xx,cartY-40,11,6,0xff38302c);}
+        for(int i=0;i<16;i++){float xx=sx(310+(i*137)%660),yy=sy(570+(i*89)%210);p.rect(xx,yy,6,3,0x779d866c);p.rect(xx+7,yy+5,3,2,0x66413a34);}
+        for(int i=0;i<12;i++){float xx=(float)((i*89+clock*8)%W),yy=(float)((i*131-clock*15+H*100)%H);p.rect(xx,yy,3,3,0xaac88759);}
+    }
+    private void historyEnemy(Game.Enemy e,float x,float y){
+        boolean boss=e.type==4,ford=g.history.stage==6;float q=boss?1.5f:1f;int cloth=ford?0xff4b5060:0xff76604a;
+        p.oval(x-15*q,y-3*q,30*q,9*q,0x88101618);
+        if(e.windup>0)p.oval(sx(e.targetX)-95,sy(e.targetY)-65,190,130,0x66d45e50);
+        p.rect(x-12*q,y-39*q,24*q,20*q,cloth);p.rect(x-16*q,y-36*q,5*q,16*q,cloth);p.rect(x+11*q,y-36*q,5*q,16*q,cloth);p.rect(x-10*q,y-55*q,20*q,17*q,0xffd2aa83);
+        p.rect(x-13*q,y-60*q,26*q,7*q,ford?0xff332e2b:0xff493b32);p.rect(x-11*q,y-19*q,8*q,18*q,0xff272b2e);p.rect(x+3*q,y-19*q,8*q,18*q,0xff272b2e);
+        p.rect(x-7*q,y-48*q,3*q,3*q,0xff252324);p.rect(x+4*q,y-48*q,3*q,3*q,0xff252324);p.rect(x-9*q,y-29*q,18*q,3*q,ford?0xffbf8f67:0xffb48761);p.rect(x-7*q,y-38*q,3*q,8*q,0xffa18e79);p.rect(x+5*q,y-38*q,3*q,8*q,0xffa18e79);
+        p.line(x+12*q,y-35*q,x+27*q,y-57*q,3*q,0xffd7c5a6);
+        if(e.hp<e.maxHp||boss){float w=boss?70:34;p.rect(x-w/2,y-68*q,w,5,0xff222021);p.rect(x-w/2,y-68*q,w*Math.max(0,e.hp/e.maxHp),4,0xffd68a70);}
+    }
+    private void historyResult(){
+        veil();panel(248,58,464,430);center("残灯未灭",480,157,34,0xfff0c994);center("这段路须从头再走，但你并非一无所获。",480,218,13,MUTED);
+        center("等级 "+g.level+" · 经验 "+g.xp+" / "+g.requiredXp(),480,265,15,CREAM);center("失败额外经验 +8 · 剧情与战斗重置",480,309,12,GOLD);
+        button("重走残灯渡",310,350,340,46,true);button("退出副本 · 回到城镇",310,410,340,36,false);
+    }
     private void enemy(Game.Enemy e){
         float px=sx(e.x),py=sy(e.y);if(px<-90||px>W+90||py<-50||py>H+100)return;
+        if(g.inHistory()){historyEnemy(e,px,py);return;}
         int frame=(int)(clock*(e.type==1?10:5)+e.id)%4,col=frame,row=1;float size=52;
         if(e.type==1){col+=4;size=46;}else if(e.type==2){row=2;size=62;}else if(e.type==3){row=2;col+=4;size=52;}else if(e.type==4){row=3;size=100;}
         if(e.windup>0){float xx=sx(e.targetX),yy=sy(e.targetY);if(e.bossAttack){p.oval(xx-106,yy-75,212,150,0x55d87153);p.line(xx-18,yy,xx+18,yy,2,0xfff0c9a2);p.line(xx,yy-12,xx,yy+12,2,0xfff0c9a2);for(int j=0;j<28;j++){double a=j*Math.PI/14;p.rect(xx+(float)Math.cos(a)*104,yy+(float)Math.sin(a)*74,5,5,0xffe9a169);}}else p.oval(px-65,py-55,130,100,0x55b988d0);}
@@ -307,10 +344,10 @@ public final class Scene {
         p.rect(70,49,190,12,0xff142028);p.rect(71,50,188*g.hp/Math.max(1,g.maxHp),10,g.hp<g.maxHp*.34f?0xffe07a45:0xffc45c6a);p.rect(71,50,188*g.hp/Math.max(1,g.maxHp),2,0x66ffd5cc);center((int)g.hp+" / "+(int)g.maxHp,165,59,10,0xfffff0d4);
         label("经验 "+g.xp+" / "+g.requiredXp(),30,74,9,MUTED);
         p.rect(28,78,240,5,0xff142028);p.rect(28,78,240*(float)g.xp/g.requiredXp(),5,0xff7ec8b0);p.rect(28,78,240*(float)g.xp/g.requiredXp(),1,0x88e8fff0);
-        anchor(0,-1);panel(325,16,310,56);p.rect(340,66,280,2,0x55e8c27a);center(g.inTown()?"中山大学 · "+(g.body.enabled?"梦境据点":"灯火长明"):g.inBody()?g.body.name()+" · 体内远征":"迷雾森林 · "+Game.WAVE_NAMES[g.wave-1],480,39,17,CREAM);center(g.inTown()?"安全区域  ·  可以交谈与补给":g.inBody()?BodyJourney.SUBTITLES[g.body.organ]+"  ·  "+time(g.elapsed):"第 "+g.wave+" / 5 波  ·  "+time(g.elapsed),480,59,11,MUTED);
+        anchor(0,-1);panel(325,16,310,56);p.rect(340,66,280,2,0x55e8c27a);center(g.inTown()?"中山大学 · "+(g.body.enabled?"梦境据点":"灯火长明"):g.inHistory()?(g.history.stage==5?"两宋之交 · 逃难山道":"两宋之交 · 残灯渡口"):g.inBody()?g.body.name()+" · 体内远征":"迷雾森林 · "+Game.WAVE_NAMES[g.wave-1],480,39,17,CREAM);center(g.inTown()?"安全区域  ·  可以交谈与补给":g.inHistory()?"守护归途 · 敌人 "+g.enemies.size():g.inBody()?BodyJourney.SUBTITLES[g.body.organ]+"  ·  "+time(g.elapsed):"第 "+g.wave+" / 5 波  ·  "+time(g.elapsed),480,59,11,MUTED);
         anchor(1,-1);icon(9,646,21,23);label(""+g.gold,674,40,16,GOLD);smallToggle("札记",716,19,58);
         smallToggle(g.autoAttack?"自动 开":"自动 关",780,19,76);smallToggle("菜单",862,19,78);
-        anchor(-1,-1);panel(18,107,286,83);p.rect(22,116,3,64,g.body.ending?0xff8ed0b7:GOLD);icon(11,32,118,24);label(g.math.active?"数学星庭 · 发现 "+Integer.bitCount(g.math.solved)+" / 3":g.body.enabled?(g.body.ending?"终章完成 · 梦醒时分":"梦入体内 · 净化 "+g.body.clearedCount()+" / 8"):g.story.enabled?g.story.chapterName():"当前委托",64,136,12,GOLD);
+        anchor(-1,-1);panel(18,107,286,83);p.rect(22,116,3,64,g.body.ending?0xff8ed0b7:GOLD);icon(11,32,118,24);label(g.inHistory()?"历史 · 残灯渡":g.math.active?"数学星庭 · 发现 "+Integer.bitCount(g.math.solved)+" / 3":g.body.enabled?(g.body.ending?"终章完成 · 梦醒时分":"梦入体内 · 净化 "+g.body.clearedCount()+" / 8"):g.story.enabled?g.story.chapterName():"当前委托",64,136,12,GOLD);
         wrapped(g.quest(),32,161,13,CREAM,254,18,2);label("点击查看任务与人物",32,182,10,MUTED);
         // Mini map deliberately omits any hidden off-screen collectible information.
         anchor(1,-1);panel(826,75,114,89);p.rect(834,83,98,73,g.inTown()?0xff3e5250:0xff203e31);
@@ -325,13 +362,13 @@ public final class Scene {
         }
         p.rect(834+g.x/g.worldWidth()*98-2,83+g.y/g.worldHeight()*73-2,4,4,0xffb1ead3);
         if(g.story.enabled){float[] target=g.inTown()&&g.math.active?new float[]{1140,620}:g.body.enabled?g.body.target(g):g.story.target();if(target!=null){p.rect(834+target[0]/g.worldWidth()*98-2,83+target[1]/g.worldHeight()*73-2,4,4,GOLD);navigation(target[0],target[1]);}}
-        if(g.body.enabled){anchor(1,-1);bodyMini();anchor(-1,-1);
+        if(g.body.enabled||g.inHistory()){if(!g.inHistory()){anchor(1,-1);bodyMini();}anchor(-1,-1);
             panel(18,219,260,65);p.rect(22,226,3,50,Arsenal.COLORS[g.arsenal.selected]);p.image("weapons.png",Math.min(g.arsenal.selected,5)*32,0,32,32,30,228,34,34,1,false);label(g.arsenal.name(),70,240,14,GOLD);
             p.rect(70,250,128,4,0xff101820);p.rect(70,250,128*g.arsenal.energy/100f,4,g.arsenal.energy>=100?0xffffe7b0:0xffc5a6d9);label(Arsenal.DESCS[g.arsenal.selected],32,273,10,MUTED);smallToggle("武库",207,226,66);
         }
         anchor(0,-1);if(g.banner>0){panel(315,87,420,45);center(g.bannerText,525,115,13,GOLD);}
         Game.Enemy boss=null;if(!g.inTown())for(Game.Enemy e:g.enemies)if(e.type==4)boss=e;
-        if(boss!=null){center(g.inBody()?Bosses.name(g)+(boss.hp<boss.maxHp*.6f?" · 狂暴":""):"遗迹守卫",480,181,13,GOLD);p.rect(337,190,286,7,0xff172824);p.rect(338,191,284*boss.hp/boss.maxHp,5,0xffd2ab69);}
+        if(boss!=null){center(g.inHistory()?"金军追兵统领":g.inBody()?Bosses.name(g)+(boss.hp<boss.maxHp*.6f?" · 狂暴":""):"遗迹守卫",480,181,13,GOLD);p.rect(337,190,286,7,0xff172824);p.rect(338,191,284*boss.hp/boss.maxHp,5,0xffd2ab69);}
     }
     private void smallToggle(String s,float x,float y,float w){
         p.rect(x+1,y+2,w,31,0x55060c10);p.rect(x,y,w,31,0xffc4a36a);p.rect(x+2,y+2,w-4,27,0xff16242c);
@@ -361,15 +398,15 @@ public final class Scene {
             if(!g.story.interaction(g).isEmpty()){anchor(0,0);panel(348,281,264,34);center(g.story.interaction(g)+"  [E]",480,303,12,GOLD);}
             return;
         }
-        anchor(1,1);if(g.inBody()){
-            if(g.arsenal.energy>=100){float pulse=4+(float)Math.sin(clock*5)*2;p.oval(645-24-pulse,330-24-pulse,(24+pulse)*2,(24+pulse)*2,0x44ffe7b0);}
-            meterRing(645,330,34,g.arsenal.energy/100f,0xffc5a6d9);
-            roundButton(645,330,26,4,"爆发 "+(int)g.arsenal.energy+"%",0,1,0xffc5a6d9);
+        anchor(1,1);if(g.inBody()||g.inHistory()){
+            if(g.inBody()&&g.arsenal.energy>=100){float pulse=4+(float)Math.sin(clock*5)*2;p.oval(645-24-pulse,330-24-pulse,(24+pulse)*2,(24+pulse)*2,0x44ffe7b0);}
+            if(g.inBody()){meterRing(645,330,34,g.arsenal.energy/100f,0xffc5a6d9);
+            roundButton(645,330,26,4,"爆发 "+(int)g.arsenal.energy+"%",0,1,0xffc5a6d9);}
             roundButton(866,462,46,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
             roundButton(768,470,38,1,Arsenal.SKILLS[g.arsenal.selected],g.skillCd,7,0xffc17b51);
             roundButton(770,362,33,2,"闪避",g.dashCd,2.6f,0xff6d9b8d);
             roundButton(700,414,28,3,"药剂 ×"+g.potions,g.potionCd,3,0xffa87063);
-            anchor(0,1);label("长按挥剑 · 点击全身图查看血管路线",325,508,11,MUTED);
+            anchor(0,1);label(g.inHistory()?"击败敌人获得经验 · 菜单可撤退": "长按挥剑 · 点击全身图查看血管路线",325,508,11,MUTED);
             if(!g.story.interaction(g).isEmpty()){anchor(0,0);panel(348,281,264,34);center(g.story.interaction(g)+"  [E]",480,303,12,GOLD);}return;
         }
         roundButton(866,428,52,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
@@ -408,7 +445,7 @@ public final class Scene {
     private void pause(){
         veil();panel(304,66,352,435);center("旅途小憩",480,111,29,CREAM);center("旅程已自动保存 · 简体中文",480,143,13,MUTED);
         button("继续旅程",340,181,280,46,true);button("旅者手册",340,240,280,40,false);
-        button(g.sound?"声音：开":"声音：关",340,293,134,40,false);button(g.effectsLevel==0?"特效：柔和":"特效：标准",486,293,134,40,false);button(g.story.enabled&&!g.inTown()?(g.inBody()?"沿血管返回中山大学":"返回中山大学"):"继续探索",340,346,280,40,false);button("返回主界面",340,399,280,40,false);
+        button(g.sound?"声音：开":"声音：关",340,293,134,40,false);button(g.effectsLevel==0?"特效：柔和":"特效：标准",486,293,134,40,false);button(g.story.enabled&&!g.inTown()?(g.inHistory()?"退出副本 · 剧情重置":g.inBody()?"沿血管返回中山大学":"返回中山大学"):"继续探索",340,346,280,40,false);button("返回主界面",340,399,280,40,false);
         center("攻击 "+(int)g.attack+"  ·  移速 "+(int)g.speed+"  ·  击败 "+g.kills,480,474,12,MUTED);
         center("点击面板外的空白处，或按手机返回键，随时回到旅程",480,492,11,GOLD);
     }
@@ -437,6 +474,7 @@ public final class Scene {
     }
     private void confirmNew(){veil();panel(265,135,430,285);center("开启新的远征？",480,193,28,CREAM);center("本次未完成的旅程将被替换。",480,236,15,MUTED);button("确认，重新出发",310,294,340,46,true);button("保留原旅程",310,355,340,40,false);}
     private void result(){
+        if(g.history.failed()){historyResult();return;}
         if(g.math.active){mathResult();return;}
         if(g.body.enabled){bodyResult();return;}
         veil();panel(265,69,430,403);boolean won=g.mode==Game.VICTORY;

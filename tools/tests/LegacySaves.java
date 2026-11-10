@@ -12,20 +12,21 @@ final class LegacySaves {
     }
     /** Format 8 is the live save. 7 drops the seventh forge level and tuned launch parameters. */
     static byte[] snapshot(Game g,int version)throws IOException{
-        if(version<1||version>8)throw new IllegalArgumentException("Unsupported legacy fixture version");
+        if(version<1||version>9)throw new IllegalArgumentException("Unsupported legacy fixture version");
         ByteArrayOutputStream current=new ByteArrayOutputStream();g.save(current);byte[] currentBytes=current.toByteArray();
         byte[] story=bytes(g.story::write),body=bytes(g.body::write),guest=bytes(g.guest::write);
         byte[] arsenal=bytes(g.arsenal::write),math=bytes(g.math::write),physics=bytes(g.physics::write);
         byte[] oldArsenal=bytes(out->g.arsenal.write(out,false));
         byte[] oldPhysics=bytes(out->g.physics.write(out,false));
         byte[] profile=bytes(out->{out.writeUTF(g.heroName);out.writeInt(g.effectsLevel);});
-        int prefix=currentBytes.length-story.length-body.length-guest.length-arsenal.length-math.length-physics.length-profile.length-4;
+        byte[] history=bytes(g.history::write);
+        int prefix=currentBytes.length-story.length-body.length-guest.length-arsenal.length-math.length-physics.length-profile.length-history.length;
         if(prefix<12)throw new IOException("Invalid current snapshot layout");
         byte[] tail=Arrays.copyOfRange(currentBytes,prefix,currentBytes.length);
         ByteArrayOutputStream expected=new ByteArrayOutputStream();
-        expected.write(story);expected.write(body);expected.write(guest);expected.write(arsenal);expected.write(math);expected.write(physics);expected.write(profile);new DataOutputStream(expected).writeInt(g.history.stage);
+        expected.write(story);expected.write(body);expected.write(guest);expected.write(arsenal);expected.write(math);expected.write(physics);expected.write(profile);expected.write(history);
         if(!Arrays.equals(tail,expected.toByteArray()))throw new IOException("Snapshot tail does not match section writers");
-        if(version==8){byte[] v8=Arrays.copyOf(currentBytes,currentBytes.length-4);v8[7]=8;return v8;}
+        if(version==8||version==9){int omit=version==8?history.length:history.length-4;byte[] v=Arrays.copyOf(currentBytes,currentBytes.length-omit);v[7]=(byte)version;return v;}
         ByteArrayOutputStream out=new ByteArrayOutputStream();out.write(currentBytes,0,prefix);DataOutputStream d=new DataOutputStream(out);
         if(version>=2)d.write(story);
         if(version>=5)d.write(body);
