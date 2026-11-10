@@ -1255,6 +1255,22 @@ export function lectureBusy(){
      WebView，而音频还在后面的 await 链里没写完。 */
   return settling>0||stopping||recActive();
 }
+/* 课堂笔记的模板插入保护：时间戳可能是当前文档里的 StateField，
+   也可能在切走文件后留在 editorStates 里，或来自恢复的工作区快照。 */
+export function lectureStampCount(){
+  try{
+    if(env&&env.view&&env.view()&&env.activePath&&env.activePath()===NOTES_PATH){
+      const field=env.view().state.field(stampField,false);
+      if(field)return field.stamps.length;
+    }
+    if(env&&env.editorState){
+      const state=env.editorState(NOTES_PATH);
+      const field=state?state.field(stampField,false):null;
+      if(field)return field.stamps.length;
+    }
+  }catch(e){/* 编辑器还没就绪时退回快照计数 */}
+  return persist.notes.length;
+}
 /* 切后台 / 息屏 / 退出：立刻结束录音并把已录到的部分落盘。
    原来 onPause 只 flush 草稿而音频还没写进去，等于整节课白录。
    info.exit=true 表示这次是退出，不需要再把整段音频读进内存做回放。 */

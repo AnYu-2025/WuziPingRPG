@@ -1,2 +1,2 @@
-ffb8bd6c00dced79f7c486d9d1f2fe15f04982c90fb03fa524f0a949730cd538  Ember-Studio-0.2.1.apk
-01b35839b87150154258ea1235ca4cbb1b649913d196bf13596be74c4b8933bd  Ember-Studio-0.2.1-parallel.apk
+0b1ba1794f9daca6d4cccec5bc5c265d6262125dba3ef59ecfd34b2d9f36dbd9  Ember-Studio-0.2.3.apk
+bdf30436d51663f0ad63b02475fb7bf873d31f38fb66a219aa6660c4f18709c0  Ember-Studio-0.2.3-parallel.apk

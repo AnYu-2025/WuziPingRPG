@@ -10,6 +10,7 @@ import android.widget.ArrayAdapter
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -60,12 +61,7 @@ class PreviewActivity : AppCompatActivity() {
                     try {
                         // 不使用会在返回时丢弃 Bitmap 的可取消 withContext：由 finally 管理释放。
                         withContext(Dispatchers.IO) {
-                            val mode = when (selected) {
-                                1 -> EnhanceMode.GRAY
-                                2 -> EnhanceMode.BW
-                                else -> EnhanceMode.COLOR
-                            }
-                            loaded = ImagePipeline.processed(File(paths[position]), mode, settings, 2400)
+                            loaded = ImagePipeline.processed(File(paths[position]), modeFor(selected), settings, 2400)
                         }
                         if (holder.bindingAdapterPosition == position && requestRevision == revision) {
                             holder.bitmap = loaded
@@ -104,7 +100,10 @@ class PreviewActivity : AppCompatActivity() {
             override fun onPageSelected(position: Int) { title.text = getString(R.string.page_of, position+1, paths.size) }
         })
         title.text = getString(R.string.page_of, pager.currentItem+1, paths.size)
-        findViewById<View>(R.id.closeBtn).setOnClickListener { finish() }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = result("close")
+        })
+        findViewById<View>(R.id.closeBtn).setOnClickListener { result("close") }
         findViewById<View>(R.id.editCropBtn).setOnClickListener { result("crop") }
         findViewById<View>(R.id.editRotateBtn).setOnClickListener { result("rotate") }
         findViewById<View>(R.id.editRestoreBtn).setOnClickListener {
@@ -120,8 +119,15 @@ class PreviewActivity : AppCompatActivity() {
     }
     private fun result(action: String) {
         setResult(RESULT_OK, Intent().putExtra(EXTRA_PATH, paths[pager.currentItem])
-            .putExtra(EXTRA_INDEX, pager.currentItem).putExtra(EXTRA_ACTION, action))
+            .putExtra(EXTRA_INDEX, pager.currentItem).putExtra(EXTRA_ACTION, action)
+            .putExtra(EXTRA_PREVIEW_MODE, modeFor(effect).name))
         finish()
+    }
+
+    private fun modeFor(effect: Int): EnhanceMode = when (effect) {
+        1 -> EnhanceMode.GRAY
+        2 -> EnhanceMode.BW
+        else -> EnhanceMode.COLOR
     }
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putInt("effect", effect); outState.putInt("index", pager.currentItem)
@@ -136,5 +142,6 @@ class PreviewActivity : AppCompatActivity() {
         const val EXTRA_PATH = "path"
         const val EXTRA_ACTION = "action"
         const val EXTRA_INDEX = "index"
+        const val EXTRA_PREVIEW_MODE = "previewMode"
     }
 }

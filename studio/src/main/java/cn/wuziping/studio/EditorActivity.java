@@ -279,10 +279,13 @@ public final class EditorActivity extends Activity {
         });
     }
     private void audioEnd(JSONObject m){
-        final String id=m.optString("id");
+        final String id=m.optString("id"),sinkId=m.optString("sinkId");
         audioIo.execute(()->{
             JSONObject o=message("audioSaved");put(o,"id",id);
-            AudioSink sink=audioSinks.remove(id);
+            /* 新页面用 endId 做回执、sinkId 关流；旧页面只发 id=...-end，
+               去掉后缀回退到 audioBegin 存的 id。 */
+            AudioSink sink=audioSinks.remove(sinkId.length()==0?id:sinkId);
+            if(sink==null&&id.endsWith("-end"))sink=audioSinks.remove(id.substring(0,id.length()-4));
             try{
                 if(sink==null)throw new IOException("录音文件已关闭");
                 sink.out.flush();sink.out.close();
