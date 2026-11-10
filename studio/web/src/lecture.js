@@ -298,6 +298,26 @@ function ensureUI(){
     ui.slideImage.src=showingRaw?raw:slideUrl(slideRef(slide));
     ui.slideToggleRaw.textContent=showingRaw?'看修复后':'对比原图';
   });
+  const slideDemoire=$('slideDemoire');
+  if(slideDemoire)slideDemoire.addEventListener('click',async()=>{
+    const slide=persist.slides.find(s=>s.id===previewSlideId);
+    if(!slide||slideDemoire.disabled)return;
+    if(persist.demoire.strength<=0){notify('请先把去摩尔纹强度调到大于 0%');return;}
+    slideDemoire.disabled=true;
+    try{
+      const original=rawSlides.get(slide.id)||slideUrl(slideRef(slide));
+      const img=await loadImage(original), cv=document.createElement('canvas');
+      cv.width=img.width;cv.height=img.height;cv.getContext('2d').drawImage(img,0,0);
+      const raw=cv.toDataURL('image/jpeg',SLIDE_QUALITY);
+      const result=demoireCanvas(cv,persist.demoire.strength);
+      if(!result.changed){notify('未检测到明显彩色摩尔纹，可调整强度或重新拍摄');return;}
+      const data=cv.toDataURL('image/jpeg',SLIDE_QUALITY);
+      let ref=data;try{ref=await putMedia(data.slice(data.indexOf(',')+1),'image/jpeg','slide-clean-'+Date.now()+'.jpg');}catch(e){reportError('处理结果保存在工作区：'+(e.message||e));}
+      rawSlides.set(slide.id,raw);slide.ref=ref;delete slide.data;slide.demoire=true;
+      showingRaw=false;ui.slideImage.src=slideUrl(ref);ui.slideToggleRaw.hidden=false;ui.slideToggleRaw.textContent='对比原图';
+      renderSlides();renderSlideStage(false);env.scheduleSave();notify('已处理本页，可点对比原图');
+    }catch(e){notify('处理失败：'+(e.message||e));}finally{slideDemoire.disabled=false;}
+  });
   /* 播放倍速：复习时 1.25/1.5/2 倍循环切换 */
   if(ui.rate)ui.rate.addEventListener('click',()=>{
     const index=Math.max(0,RATES.indexOf(Number(persist.rate)));

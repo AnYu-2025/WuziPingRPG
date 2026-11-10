@@ -69,3 +69,11 @@ test('strength 0 is a strict no-op', () => {
   assert.deepEqual(demoireImageData(img, 0), { changed: false, blocks: 0 });
   assert.ok(copy(img).equals(before));
 });
+
+ test('horizontal and diagonal colour bands are detected and reduced', () => {
+  for (const pixel of [(x,y)=>stripe(y), (x,y)=>stripe(x+y)]) {
+    const img=makeImage(48,48,pixel); const before=moireBlockStats(img.data,48,48,0,0,12).chroma;
+    assert.equal(demoireImageData(img,.8).changed,true);
+    assert.ok(moireBlockStats(img.data,48,48,0,0,12).chroma < before*.5);
+  }
+});

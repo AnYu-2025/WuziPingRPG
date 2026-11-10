@@ -181,6 +181,14 @@ public final class Scene {
         float xx=sx(n.x),yy=sy(n.y);if(xx<-50||xx>W+50||yy<-50||yy>H+60)return;
         int frame=(int)(clock*2+n.id)%4,slot=n.sprite*4+frame;
         p.oval(xx-13,yy-5,26,10,0x77102223);p.image("npcs.png",slot%8*32,slot/8*32,32,32,xx-27,yy-47,54,54,1,false);
+        if(n.id>=10&&n.id<=12){
+            int accent=n.id==10?0xffad83c0:n.id==11?0xffe4a46a:0xff80c3d0;
+            p.rect(xx-14,yy-48,28,5,accent);p.rect(xx-10,yy-53,20,5,accent);
+            p.rect(xx+13,yy-27,5,13,accent);
+            if(n.id==10){p.rect(xx+16,yy-35,4,16,0xffefe0bc);p.rect(xx+11,yy-37,10,4,0xffefe0bc);}
+            else if(n.id==11){p.rect(xx+15,yy-24,7,7,0xffead49b);}
+            else {p.rect(xx+13,yy-31,10,7,0xffe9d49b);}
+        }
         worldTag(n.name,n.x,n.y+11,0xfff2dfb2);
         float[] target=g.inTown()&&g.math.active?new float[]{1140,620}:g.body.enabled?g.body.target(g):g.story.target();boolean quest=target!=null&&Game.dist(n.x,n.y,target[0],target[1])<2;
         boolean close=g.inTown()&&Game.dist(g.x,g.y,n.x,n.y)<43;

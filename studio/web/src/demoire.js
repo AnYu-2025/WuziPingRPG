@@ -25,18 +25,18 @@ export function moireBlockStats(data, w, h, x0, y0, size) {
   let chroma = 0, bright = 0, n = 0;
   const xe = Math.min(x0 + size, w), ye = Math.min(y0 + size, h);
   for (let y = y0; y < ye; y++) {
-    for (let x = x0 + 1; x < xe; x++) {
-      const i = (y * w + x) * 4, j = i - 4;
-      const y1 = luma(data[i], data[i + 1], data[i + 2]);
-      const y2 = luma(data[j], data[j + 1], data[j + 2]);
-      const cr1 = data[i] - y1, cr2 = data[j] - y2;
-      const cb1 = data[i + 2] - y1, cb2 = data[j + 2] - y2;
-      chroma += Math.abs(cr1 - cr2) + Math.abs(cb1 - cb2);
-      bright += Math.abs(y1 - y2);
-      n++;
+    for (let x = x0; x < xe; x++) {
+      const i = (y * w + x) * 4;
+      for (const j of [x > x0 ? i - 4 : -1, y > y0 ? i - w * 4 : -1]) {
+        if (j < 0) continue;
+        const y1 = luma(data[i], data[i + 1], data[i + 2]);
+        const y2 = luma(data[j], data[j + 1], data[j + 2]);
+        chroma += Math.abs((data[i]-y1)-(data[j]-y2)) + Math.abs((data[i+2]-y1)-(data[j+2]-y2));
+        bright += Math.abs(y1-y2); n++;
+      }
     }
   }
-  return { chroma: n ? chroma / n : 0, luma: n ? bright / n : 0 };
+  return { chroma: n ? chroma * 2 / n : 0, luma: n ? bright * 2 / n : 0 };
 }
 
 /** 自适应阈值：只有色度能量显著高于全图中位数的块才判为摩尔纹。 */

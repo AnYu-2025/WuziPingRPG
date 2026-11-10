@@ -29,6 +29,7 @@ public final class Game {
     public Arsenal arsenal=new Arsenal();
     public MathJourney math=new MathJourney();
     public PhysicsJourney physics=new PhysicsJourney();
+    public HistoryJourney history=new HistoryJourney();
     public String heroName=HERO;public boolean renamePending=false;public int effectsLevel=1;
     /** True while the game runs embedded behind the 天工 editor (show editor-return hints). */
     public boolean editorHost=false;
@@ -71,7 +72,7 @@ public final class Game {
     public int waveTarget(){return body.enabled?BodyJourney.TARGETS[body.organ]:wave==5?7:5+wave*3;}
     public boolean hasSave(){return activeRun;}
     public void startRun(){
-        story=new Story();body=new BodyJourney();guest=new TownGuest();arsenal=new Arsenal();math=new MathJourney();physics=new PhysicsJourney();
+        story=new Story();body=new BodyJourney();guest=new TownGuest();arsenal=new Arsenal();math=new MathJourney();physics=new PhysicsJourney();history=new HistoryJourney();
         mode=PLAY;activeRun=true;wave=level=1;xp=kills=gold=waveSpawned=waveKilled=pendingUpgrades=0;potions=3;
         x=640;y=510;hp=maxHp=100;attack=16;speed=65;attackDelay=.43f;facing=0;
         elapsed=attackCd=skillCd=dashCd=potionCd=invuln=swing=skillFlash=dashTime=intermission=0;
@@ -286,23 +287,23 @@ public final class Game {
     }
     public void popup(float a,float b,String t,int color){if(effects.size()<90)effects.add(new Effect(a,b,t,color,.8f));}
     private void flashHurt(){vfx.flash=Math.max(vfx.flash,.58f);}
-    public String quest(){if(physics.active)return physics.objective(this);if(math.active)return math.objective(this);if(body.enabled)return body.objective(this);if(story.enabled&&(inTown()||story.battleWon))return story.objective();return wave==5?"击败遗迹守卫，找回星火":"净化此地的魔物  "+waveKilled+" / "+waveTarget();}
+    public String quest(){if(inTown()&&history.stage>0&&history.stage<4)return history.objective();if(physics.active)return physics.objective(this);if(math.active)return math.objective(this);if(body.enabled)return body.objective(this);if(story.enabled&&(inTown()||story.battleWon))return story.objective();return wave==5?"击败遗迹守卫，找回星火":"净化此地的魔物  "+waveKilled+" / "+waveTarget();}
 
     /** Versioned binary snapshot: no framework dependencies, no Java object deserialization. */
     public void save(OutputStream stream)throws IOException{
-        DataOutputStream o=new DataOutputStream(stream);o.writeInt(0x575A5052);o.writeInt(8);
+        DataOutputStream o=new DataOutputStream(stream);o.writeInt(0x575A5052);o.writeInt(9);
         o.writeInt(totalRuns);o.writeInt(bestWave);o.writeInt(lifetimeKills);o.writeInt(bank);o.writeBoolean(sound);o.writeBoolean(autoAttack);o.writeBoolean(activeRun);
-        if(!activeRun){story.write(o);body.write(o);guest.write(o);arsenal.write(o);math.write(o);physics.write(o);o.writeUTF(heroName);o.writeInt(effectsLevel);o.flush();return;}
+        if(!activeRun){story.write(o);body.write(o);guest.write(o);arsenal.write(o);math.write(o);physics.write(o);o.writeUTF(heroName);o.writeInt(effectsLevel);o.writeInt(history.stage);o.flush();return;}
         int[] ints={wave,level,xp,kills,gold,potions,waveSpawned,waveKilled,pendingUpgrades};for(int n:ints)o.writeInt(n);
         float[] fs={x,y,hp,maxHp,attack,speed,attackDelay,attackCd,skillCd,dashCd,potionCd,invuln,elapsed,facing,spawnTimer,intermission};for(float f:fs)o.writeFloat(f);
         o.writeLong(rng);for(int n:upgrades)o.writeInt(n);for(int n:choices)o.writeInt(n);
         o.writeInt(enemies.size());for(Enemy e:enemies){o.writeInt(e.type);o.writeInt(e.id);float[] ef={e.x,e.y,e.hp,e.maxHp,e.cd,e.hit,e.windup,e.targetX,e.targetY,e.knockX,e.knockY};for(float f:ef)o.writeFloat(f);o.writeBoolean(e.bossAttack);}
         o.writeInt(drops.size());for(Drop p:drops){o.writeFloat(p.x);o.writeFloat(p.y);o.writeInt(p.type);o.writeInt(p.value);}
-        o.writeInt(shots.size());for(Shot p:shots){o.writeFloat(p.x);o.writeFloat(p.y);o.writeFloat(p.vx);o.writeFloat(p.vy);o.writeFloat(p.life);o.writeInt(p.damage);}story.write(o);body.write(o);guest.write(o);arsenal.write(o);math.write(o);physics.write(o);o.writeUTF(heroName);o.writeInt(effectsLevel);o.flush();
+        o.writeInt(shots.size());for(Shot p:shots){o.writeFloat(p.x);o.writeFloat(p.y);o.writeFloat(p.vx);o.writeFloat(p.vy);o.writeFloat(p.life);o.writeInt(p.damage);}story.write(o);body.write(o);guest.write(o);arsenal.write(o);math.write(o);physics.write(o);o.writeUTF(heroName);o.writeInt(effectsLevel);o.writeInt(history.stage);o.flush();
     }
     public static Game load(InputStream stream)throws IOException{
-        DataInputStream i=new DataInputStream(stream);if(i.readInt()!=0x575A5052)throw new IOException("Unsupported save");int version=i.readInt();if(version<1||version>8)throw new IOException("Unsupported save version");Game g=new Game();
-        g.totalRuns=bounded(i.readInt(),0,1000000);g.bestWave=bounded(i.readInt(),0,8);g.lifetimeKills=bounded(i.readInt(),0,100000000);g.bank=bounded(i.readInt(),0,100000000);g.sound=i.readBoolean();g.autoAttack=i.readBoolean();g.activeRun=i.readBoolean();if(!g.activeRun){if(version>=2)g.story=Story.read(i);if(version>=3)g.body=BodyJourney.read(i,version>=5?8:5);if(version>=4)g.guest=TownGuest.read(i);if(version>=5)g.arsenal=Arsenal.read(i,version);if(version>=6)g.math=MathJourney.read(i);if(version>=7)g.physics=PhysicsJourney.read(i,version);else g.physics=new PhysicsJourney();g.physics.syncFinaleReward(g);if(version>=6)g.readProfileExtras(i,version);return g;}
+        DataInputStream i=new DataInputStream(stream);if(i.readInt()!=0x575A5052)throw new IOException("Unsupported save");int version=i.readInt();if(version<1||version>9)throw new IOException("Unsupported save version");Game g=new Game();
+        g.totalRuns=bounded(i.readInt(),0,1000000);g.bestWave=bounded(i.readInt(),0,8);g.lifetimeKills=bounded(i.readInt(),0,100000000);g.bank=bounded(i.readInt(),0,100000000);g.sound=i.readBoolean();g.autoAttack=i.readBoolean();g.activeRun=i.readBoolean();if(!g.activeRun){if(version>=2)g.story=Story.read(i);if(version>=3)g.body=BodyJourney.read(i,version>=5?8:5);if(version>=4)g.guest=TownGuest.read(i);if(version>=5)g.arsenal=Arsenal.read(i,version);if(version>=6)g.math=MathJourney.read(i);if(version>=7)g.physics=PhysicsJourney.read(i,version);else g.physics=new PhysicsJourney();g.physics.syncFinaleReward(g);if(version>=6)g.readProfileExtras(i,version);if(version>=9)g.history.stage=bounded(i.readInt(),0,4);return g;}
         g.wave=bounded(i.readInt(),1,8);g.level=bounded(i.readInt(),1,10000);g.xp=bounded(i.readInt(),0,1000000);g.kills=bounded(i.readInt(),0,100000);g.gold=bounded(i.readInt(),0,10000000);g.potions=bounded(i.readInt(),0,100);g.waveSpawned=bounded(i.readInt(),0,100);g.waveKilled=bounded(i.readInt(),0,100);g.pendingUpgrades=bounded(i.readInt(),0,100);
         float[] f=new float[16];for(int n=0;n<f.length;n++){f[n]=i.readFloat();if(Float.isNaN(f[n])||Float.isInfinite(f[n]))throw new IOException("Nonfinite save");}
         g.x=clamp(f[0],18,WORLD_W-18);g.y=clamp(f[1],18,WORLD_H-18);g.hp=f[2];g.maxHp=f[3];g.attack=f[4];g.speed=f[5];g.attackDelay=f[6];g.attackCd=f[7];g.skillCd=f[8];g.dashCd=f[9];g.potionCd=f[10];g.invuln=f[11];g.elapsed=f[12];g.facing=f[13];g.spawnTimer=f[14];g.intermission=f[15];
@@ -322,6 +323,7 @@ public final class Game {
         g.physics.syncFinaleReward(g);
         if(version>=6){g.readProfileExtras(i,version);if(g.inMath()){g.x=clamp(f[0],18,MathJourney.WIDTH-18);g.y=clamp(f[1],18,MathJourney.HEIGHT-18);}}
         if(version>=7&&g.inPhysics()){g.x=clamp(f[0],18,PhysicsJourney.WIDTH-18);g.y=clamp(f[1],18,PhysicsJourney.HEIGHT-18);}
+        if(version>=9)g.history.stage=bounded(i.readInt(),0,4);
         if(g.inTown()){g.x=clamp(f[0],78,Town.WIDTH-78);g.y=clamp(f[1],98,Town.HEIGHT-66);}
         g.mode=TITLE;return g;
     }

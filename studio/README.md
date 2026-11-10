@@ -1,6 +1,6 @@
 # 天工
 
-**当前整合版本为 0.2.4（versionCode 36）**：合并 0.1.24 的课堂录音流式保存、课堂复习和布局改进，以及 0.2.0 的首页、扫描和修图模块。下方 0.1.x 是历史记录，实际安装包请以本版构建验证结果为准。
+**当前整合版本为 0.2.5（versionCode 37）**：合并 0.1.24 的课堂录音流式保存、课堂复习和布局改进，以及 0.2.0 的首页、扫描和修图模块。下方 0.1.x 是历史记录，实际安装包请以本版构建验证结果为准。
 
 一个可安装的 Android 手机工作台原型。打开后先停在首页：常用的是写 Python、记事本和 AI 助手，上课、英文朗读和《伍子平 · 星火远征》放在下面。点一下卡片就进入，不用再滑一轮再点确认。Python 离线运行。不是微软 VS Code 的移植，界面使用 CodeMirror 6，Python 使用随 APK 打包的 Pyodide 0.27.7 / CPython 3.12.7。首页标着当前版本。
 
@@ -148,7 +148,7 @@ cd studio/web && node --test tests/*.test.mjs
 
 ## 安装与原游戏进度
 
-仓库里可以直接下载的安装包仍是文首的 **0.1.17**（versionCode 25）。当前源码是 **0.2.4**（versionCode 36）。它高于 `main` 上 `studio/build.gradle` 与 `tools/build-studio.ps1` 的 0.1.18 / 26，也高于以前把脚本和 Gradle 写回 0.1.17 / 25 的那一版；versionCode 不能再往回退，否则盖不住已经按 26 或 31 编出来的包。这次没有重新签名或提交 APK。本地构建运行 `tools/build-studio.ps1` 或 `tools/build-studio.sh`，版本从 `studio/build.gradle` 读取，产物会是 `dist/Ember-Studio-0.2.4.apk` 和 `dist/Ember-Studio-0.2.4-parallel.apk`。这两个包目前不在仓库里。
+历史说明：当时仓库里可以直接下载的安装包是文首的 **0.1.17**（versionCode 25）。当时源码是 **0.2.4**（versionCode 36）。它高于 `main` 上 `studio/build.gradle` 与 `tools/build-studio.ps1` 的 0.1.18 / 26，也高于以前把脚本和 Gradle 写回 0.1.17 / 25 的那一版；versionCode 不能再往回退，否则盖不住已经按 26 或 31 编出来的包。这次没有重新签名或提交 APK。本地构建运行 `tools/build-studio.ps1` 或 `tools/build-studio.sh`，版本从 `studio/build.gradle` 读取，产物会是 `dist/Ember-Studio-0.2.4.apk` 和 `dist/Ember-Studio-0.2.4-parallel.apk`。这两个包目前不在仓库里。
 
 0.1.15 标准包的包名是 `cn.wuziping.ember`，共存包是 `cn.wuziping.ember.preview07`。编辑器成为应用首页。标准包与已经安装的 0.1.13、0.1.14 或同证书的 0.7 直接覆盖，**不要先卸载**，原 `journey-v1.bin` 继续留着。外部 0.6 用的是另一张证书，盖不上去。共存包和标准包可以同时留在手机上，但不能读取对方的私有存档。实际 Android 安装还没有在真机上验收。
 

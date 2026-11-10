@@ -19,13 +19,13 @@ final class LegacySaves {
         byte[] oldArsenal=bytes(out->g.arsenal.write(out,false));
         byte[] oldPhysics=bytes(out->g.physics.write(out,false));
         byte[] profile=bytes(out->{out.writeUTF(g.heroName);out.writeInt(g.effectsLevel);});
-        int prefix=currentBytes.length-story.length-body.length-guest.length-arsenal.length-math.length-physics.length-profile.length;
+        int prefix=currentBytes.length-story.length-body.length-guest.length-arsenal.length-math.length-physics.length-profile.length-4;
         if(prefix<12)throw new IOException("Invalid current snapshot layout");
         byte[] tail=Arrays.copyOfRange(currentBytes,prefix,currentBytes.length);
         ByteArrayOutputStream expected=new ByteArrayOutputStream();
-        expected.write(story);expected.write(body);expected.write(guest);expected.write(arsenal);expected.write(math);expected.write(physics);expected.write(profile);
+        expected.write(story);expected.write(body);expected.write(guest);expected.write(arsenal);expected.write(math);expected.write(physics);expected.write(profile);new DataOutputStream(expected).writeInt(g.history.stage);
         if(!Arrays.equals(tail,expected.toByteArray()))throw new IOException("Snapshot tail does not match section writers");
-        if(version==8)return currentBytes;
+        if(version==8){byte[] v8=Arrays.copyOf(currentBytes,currentBytes.length-4);v8[7]=8;return v8;}
         ByteArrayOutputStream out=new ByteArrayOutputStream();out.write(currentBytes,0,prefix);DataOutputStream d=new DataOutputStream(out);
         if(version>=2)d.write(story);
         if(version>=5)d.write(body);

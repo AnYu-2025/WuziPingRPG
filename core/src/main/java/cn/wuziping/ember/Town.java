@@ -6,7 +6,7 @@ public final class Town {
     public static final float GATE_X=480,GATE_Y=112,FOREST_GATE_X=640,FOREST_GATE_Y=548;
     public static final class Npc {
         public final int id,sprite; public final float x,y; public final String name,role;
-        Npc(int i,String n,String r,float a,float b){id=i;sprite=i;name=n;role=r;x=a;y=b;}
+        Npc(int i,String n,String r,float a,float b){id=i;sprite=i>=10?(i==10?4:i==11?2:1):i;name=n;role=r;x=a;y=b;}
     }
     public static final class House {
         public final float x,y,w,h;public final int sprite; public final String name;
@@ -23,7 +23,10 @@ public final class Town {
         new Npc(6,"程理","物理学者",1180,610),
         new Npc(7,"朱华鸿","开发者",180,700),
         new Npc(8,"李梓宁","开发者",280,820),
-        new Npc(9,"伍子安","开发者",400,780)
+        new Npc(9,"伍子安","开发者",400,780),
+        new Npc(10,"闻简","史官",570,350),
+        new Npc(11,"阿榫","印匠",850,710),
+        new Npc(12,"小满","书童",1030,810)
     };
     public static final House[] HOUSES={
         new House(0,"镇务厅",267,278,138,118),

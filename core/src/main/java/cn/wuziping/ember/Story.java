@@ -74,6 +74,7 @@ public final class Story {
     }
     public boolean talk(Game g,int id){
         if(id==TownGuest.NPC)return g.guest.talk(g);
+        if(id>=10&&id<=12&&g.inTown()&&g.mode==Game.PLAY&&Game.dist(g.x,g.y,Town.NPCS[id].x,Town.NPCS[id].y)<43)return g.history.talk(g,id);
         if(id==6&&g.inTown()&&g.mode==Game.PLAY&&Game.dist(g.x,g.y,Town.NPCS[6].x,Town.NPCS[6].y)<43){begin(g,6,new String[]{"程理|格物堂是新开的物理工坊。这里有五种机关，分别对应不同的物理现象。","程理|抛体靶场练习弹道计算，光路迷宫学习反射定律，回路工坊理解电路连接。","程理|波的干涉展示叠加原理，热流迷宫模拟热传导。每通过一关，你都会获得新的发现。","程理|五关全部解开后，共振法杖·改会收进武库，它的法弹能引发连锁共振。准备好探索物理的奥秘了吗？"},new String[]{"进入物理工坊","稍后再来"},new int[]{310,300});return true;}
         if(id==4&&g.inTown()&&g.mode==Game.PLAY&&Game.dist(g.x,g.y,Town.NPCS[4].x,Town.NPCS[4].y)<43){begin(g,4,new String[]{"知夏|东庭新开了一道数学之门。那里的路会记住脚印，机关会回应不同的走法。","知夏|先观察，再试一试。你的发现会写进札记，那里不会提前写好走法。"},new String[]{"带我去东庭","我自己走过去"},new int[]{303,300});return true;}
         if(g.body.enabled&&g.body.talk(g,id))return true; // 体内篇只认前六位居民；开发者彩蛋继续走通用对话
@@ -138,6 +139,7 @@ public final class Story {
     public void choose(Game g,int index){
         Dialogue d=dialogue;if(d==null||g.mode!=Game.DIALOGUE||!d.last()||!d.complete()||index<0||index>=d.actions.length)return;
         int action=d.actions[index];dialogue=null;g.mode=Game.PLAY;
+        if(action>=400&&action<=406){g.history.action(g,action);return;}
         if(action==310){g.physics.enter(g);return;}
         if(action>=300){if(action==303){g.x=1080;g.y=660;g.announce("东庭 · 数学之门在前方");}else if(action>=320)g.physics.action(g,action);else g.math.action(g,action);return;}
         if(d.npc==TownGuest.NPC&&action>=200){g.guest.action(g,action);return;}
