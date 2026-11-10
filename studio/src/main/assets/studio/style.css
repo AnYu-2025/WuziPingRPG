@@ -545,3 +545,8 @@ body.drawing #editor{visibility:hidden}
 #landing .meteor-field i:nth-child(8) { left:180%; --meteor-color:#9bbaff; animation-duration:6.3s; animation-delay:-1.7s; }
 @keyframes meteor-cross { 0% { opacity:0; transform:translate3d(0,0,0) rotate(-37deg); } 5% { opacity:.9; } 80% { opacity:.8; } 100% { opacity:0; transform:translate3d(-130vw,105vh,0) rotate(-37deg); } }
 @media(prefers-reduced-motion:reduce) { #landing .meteor-field i { animation:none; } }
+
+#skyRipple { position:absolute; inset:0; width:100%; height:100%; z-index:1; opacity:0; pointer-events:none; filter:blur(2px) brightness(.78); transition:opacity .4s; }
+#skyRipple.ready { opacity:1; }
+#landing .meteor-field { z-index:2; }
+#landing .home-top,#landing .home-scroll { z-index:3; }
