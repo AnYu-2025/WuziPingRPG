@@ -2,16 +2,49 @@
  * English text-to-speech for 天工.
  *
  * Android owns the speech engine. The frontend keeps stable document offsets,
- * resumes inside a chunk when the engine reports range progress, and falls
- * back to Web Speech outside the APK.
+ * resumes inside a sentence-level segment when the engine reports range
+ * progress (or falls back to an elapsed-time estimate when it does not), and
+ * highlights the sentence currently being read in the editor. Outside the APK
+ * it falls back to Web Speech.
  */
+
+import {StateField,StateEffect} from '@codemirror/state';
+import {Decoration,EditorView} from '@codemirror/view';
 
 const DEFAULT_CHUNK=2800;
 const MAX_CHUNK=3600;
 const MAX_SPEECH_CHARS=500000;
 const MIN_RATE=0.75;
 const MAX_RATE=1.5;
+/* 句级分段：目标 120~220 字符一句，超过 400 字符的长句在空格处兜底硬切。 */
+const SENTENCE_MIN=120;
+const SENTENCE_TARGET=220;
+const SENTENCE_MAX=400;
+/* 无 onRangeStart 回执时的进度估算字速：1x 语速约每秒 15 个字符。 */
+const CHARS_PER_SECOND=15;
 const EMPTY_STATS={characters:0,words:0,paragraphs:0,hasEnglish:false};
+
+/* ---------------- CodeMirror 当前句高亮 ---------------- */
+
+const setTtsHighlight=StateEffect.define(); // {from,to}（原文偏移）| null
+const ttsHighlightField=StateField.define({
+  create:()=>null,
+  update(value,tr){
+    for(const effect of tr.effects)if(effect.is(setTtsHighlight))return effect.value;
+    /* 文档一旦被编辑，旧偏移立即失效，天然清掉高亮。 */
+    if(tr.docChanged)return null;
+    return value;
+  }
+});
+const ttsActiveMark=Decoration.mark({class:'cm-tts-active'});
+const ttsHighlight=EditorView.decorations.compute([ttsHighlightField],state=>{
+  const range=state.field(ttsHighlightField,false);
+  if(!range)return Decoration.none;
+  const from=Math.max(0,Math.min(state.doc.length,range.from));
+  const to=Math.max(from,Math.min(state.doc.length,range.to));
+  return to>from?Decoration.set([ttsActiveMark.range(from,to)]):Decoration.none;
+});
+export const ttsExtensions=[ttsHighlightField,ttsHighlight];
 
 function normalizeLocale(value){
   const locale=String(value||'').replace('_','-');
@@ -37,7 +70,9 @@ export function ttsSanitize(value){
     locale:normalizeLocale(source.locale),
     rate:rateValue(source.rate),
     resumeOffset:offsetValue(source.resumeOffset),
-    fingerprint:typeof source.fingerprint==='string'&&/^[0-9a-f]{8}$/.test(source.fingerprint)?source.fingerprint:''
+    fingerprint:typeof source.fingerprint==='string'&&/^[0-9a-f]{8}$/.test(source.fingerprint)?source.fingerprint:'',
+    highlight:source.highlight===undefined?true:!!source.highlight,
+    autoscroll:source.autoscroll===undefined?false:!!source.autoscroll
   };
 }
 
@@ -47,6 +82,26 @@ function normalizeDocument(value){
     .replace(/[ \t]+\n/g,'\n')
     .replace(/\n{3,}/g,'\n\n')
     .trim();
+}
+
+/* normalizeDocument 会 trim / 压缩空行，规范化文本里的偏移不能直接给编辑器。
+   这里逐字符同步游走原文与规范化文本，产出 normOffset → rawOffset 的查表数组：
+   每个规范化字符都来自唯一的原文字符（\r\n→\n 视为来自 '\r'），
+   被压缩掉的空白只推进原文游标。map[text.length] 是正文末尾（trim 后）的原文偏移。 */
+function offsetMap(raw,text){
+  const map=new Array(text.length+1);
+  let i=0,j=0;
+  while(j<text.length&&i<raw.length){
+    const c=raw.charAt(i);
+    if(c===text.charAt(j)){map[j]=i;i++;j++;continue;}
+    /* \r 只在它真的被规范化为 \n 时才建立映射；若那个换行已被 \n{3,}→\n\n
+       压缩或首尾 trim 吃掉（text[j] 不是 \n），走普通 skip，不得错位。 */
+    if(c==='\r'&&text.charAt(j)==='\n'){map[j]=i;i+=raw.charAt(i+1)==='\n'?2:1;j++;continue;}
+    i++;
+  }
+  while(j<text.length){map[j]=i;j++;}
+  map[text.length]=i;
+  return map;
 }
 
 export function speechStats(value){
@@ -100,8 +155,8 @@ function speechCut(text,limit){
   return safeCut(text,limit);
 }
 
-export function splitSpeechSegments(value,maxChars=DEFAULT_CHUNK){
-  const text=normalizeDocument(value);
+/* 旧分块契约：显式传 maxChars 时保持原有「按字数上限切大块」的行为。 */
+function splitChunkSegments(text,maxChars){
   const limit=Math.max(240,Math.min(MAX_CHUNK,Math.floor(Number(maxChars)||DEFAULT_CHUNK)));
   const segments=[];
   let cursor=0;
@@ -118,10 +173,88 @@ export function splitSpeechSegments(value,maxChars=DEFAULT_CHUNK){
     segments.push({text:text.slice(cursor,end),start:cursor,end});
     cursor=end;
   }
-  return {text,segments};
+  return segments;
 }
 
-export function splitSpeechText(value,maxChars=DEFAULT_CHUNK){
+/* 把规范化文本拆成句子单元：优先在 [.!?] 后跟空白处断句，空行也算句子边界。
+   hard 标记「本单元以空行结尾」：贪心打包不得跨过空行合并，否则
+   raw.slice(rawStart,rawEnd) 会罩住被压缩的空行，高亮底色盖住空行。 */
+function sentencePieces(text){
+  const pieces=[];
+  const push=(start,end)=>{
+    while(start<end&&/\s/.test(text.charAt(start)))start++;
+    while(end>start&&/\s/.test(text.charAt(end-1)))end--;
+    if(start<end)pieces.push({start,end,hard:false});
+  };
+  const pattern=/[.!?]+["')\]]*(?=\s)|\n{2,}/g;
+  let start=0,match;
+  while((match=pattern.exec(text))){
+    if(match[0].charAt(0)==='\n'){
+      /* 空行：把它之前的内容收尾，并标记上一个单元 hard——贪心打包不得跨空行合并。 */
+      push(start,match.index);
+      if(pieces.length)pieces[pieces.length-1].hard=true;
+    }else{
+      push(start,match.index+match[0].length);
+    }
+    start=match.index+match[0].length;
+  }
+  push(start,text.length);
+  return pieces;
+}
+
+/* 句级分段：贪心把句子拼进 120~220 字符的段；单句超过 400 字符时
+   在空格处兜底硬切（沿用 speechCut 的边界偏好与代理对保护）。 */
+function splitSentenceSegments(text){
+  const units=[];
+  for(const piece of sentencePieces(text)){
+    let cursor=piece.start;
+    while(piece.end-cursor>SENTENCE_MAX){
+      let end=cursor+speechCut(text.slice(cursor,piece.end),SENTENCE_MAX);
+      while(end>cursor&&/\s/.test(text.charAt(end-1)))end--;
+      if(end<=cursor)end=Math.min(piece.end,cursor+SENTENCE_MAX);
+      units.push({start:cursor,end,hard:false});
+      cursor=end;
+      while(cursor<piece.end&&/\s/.test(text.charAt(cursor)))cursor++;
+    }
+    if(cursor<piece.end)units.push({start:cursor,end:piece.end,hard:piece.hard});
+  }
+  const segments=[];
+  let start=-1,end=-1,hardBreak=false;
+  const flush=()=>{
+    if(start<0)return;
+    segments.push({text:text.slice(start,end),start,end});
+    start=-1;
+  };
+  for(const unit of units){
+    /* hardBreak：上一单元以空行收尾，强制封段，不跨空行合并。 */
+    if(start>=0&&(hardBreak||unit.end-start>SENTENCE_MAX||unit.end-start>SENTENCE_TARGET&&end-start>=SENTENCE_MIN)){
+      flush();
+      start=unit.start;
+      end=unit.end;
+    }else if(start<0){start=unit.start;end=unit.end;}
+    else end=unit.end;
+    hardBreak=unit.hard;
+  }
+  flush();
+  return segments;
+}
+
+/* 不传 maxChars 走句级分段；显式传 maxChars 走旧分块逻辑（既有测试/调用契约）。
+   返回结构不变：{text,segments}，segment 仍携带规范化文本内的绝对 start/end；
+   另挂 rawStart/rawEnd（编辑器原文偏移）供高亮派发，raw 为完整查表数组。 */
+export function splitSpeechSegments(value,maxChars){
+  const raw=String(value||'');
+  const text=normalizeDocument(raw);
+  const rawOffsets=offsetMap(raw,text);
+  const segments=maxChars===undefined?splitSentenceSegments(text):splitChunkSegments(text,maxChars);
+  for(const segment of segments){
+    segment.rawStart=segment.end>segment.start?rawOffsets[segment.start]:0;
+    segment.rawEnd=segment.end>segment.start?rawOffsets[segment.end-1]+1:segment.rawStart;
+  }
+  return {text,segments,raw:rawOffsets};
+}
+
+export function splitSpeechText(value,maxChars){
   return splitSpeechSegments(value,maxChars).segments.map(segment=>segment.text);
 }
 
@@ -132,6 +265,7 @@ let engineName='';
 let ready=false;
 let state='idle';
 let segments=[];
+let documentRaw='';
 let documentText='';
 let documentStats={...EMPTY_STATS};
 let documentFingerprint='';
@@ -147,6 +281,22 @@ let statsTimer=0;
 let browserUtterance=null;
 let exactPause=true;
 let lastPersistAt=0;
+/* 本次发声的起点（文档偏移）、开始时刻与语速：供无 onRangeStart 引擎做暂停估算。 */
+let utteranceBase=0;
+let utteranceStartAt=0;
+/* 用户按下暂停的那一刻。之后到来的 ttsPaused 不得用更晚的墙钟再估一次，
+   否则桥接延迟会被当成「又读了若干字」。0 表示还没采样。 */
+let pauseSampledAt=0;
+let utteranceRate=1;
+let utteranceChars=0;
+/* segments 构建时的文档指纹与文件路径：切文件/切模式回来后判断位置是否仍有效。 */
+let segmentsFingerprint='';
+let speakingPath='';
+/* 自动滚动：记录用户在本段内手动滚过就不再抢滚动，片段切换自动重置。 */
+let scrollBoundView=null;
+let userScrollAt=0;
+let userScrollSegment=-1;
+let lastScrollKey='';
 
 function now(){
   return env&&typeof env.now==='function'?env.now():Date.now();
@@ -185,6 +335,16 @@ function bridgeSend(data){
   if(env&&env.send)env.send(data.type,data);
 }
 
+/* 高亮/滚动用的编辑器视图与环境钩子都是可选的：缺省时整体 no-op。 */
+function editorView(){
+  const view=env&&typeof env.view==='function'?env.view():null;
+  return view&&typeof view.dispatch==='function'?view:null;
+}
+
+function currentPath(){
+  return env&&typeof env.activePath==='function'?env.activePath():'';
+}
+
 function requestStatus(force=false){
   if(!nativeBridge())return;
   const time=now();
@@ -194,7 +354,9 @@ function requestStatus(force=false){
 }
 
 function refreshDocument(){
-  const next=normalizeDocument(env&&env.getText?env.getText():'');
+  const raw=env&&env.getText?String(env.getText()||''):'';
+  const next=normalizeDocument(raw);
+  documentRaw=raw;
   if(next!==documentText){
     documentText=next;
     documentStats=speechStats(next);
@@ -269,7 +431,7 @@ function statusLabel(stats){
   const blocked=blockedReason(stats);
   if(blocked)return blocked;
   if(state==='playing')return '正在朗读';
-  if(state==='paused')return exactPause?'已暂停，可从当前位置继续':'已暂停，继续会重读本段';
+  if(state==='paused')return '已暂停，可从当前位置继续';
   if(state==='done')return '朗读完成';
   if(state==='error')return '朗读未能继续';
   if(canResume())return '可继续上次位置';
@@ -288,6 +450,69 @@ function renderProgress(){
   const progress=state==='done'?100:documentText.length?Math.max(0,Math.min(100,activeOffset/documentText.length*100)):0;
   ui.progress.style.width=progress.toFixed(1)+'%';
   ui.progress.parentElement.setAttribute('aria-valuenow',String(Math.round(progress)));
+}
+
+/* ---------------- 当前句高亮与自动滚动 ---------------- */
+
+function highlightRange(){
+  if(typeof document==='undefined'||!document.body||!document.body.classList.contains('tts'))return null;
+  if(!settings().highlight)return null;
+  if(state!=='playing'&&state!=='paused')return null;
+  const segment=segments[segmentIndex];
+  if(!segment||typeof segment.rawStart!=='number')return null;
+  /* 朗读的是别的文件（切走了又切回来前）不出高亮。 */
+  if(speakingPath&&currentPath()&&currentPath()!==speakingPath)return null;
+  return {from:segment.rawStart,to:segment.rawEnd};
+}
+
+function syncHighlight(){
+  const view=editorView();
+  if(!view)return;
+  let range=null;
+  try{range=highlightRange();}catch(error){range=null;}
+  const key=range?range.from+':'+range.to:'';
+  /* 读出现场值再决定要不要 dispatch：switchFile 的 setState / createEditor 重建
+     会把 StateField 重置为 null，此时必须重发；值没变则完全不打扰编辑器。 */
+  let current=null;
+  try{current=view.state.field(ttsHighlightField,false);}catch(error){current=null;}
+  const currentKey=current?current.from+':'+current.to:'';
+  if(currentKey!==key){
+    try{view.dispatch({effects:[setTtsHighlight.of(range)]});}catch(error){return;}
+  }
+  if(range&&state==='playing'&&key!==lastScrollKey){
+    lastScrollKey=key;
+    maybeAutoscroll(view);
+  }
+  if(!range)lastScrollKey='';
+}
+
+function bindScroll(view){
+  if(scrollBoundView===view)return;
+  scrollBoundView=view;
+  if(view.scrollDOM&&view.scrollDOM.addEventListener){
+    view.scrollDOM.addEventListener('scroll',()=>{
+      userScrollAt=now();
+      userScrollSegment=segmentIndex;
+    },{passive:true});
+  }
+}
+
+/* 自动滚动默认关；开了也只在当前句完全滚出视口时轻滚动，
+   用户在本段内手动滚过就不再抢（片段切换由 lastScrollKey 重置）。 */
+function maybeAutoscroll(view){
+  if(!settings().autoscroll)return;
+  if(!view||!view.dom)return;
+  bindScroll(view);
+  schedule(()=>{
+    const current=editorView();
+    if(!current||current!==view||!current.dom.isConnected)return;
+    if(userScrollSegment===segmentIndex)return;
+    const el=current.dom.querySelector('.cm-tts-active');
+    if(!el||typeof el.getBoundingClientRect!=='function')return;
+    const host=current.scrollDOM.getBoundingClientRect();
+    const rect=el.getBoundingClientRect();
+    if(rect.bottom<host.top||rect.top>host.bottom)el.scrollIntoView({block:'center',behavior:'smooth'});
+  },80);
 }
 
 function render(){
@@ -312,7 +537,10 @@ function render(){
   ui.rate.value=String(current.rate);
   ui.rateValue.textContent=current.rate.toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'x';
   ui.voice.value=voices.some(voice=>voice.name===current.voice)?current.voice:'';
+  if(ui.highlight)ui.highlight.checked=current.highlight;
+  if(ui.autoscroll)ui.autoscroll.checked=current.autoscroll;
   renderProgress();
+  syncHighlight();
 }
 
 function loadBrowserVoices(){
@@ -399,7 +627,12 @@ function speakCurrent(offsetWithinSegment=0){
   pausedId='';
   activeSliceBase=segment.start+Math.max(0,offsetWithinSegment);
   activeOffset=activeSliceBase;
+  utteranceBase=activeSliceBase;
+  utteranceStartAt=now();
+  utteranceRate=current.rate;
+  utteranceChars=text.length;
   exactPause=true;
+  pauseSampledAt=0;
   persistPosition(activeOffset,true);
   setStatus('playing');
   if(nativeBridge()){
@@ -422,12 +655,15 @@ function start(){
     render();
     return;
   }
-  const document=splitSpeechSegments(documentText);
-  segments=document.segments;
+  /* 句级分段直接基于编辑器原文：rawStart/rawEnd 才能对上 CodeMirror 文档偏移。 */
+  const splitResult=splitSpeechSegments(documentRaw);
+  segments=splitResult.segments;
   if(!segments.length){
     if(env&&env.notify)env.notify('没有可朗读的文本。');
     return;
   }
+  segmentsFingerprint=documentFingerprint;
+  speakingPath=currentPath();
   const resumeOffset=currentResumeOffset();
   if(resumeOffset>0&&resumeOffset<documentText.length){
     segmentIndex=segmentForOffset(resumeOffset);
@@ -440,6 +676,38 @@ function start(){
   speakCurrent(activeOffset-segments[segmentIndex].start);
 }
 
+/* (offset, limit] 内第一个单词开头；没有则返回 limit。严格在 offset 之后。 */
+function wordBoundaryAfter(text,offset,limit){
+  const end=Math.min(text.length,Math.max(0,limit));
+  let i=Math.max(0,offset)+1;
+  while(i<end){
+    if(/[A-Za-z0-9]/.test(text.charAt(i))&&!/[A-Za-z0-9'-]/.test(text.charAt(i-1)))return i;
+    i++;
+  }
+  return end;
+}
+
+/* 无 onRangeStart 回执时的暂停估算：已播秒数 × 字速 × 语速，向前对齐到词边界。
+   铁律：结果只允许往前收敛——不得小于本次发声起点之后的第一个词边界，
+   也不得越过本段结尾，绝不退回段首重读。 */
+function estimatePauseOffset(){
+  const segment=segments[segmentIndex];
+  if(!segment)return activeOffset;
+  const sampled=pauseSampledAt||now();
+  const elapsed=Math.max(0,(sampled-utteranceStartAt)/1000);
+  const spoken=Math.floor(elapsed*CHARS_PER_SECOND*Math.max(MIN_RATE,utteranceRate||1));
+  const guess=utteranceBase+spoken;
+  if(guess<=utteranceBase)return wordBoundaryAfter(documentText,utteranceBase,segment.end);
+  if(guess>=segment.end)return segment.end;
+  return wordBoundaryAfter(documentText,guess-1,segment.end);
+}
+
+/* 估算只许前进：已有更靠前的精确进度（onboundary / ttsRange）时保留精确值。 */
+function refinePausePosition(){
+  const estimate=estimatePauseOffset();
+  if(estimate>activeOffset)activeOffset=estimate;
+}
+
 function pause(){
   if(state!=='playing')return;
   const id=currentId;
@@ -448,6 +716,10 @@ function pause(){
   currentId='';
   if(nativeBridge())bridgeSend({type:'ttsPause',id});
   else if(browserSpeechSupported())window.speechSynthesis.cancel();
+  /* 先按已播时长把暂停点推进到词边界，并冻住采样时刻。
+     原生随后回执精确 charIndex 时再精修；不支持区间时不得用更晚的墙钟重估。 */
+  if(!pauseSampledAt)pauseSampledAt=now();
+  refinePausePosition();
   persistPosition(activeOffset,true);
   setStatus('paused');
 }
@@ -455,7 +727,15 @@ function pause(){
 function resume(){
   if(state!=='paused'||!segments.length)return;
   segmentIndex=segmentForOffset(activeOffset);
-  speakCurrent(activeOffset-segments[segmentIndex].start);
+  const segment=segments[segmentIndex];
+  const within=Math.max(0,activeOffset-segment.start);
+  if(within>=segment.text.length){
+    /* 暂停点落在最后一段的段尾：没有剩余内容，直接收尾。 */
+    clearResume();
+    setStatus('done');
+    return;
+  }
+  speakCurrent(within);
 }
 
 function stop(){
@@ -464,6 +744,8 @@ function stop(){
   segments=[];
   segmentIndex=0;
   activeOffset=0;
+  segmentsFingerprint='';
+  speakingPath='';
   clearResume();
   setStatus('idle');
 }
@@ -478,6 +760,7 @@ function resetRuntimeState(){
   ready=false;
   state='idle';
   segments=[];
+  documentRaw='';
   documentText='';
   documentStats={...EMPTY_STATS};
   documentFingerprint='';
@@ -493,6 +776,17 @@ function resetRuntimeState(){
   browserUtterance=null;
   exactPause=true;
   lastPersistAt=0;
+  utteranceBase=0;
+  utteranceStartAt=0;
+  pauseSampledAt=0;
+  utteranceRate=1;
+  utteranceChars=0;
+  segmentsFingerprint='';
+  speakingPath='';
+  scrollBoundView=null;
+  userScrollAt=0;
+  userScrollSegment=-1;
+  lastScrollKey='';
 }
 
 export function initTTS(config){
@@ -511,7 +805,9 @@ export function initTTS(config){
     voice:$('ttsVoice'),
     rate:$('ttsRate'),
     rateValue:$('ttsRateValue'),
-    progress:$('ttsProgressFill')
+    progress:$('ttsProgressFill'),
+    highlight:$('ttsHighlight'),
+    autoscroll:$('ttsAutoscroll')
   };
   if(!ui.bar)return ttsDebug;
   ui.play.addEventListener('click',()=>{
@@ -528,6 +824,13 @@ export function initTTS(config){
   ui.rate.addEventListener('input',()=>{
     updateSettings({...settings(),rate:rateValue(ui.rate.value)});
     ui.rateValue.textContent=rateValue(ui.rate.value).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'x';
+  });
+  if(ui.highlight)ui.highlight.addEventListener('change',()=>{
+    updateSettings({...settings(),highlight:ui.highlight.checked});
+    syncHighlight();
+  });
+  if(ui.autoscroll)ui.autoscroll.addEventListener('change',()=>{
+    updateSettings({...settings(),autoscroll:ui.autoscroll.checked});
   });
   if(nativeBridge())engineName='Android 英语语音';
   else{
@@ -572,9 +875,32 @@ export function ttsModeEnter(){
 
 export function ttsModeLeave(){
   if(state==='playing')pause();
+  /* body.tts 类要在 applyMode 里稍后才会摘掉，延后一拍再清当前句高亮。 */
+  schedule(()=>syncHighlight(),0);
 }
 
-export function ttsDocumentChanged(){
+/* kind='edited'：文档真的被编辑——停朗读、清位置（旧行为）。
+   kind='switched'：切文件/进出 tts 模式——文档没变就保留暂停位置与状态，
+   文档真的变了（指纹对不上）才停止并清空。 */
+export function ttsDocumentChanged(kind='edited'){
+  if(kind==='switched'){
+    refreshDocument();
+    if((state==='playing'||state==='paused')&&documentFingerprint!==segmentsFingerprint){
+      stopAudio(true);
+      state='idle';
+      segments=[];
+      segmentIndex=0;
+      activeOffset=0;
+      activeSliceBase=0;
+      segmentsFingerprint='';
+      speakingPath='';
+      clearResume();
+      if(env&&env.notify)env.notify('朗读内容已变化，朗读已停止。');
+    }
+    render();
+    syncHighlight();
+    return;
+  }
   const interrupted=state==='playing'||state==='paused';
   if(interrupted){
     stopAudio(true);
@@ -585,9 +911,13 @@ export function ttsDocumentChanged(){
   segmentIndex=0;
   activeOffset=0;
   activeSliceBase=0;
+  segmentsFingerprint='';
+  speakingPath='';
   clearResume();
+  documentRaw='';
   documentText='';
   documentFingerprint='';
+  syncHighlight();
   cancelTimer(statsTimer);
   statsTimer=schedule(()=>{
     statsTimer=0;
@@ -625,9 +955,18 @@ export function ttsReceive(message){
   }
   if(m.type==='ttsPaused'){
     if(m.id===pausedId){
-      exactPause=m.supported!==false;
       const start=Math.max(0,Number(m.charIndex)||0);
-      activeOffset=Math.min(documentText.length,activeSliceBase+start);
+      if(m.supported===true||m.supported===undefined&&start>0){
+        /* 引擎支持精确区间（或旧协议没带 supported 但给了有效 charIndex）：精修。 */
+        exactPause=true;
+        activeOffset=Math.max(activeSliceBase,Math.min(documentText.length,activeSliceBase+start));
+      }else{
+        /* 不支持区间回执：按已播时长估算，向前对齐词边界，绝不退回段首。
+           页面里的暂停键已经在按下时采样过；这里只补原生侧主动暂停的那一次。 */
+        exactPause=false;
+        if(!pauseSampledAt)pauseSampledAt=now();
+        refinePausePosition();
+      }
       persistPosition(activeOffset,true);
     }
     if(state==='playing')state='paused';
@@ -667,6 +1006,8 @@ export const ttsDebug={
     fingerprint:documentFingerprint,
     voices:voices.length,
     engine:engineName,
+    utteranceBase,
+    utteranceChars,
     settings:settings()
   }),
   start,

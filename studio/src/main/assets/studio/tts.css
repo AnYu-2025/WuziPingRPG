@@ -71,7 +71,7 @@ body.tts .statusbar #noteCount{display:inline;color:#56766e}
 .tts-play[data-state="playing"]{background:linear-gradient(135deg,#b45309,#d97706)}
 .tts-options{
   display:grid;
-  grid-template-columns:minmax(150px,1.2fr) minmax(170px,1fr) auto;
+  grid-template-columns:minmax(150px,1.2fr) minmax(170px,1fr) auto auto auto;
   align-items:center;
   gap:8px;
   min-width:0;
@@ -104,6 +104,16 @@ body.tts .statusbar #noteCount{display:inline;color:#56766e}
   flex:1;
   min-width:70px;
   accent-color:#0f766e;
+}
+.tts-check{gap:5px;padding:0 8px;cursor:pointer;user-select:none}
+.tts-check input{flex:none;margin:0;accent-color:#0f766e}
+/* 当前句高亮：只加深字色 + 极淡底色，不动字重/字号/行高/间距，避免重排跳动。 */
+body.tts .cm-tts-active{
+  color:#0b3b34;
+  background:rgba(15,118,110,.09);
+  /* chrome64 只认带前缀版本；无前缀版放后面给新内核。 */
+  -webkit-box-decoration-break:clone;
+  box-decoration-break:clone;
 }
 .tts-rate-field output{flex:none;min-width:34px;text-align:right;font:600 10.5px/1 ui-monospace,Menlo,Consolas,monospace;color:#0f766e}
 #ttsStatus{
@@ -139,7 +149,7 @@ body.tts .statusbar #noteCount{display:inline;color:#56766e}
   .tts-mark{width:35px;height:35px;border-radius:10px}
   .tts-play{height:36px;min-height:36px;min-width:70px;padding:0 12px}
   .tts-stop{width:36px;min-width:36px;height:36px;min-height:36px}
-  .tts-options{grid-template-columns:minmax(0,1fr) auto}
+  .tts-options{grid-template-columns:minmax(0,1fr) auto auto}
   .tts-rate-field{grid-column:1/-1}
   #ttsStatus{max-width:120px}
 }
