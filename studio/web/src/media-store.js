@@ -144,7 +144,7 @@ export function beginAudio(name,mime){
         if(failure)throw failure;
         const timer=setTimeout(()=>{pending.delete(endId);reject(new Error('录音落盘超时'));},PUT_TIMEOUT);
         pending.set(endId,{resolve,reject,timer});
-        hooks.send('audioEnd',{id:endId});
+        hooks.send('audioEnd',{id:endId,sinkId:id});
       })).then(result=>({ref:(result&&result.ref)||ref,bytes:(result&&result.bytes)||0}));
     },
     abort(){

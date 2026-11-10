@@ -27,6 +27,7 @@ import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -184,7 +185,14 @@ class MainActivity : AppCompatActivity() {
         val path = result.data?.getStringExtra(PreviewActivity.EXTRA_PATH)
         val index = pages.indexOfFirst { it.file.absolutePath == path }
         if (index < 0) { updateUi(); return }
-        when (result.data?.getStringExtra(PreviewActivity.EXTRA_ACTION)) {
+        val action = result.data?.getStringExtra(PreviewActivity.EXTRA_ACTION)
+        val previewMode = result.data?.getStringExtra(PreviewActivity.EXTRA_PREVIEW_MODE)
+            ?.let { runCatching { EnhanceMode.valueOf(it) }.getOrNull() }
+        // 预览只是比较效果；若用原色预览后直接返回，提示导出仍按主界面模式，并指向彩色版入口。
+        if (action == "close" && previewMode == EnhanceMode.COLOR && mode != EnhanceMode.COLOR) {
+            toast(getString(R.string.preview_export_hint, modeLabel(mode)))
+        }
+        when (action) {
             "delete" -> deletePage(index)
             "crop" -> {
                 pendingEditFile = pages[index].file
@@ -1079,11 +1087,11 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun generatePdf(customName: String? = null) {
+    private fun generatePdf(customName: String? = null, colorCopy: Boolean = false) {
         if (pages.isEmpty() || busy) return
         generating = true; updateUi()
         val files = pages.map { it.file }
-        val currentMode = mode
+        val exportMode = ExportRules.exportMode(mode, colorCopy)
         val settings = currentSettings()
         val useOcr = ocrEnabled
         binding.progress.visibility = View.VISIBLE; binding.cancelBtn.visibility = View.VISIBLE
@@ -1091,7 +1099,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 val job = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]!!
                 val result = withContext(Dispatchers.IO) {
-                    PdfCreator.createPdf(files, currentMode, contentResolver, useOcr, settings, customName,
+                    PdfCreator.createPdf(files, exportMode, contentResolver, useOcr, settings, customName,
                         { !job.isActive }) { done, total ->
                         runOnUiThread {
                             binding.progressText.text = if (done == total) "正在保存 PDF 和文字…"
@@ -1099,7 +1107,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
-                showPdfResult(result)
+                showPdfResult(result, colorCopy)
             } catch (e: CancellationException) { toast("已取消生成，未完成文件已清理"); throw e }
             catch (_: OutOfMemoryError) { toast("内存不足，请调低分辨率或分批导出") }
             catch (e: Exception) { toast("生成失败：${e.message}") }
@@ -1107,9 +1115,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showPdfResult(result: PdfCreator.Result) {
+    private fun showPdfResult(result: PdfCreator.Result, colorCopy: Boolean = false) {
         lastOcrText = result.text.ifBlank { null }
         val details = buildString {
+            if (colorCopy) appendLine(getString(R.string.pdf_color_note))
             append("已保存到：\n${result.location}")
             if (result.size > 0) append("\n文件大小：${result.size/1024} KB")
             if (result.ocrRequested) {
@@ -1118,14 +1127,43 @@ class MainActivity : AppCompatActivity() {
                 if (result.text.isNotBlank()) append(if (result.textSaved) "\n同名 TXT 已保存" else "\nTXT 保存失败，可用「复制全文」保留文字")
             }
         }
-        val builder = AlertDialog.Builder(this).setTitle("PDF 已生成").setMessage(details)
-            .setPositiveButton("分享") { _, _ -> sharePdf(result.uri) }
-            .setNeutralButton("打开") { _, _ -> openPdf(result.uri) }
-        if (result.text.isNotBlank()) builder.setNegativeButton(getString(R.string.copy_text)) { _, _ -> copyText(result.text) }
-        else builder.setNegativeButton("完成", null)
-        // 存在未识别页时保留原页面，方便重试，避免“自动清空”吞掉失败材料。
-        if (clearAfterPdf && (!result.ocrRequested || result.missedPages.isEmpty())) clearPages()
-        builder.show()
+        val view = layoutInflater.inflate(R.layout.dialog_pdf_result, binding.root, false)
+        view.findViewById<TextView>(R.id.pdfResultMessage).text = details
+        var keepPages = false
+        lateinit var dialog: AlertDialog
+        val colorAction = view.findViewById<TextView>(R.id.pdfColorAction)
+        if (colorCopy) colorAction.visibility = View.GONE
+        colorAction.setOnClickListener {
+            keepPages = true
+            dialog.dismiss()
+            if (pages.isEmpty()) toast(getString(R.string.color_copy_empty))
+            else if (busy) toast("正在处理其他任务，请稍后再试")
+            else generatePdf(ExportRules.colorCopyBaseName(result.displayName), colorCopy = true)
+        }
+        view.findViewById<TextView>(R.id.pdfOpenAction).setOnClickListener {
+            dialog.dismiss()
+            openPdf(result.uri)
+        }
+        view.findViewById<TextView>(R.id.pdfShareAction).setOnClickListener {
+            dialog.dismiss()
+            sharePdf(result.uri)
+        }
+        val copyAction = view.findViewById<TextView>(R.id.pdfCopyAction)
+        if (result.text.isBlank()) copyAction.visibility = View.GONE
+        copyAction.setOnClickListener {
+            dialog.dismiss()
+            copyText(result.text)
+        }
+        dialog = AlertDialog.Builder(this)
+            .setTitle(if (colorCopy) getString(R.string.pdf_color_title) else "PDF 已生成")
+            .setView(view)
+            .setNegativeButton(R.string.pdf_done, null)
+            .create()
+        dialog.setOnDismissListener {
+            // 彩色版动作要先保留页面；普通完成才按设置清空。存在未识别页时保留，避免吞掉失败材料。
+            if (clearAfterPdf && !keepPages && (!result.ocrRequested || result.missedPages.isEmpty())) clearPages()
+        }
+        dialog.show()
     }
 
     private fun copyText(text: String) {
@@ -1273,6 +1311,14 @@ class MainActivity : AppCompatActivity() {
     private fun saveSettings() {
         SettingsStore.save(this, currentSettings())
     }
+
+    private fun modeLabel(m: EnhanceMode): String = getString(
+        when (m) {
+            EnhanceMode.COLOR -> R.string.mode_color
+            EnhanceMode.GRAY -> R.string.mode_gray
+            EnhanceMode.BW -> R.string.mode_bw
+        }
+    )
 
     private fun updateModeChips() {
         mapOf(

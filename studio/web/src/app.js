@@ -13,11 +13,13 @@ import {markdown} from '@codemirror/lang-markdown';
 import {HighlightStyle,syntaxHighlighting} from '@codemirror/language';
 import {tags} from '@lezer/highlight';
 import {closeSearchPanel,openSearchPanel} from '@codemirror/search';
-import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAfterRestore,lectureViewCreated,lectureModeEnter,lectureModeLeave,lectureBusy,lectureStatusText,lectureMediaMessage,lectureDebug} from './lecture.js';
+import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAfterRestore,lectureViewCreated,lectureModeEnter,lectureModeLeave,lectureBusy,lectureStatusText,lectureMediaMessage,lectureStampCount,lectureDebug} from './lecture.js';
 import {initTTS,ttsSerialize,ttsSanitize,ttsAfterRestore,ttsModeEnter,ttsModeLeave,ttsHideBar,ttsShowBar,ttsDocumentChanged,ttsStatusText,ttsReceive,ttsDebug} from './tts.js';
 import {initDraw,ensureDrawUI,enterDrawMode,exitDrawMode,isDrawMode,getDrawStrokes,loadDrawStrokes,getDrawView,loadDrawView} from './draw.js';
 import {initAI,aiSerialize,aiSanitize,aiRestore,aiModeEnter,aiModeLeave,aiHidePanel,aiEnterPanel,aiStatusText,aiReceive,aiDebug} from './ai.js';
 import {BACK,resolveBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS,moduleById,isNativeModule,moduleAvailability} from './back.js';
+import {NOTE_TEMPLATES,templateById,templateFileName,sanitizeTemplateState,insertTemplate,noteTemplateAction,notepadTarget,isNotepadNotePath,shouldRememberCodePath} from './note-templates.js';
+import {createQuizRequester,quizAIAvailability,normalizeQuizCount,gradeQuiz,retryWrongQuiz,quizToMarkdown,quizFileName,QUIZ_TYPE_LABELS,QUIZ_NOTE_LIMIT} from './quiz.js';
 
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
 /* 原生工作区快照的硬上限（EditorActivity 里是同一个数）。
@@ -56,7 +58,7 @@ const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript'
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 天工 · 离线 Python\n# 标准输入在下方面板填写，每行一项\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\nfor i in range(1, 4):\n    print("让想法运行起来", "✦" * i)\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这是手机上写出的第一个页面。</p>\n<button onclick="this.textContent=\'想法变成了现实 ✦\'">试着点一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},ai:aiSerialize()});
+const defaults=()=>({version:1,files:[makeFile('main.py','# 天工 · 离线 Python\n# 标准输入在下方面板填写，每行一项\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\nfor i in range(1, 4):\n    print("让想法运行起来", "✦" * i)\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这是手机上写出的第一个页面。</p>\n<button onclick="this.textContent=\'想法变成了现实 ✦\'">试着点一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize()});
 let state=defaults(),view,restoring=false,worker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 /* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
 const micWaiters=new Map();let micSeq=0;
@@ -75,7 +77,7 @@ function active(){return state.files.find(f=>f.path===state.active)||state.files
 function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize()};}
+function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize()};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
 function mb(bytes){return (bytes/1048576).toFixed(1);}
@@ -110,12 +112,13 @@ function loadState(data){
   state.lecture=lectureSanitize(data.lecture);
   state.tts=ttsSanitize(data.tts);
   state.ai=(data&&data.ai&&typeof data.ai==='object')?data.ai:aiSerialize();
+  state.noteTemplates=sanitizeTemplateState(data.noteTemplates);
   state.drawStrokes=Array.isArray(data.drawStrokes)?data.drawStrokes:[];
   state.drawView=(data&&data.drawView&&typeof data.drawView==='object')?data.drawView:null;
   state.settings.fontSize=Math.max(12,Math.min(24,Number(state.settings.fontSize)||15));state.settings.timeLimit=[15,30,60].includes(+state.settings.timeLimit)?+state.settings.timeLimit:15;if(window.innerWidth<700)state.settings.wrap=true;
   state.active=files.some(f=>f.path===state.active)?state.active:files[0].path;state.opened=Array.isArray(state.opened)?state.opened.filter(p=>files.some(f=>f.path===p)):[];if(!state.opened.includes(state.active))state.opened.push(state.active);
 }
-function restore(data){try{loadState(data);}catch(e){if(data)notify('工作区格式无法读取；原备份未被覆盖，请先导出或检查。');}restoring=true;editorStates.clear();$('stdin').value=state.stdin||'';createEditor();restoring=false;ready=true;renderFiles();applySettings();markLandingReady();lectureAfterRestore();ttsAfterRestore();aiRestore(state.ai);loadDrawView(state.drawView);if(state.drawStrokes&&state.drawStrokes.length)loadDrawStrokes(state.drawStrokes);}
+function restore(data){try{loadState(data);}catch(e){if(data)notify('工作区格式无法读取；原备份未被覆盖，请先导出或检查。');}if(isNotepadNotePath(state.active))lastNotePath=state.active;restoring=true;editorStates.clear();$('stdin').value=state.stdin||'';createEditor();restoring=false;ready=true;renderFiles();applySettings();markLandingReady();lectureAfterRestore();ttsAfterRestore();aiRestore(state.ai);loadDrawView(state.drawView);if(state.drawStrokes&&state.drawStrokes.length)loadDrawStrokes(state.drawStrokes);}
 function createEditor(){
  if(view)view.destroy();
  const config={doc:active().text,extensions:[
@@ -145,7 +148,7 @@ function refreshBadges(){
  $('activePath').textContent=f.path;$('dirtyFlag').textContent=f.uri?(f.text===f.savedText?'已保存到原文件':'有修改 · 保存写回'):'本地草稿 · 自动保存';$('language').textContent=document.body.classList.contains('drawing')?'画画':language(f.path)[0];$('encoding').textContent=f.encoding||'UTF-8';$('runButton').textContent=['html','htm'].includes(extension(f.path))?'↗ 预览':'▶ 运行';
  for(const b of $('fileList').querySelectorAll('.fileopen')){const p=b.dataset.path,t=state.files.find(x=>x.path===p);if(!t)continue;const name=b.lastElementChild;if(name)name.textContent=p+(t.text!==t.savedText?' •':'');b.closest('.fileitem').classList.toggle('active',p===state.active);}
 }
-function switchFile(path){if(worker){notify('请先停止运行，再切换文件。');return;}const f=state.files.find(f=>f.path===path);if(!f)return;if(workspaceMode==='tts')lastTtsPath=path;editorStates.set(state.active,view.state);state.active=path;if(!state.opened.includes(path))state.opened.push(path);restoring=true;const previous=editorStates.get(path);if(previous&&previous.doc.toString()===f.text){view.setState(previous);view.dispatch({effects:[langConfig.reconfigure(language(path)[1]()),wrapConfig.reconfigure(state.settings.wrap?EditorView.lineWrapping:[]),editConfig.reconfigure(EditorState.readOnly.of(false))]});}else createEditor();restoring=false;renderFiles();document.body.classList.remove('drawer');position();scheduleSave();if(workspaceMode==='tts')ttsDocumentChanged();}
+function switchFile(path){if(worker){notify('请先停止运行，再切换文件。');return;}const f=state.files.find(f=>f.path===path);if(!f)return;if(isNotepadNotePath(path)&&(workspaceMode==='notepad'||workspaceMode==='python'))lastNotePath=path;if(workspaceMode==='tts')lastTtsPath=path;editorStates.set(state.active,view.state);state.active=path;if(!state.opened.includes(path))state.opened.push(path);restoring=true;const previous=editorStates.get(path);if(previous&&previous.doc.toString()===f.text){view.setState(previous);view.dispatch({effects:[langConfig.reconfigure(language(path)[1]()),wrapConfig.reconfigure(state.settings.wrap?EditorView.lineWrapping:[]),editConfig.reconfigure(EditorState.readOnly.of(false))]});}else createEditor();restoring=false;renderFiles();document.body.classList.remove('drawer');position();scheduleSave();if(workspaceMode==='tts')ttsDocumentChanged();}
 function nameDialog(path=null){if(worker)return;renamePath=path;$('nameTitle').textContent=path?'修改工作区路径':'新建文件';$('confirmName').textContent=path?'重命名':'创建';$('fileName').value=path||(workspaceMode==='notepad'?'笔记.txt':workspaceMode==='tts'?'English.txt':'new_file.py');const hint=$('nameHint');if(hint)hint.textContent=workspaceMode==='notepad'?'可带子文件夹；例如 日记/今天.txt。':workspaceMode==='tts'?'可带子文件夹；例如 Articles/chapter-one.txt。':'可带子文件夹；请写扩展名，例如 .py。';$('nameDialog').returnValue='cancel';$('nameDialog').showModal();setTimeout(()=>$('fileName').select(),50);}
 $('nameDialog').addEventListener('close',()=>{if($('nameDialog').returnValue!=='default')return;const path=$('fileName').value.trim();if(!validPath(path)){notify('路径无效，请使用文件名或 folder/file.py。');return;}if(state.files.some(f=>f.path===path)&&path!==renamePath){notify('已有同名文件。');return;}if(renamePath){const f=state.files.find(f=>f.path===renamePath);f.path=path;state.opened=state.opened.map(p=>p===renamePath?path:p);if(state.active===renamePath)state.active=path;editorStates.delete(renamePath);}else{if(state.files.length>=160){notify('当前工作区最多 160 个文件。');return;}state.files.push(makeFile(path,''));}switchFile(path);changed();});
 function applySettings(){$('fontSize').value=state.settings.fontSize;$('fontSizeValue').textContent=state.settings.fontSize;$('wordWrap').checked=!!state.settings.wrap;$('timeLimit').value=state.settings.timeLimit;if(view){view.dom.style.fontSize=state.settings.fontSize+'px';view.dispatch({effects:[wrapConfig.reconfigure(state.settings.wrap?EditorView.lineWrapping:[])]});}}
@@ -153,7 +156,7 @@ for(const id of ['fontSize','wordWrap','timeLimit'])$(id).oninput=()=>{state.set
 function append(text,error=false){if($('output').textContent.length>=70000)return;const span=document.createElement('span');if(error)span.className='error';span.textContent=String(text).slice(0,70000-$('output').textContent.length);$('output').append(span);$('output').scrollTop=$('output').scrollHeight;}
 function setConsole(open){$('consolePanel').classList.toggle('folded',!open);$('foldConsole').setAttribute('aria-expanded',String(open));}
 function outputTab(input=false){$('output').hidden=input;$('stdin').hidden=!input;$('inputTab').classList.toggle('active',input);$('outputTab').classList.toggle('active',!input);setConsole(true);}
-function setRunning(running){$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode']){const el=$(id);if(el)el.disabled=running;}if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
+function setRunning(running){$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode','menuTemplates','menuQuiz']){const el=$(id);if(el)el.disabled=running;}if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
 function stop(reason='已停止运行'){runToken++;if(worker)worker.terminate();worker=null;clearTimeout(timeout);setRunning(false);$('runState').textContent=reason;}
 function applyRunFiles(files){let updated=0;for(const f of files||[]){if(!validPath(f.path)||typeof f.text!=='string'||f.text.length>MAX_FILE)continue;const existing=state.files.find(x=>x.path===f.path);if(existing){if(existing.text===f.text)continue;existing.text=f.text;editorStates.delete(f.path);}else if(state.files.length<160)state.files.push(makeFile(f.path,f.text));else continue;updated++;}if(updated){restoring=true;createEditor();restoring=false;changed();append(`\n[工作区] 已保留 ${updated} 个新增或修改的文件，写回手机文件需点击保存。\n`);}}
 async function run(){
@@ -189,6 +192,8 @@ window.StudioNative={receive(m){
   }
   else if(m.type==='imported'){const result=importFiles(m.files||[]);if(result&&result.accepted<(m.files||[]).length)notify('工作区接收 '+result.accepted+' / '+m.files.length+' 个文件，其余因容量或未保存草稿冲突未导入；原文件保留。');else notify((m.message||'导入完成')+(result?.backups?'；同名旧稿已备份':''));}
   else if(m.type==='saved'){const pending=pendingSaves.get(m.id);pendingSaves.delete(m.id);if(m.ok&&pending){const f=state.files.find(f=>f.path===pending.path);if(f){f.savedText=pending.text;f.uri=m.uri||f.uri;f.encoding=m.encoding||f.encoding;changed();}notify('已保存到手机文件。');}else notify(m.message||'保存未完成，草稿仍保留。');}
+  /* 一次性出题请求有独立的 quiz- id；先于聊天接收器，避免落进 AI 会话。 */
+  else if(quizRequester.receive(m)){}
   else if(ttsReceive(m)){}
   else if(aiReceive(m)){}
   else if(m.type==='capabilities'){moduleCaps={...m,native:true};refreshAvailability();}
@@ -232,6 +237,353 @@ $('menuDialog').addEventListener('close',()=>{
 /* AI 输入区表单：内联 onsubmit="return false" 违反 CSP（script-src 不含 unsafe-inline），
    换成显式监听阻止提交时的页面导航。发送逻辑（Ctrl+Enter / 点击）在 ai.js，不受影响。 */
 $('aiComposer').addEventListener('submit',event=>event.preventDefault());
+
+/* ---------------- 笔记模板 ---------------- */
+const quizRequester=createQuizRequester({send:(type,data)=>send(type,data),notify,native});
+let quizCurrent=null,quizAnswers={},quizSelfGrades={},quizResult=null,quizNoteText='',quizRequestToken=0;
+
+function currentAISettings(){
+  const data=aiSerialize();
+  return data&&data.settings?data.settings:{};
+}
+function templateDanger(){
+  const lecture=workspaceMode==='lecture';
+  return {lecture,recording:lecture&&lectureBusy(),hasStamps:lecture&&lectureStampCount()>0};
+}
+function renderTemplateChoices(){
+  const list=$('templateList');if(!list)return;
+  list.replaceChildren();
+  const selected=(state.noteTemplates&&state.noteTemplates.last)||'blank';
+  for(const template of NOTE_TEMPLATES){
+    const card=document.createElement('button');
+    card.type='button';card.className='template-card'+(template.id===selected?' selected':'');
+    card.dataset.template=template.id;card.setAttribute('role','radio');
+    card.setAttribute('aria-checked',template.id===selected?'true':'false');
+    const title=document.createElement('strong');title.textContent=template.title;
+    const copy=document.createElement('small');copy.textContent=template.description;
+    card.append(title,copy);
+    card.onclick=()=>{
+      state.noteTemplates=sanitizeTemplateState({last:template.id});
+      scheduleSave();renderTemplateChoices();updateTemplateHint();
+    };
+    list.append(card);
+  }
+}
+function updateTemplateHint(){
+  const template=templateById(state.noteTemplates&&state.noteTemplates.last)||NOTE_TEMPLATES[0];
+  const danger=templateDanger();
+  const hint=$('templateHint'),insert=$('templateInsert');
+  if(!hint||!insert)return;
+  if(danger.lecture){
+    hint.textContent=danger.recording||danger.hasStamps
+      ?'课堂笔记固定为「课堂笔记.md」，并靠时间戳定位。当前'+(danger.recording?'正在录音':'已有时间戳')+'，插入模板会打乱时间轴；请用「新建模板笔记」另存一篇。'
+      :'课堂笔记固定为「课堂笔记.md」。当前没有时间戳，可以插入；录音开始后请改用新建。';
+    insert.disabled=danger.recording||danger.hasStamps;
+  }else{
+    hint.textContent='「新建模板笔记」会创建 '+template.baseName+'.md，重名自动编号；「插入当前笔记」把模板放到光标处。';
+    insert.disabled=!!worker;
+  }
+}
+function openTemplateDialog(){
+  if(worker){notify('请先停止运行，再使用笔记模板。');return;}
+  closeMenu();renderTemplateChoices();updateTemplateHint();
+  const dlg=$('templateDialog');if(dlg&&!dlg.open)dlg.showModal();
+}
+function createTemplateNote(){
+  if(worker){notify('请先停止运行，再新建模板笔记。');return;}
+  const template=templateById(state.noteTemplates&&state.noteTemplates.last)||NOTE_TEMPLATES[0];
+  if(state.files.length>=160){
+    const hint=$('templateHint');if(hint)hint.textContent='当前工作区最多 160 个文件，先整理或导出一些草稿。';
+    notify('当前工作区最多 160 个文件。');return;
+  }
+  const action=noteTemplateAction({mode:workspaceMode,action:'create'});
+  if(!action.ok){notify(action.message);return;}
+  const path=templateFileName(template.id,state.files.map(file=>file.path));
+  state.files.push(makeFile(path,template.content));
+  if(!state.opened.includes(path))state.opened.push(path);
+  changed();
+  const dlg=$('templateDialog');if(dlg&&dlg.open)dlg.close();
+  const open=action.open&&(workspaceMode==='notepad'||workspaceMode==='python');
+  if(open){
+    switchFile(path);
+    notify('已新建模板笔记：'+path);
+  }else{
+    scheduleSave();
+    notify('已新建模板笔记：'+path+'；当前课堂笔记和录音时间戳保持不变，可在文件列表打开。');
+  }
+}
+function insertTemplateNote(){
+  if(worker){notify('请先停止运行，再插入模板。');return;}
+  const template=templateById(state.noteTemplates&&state.noteTemplates.last)||NOTE_TEMPLATES[0];
+  if(!template.content.trim()){
+    const hint=$('templateHint');if(hint)hint.textContent='空白模板没有正文；请用「新建模板笔记」创建空白文件。';
+    notify('空白模板没有正文；请用「新建模板笔记」创建空白文件。');return;
+  }
+  const danger=templateDanger();
+  const action=noteTemplateAction({mode:workspaceMode,action:'insert',recording:danger.recording,hasStamps:danger.hasStamps});
+  if(!action.ok){notify(action.message);updateTemplateHint();return;}
+  if(!view){notify('编辑器还没有准备好。');return;}
+  const selection=view.state.selection.main;
+  const result=insertTemplate(view.state.doc.toString(),template.content,{from:selection.from,to:selection.to});
+  if(!result.insert){notify('没有可插入的内容。');return;}
+  view.dispatch({changes:{from:result.from,to:result.to,insert:result.insert},selection:{anchor:result.cursor},scrollIntoView:true});
+  changed();
+  const dlg=$('templateDialog');if(dlg&&dlg.open)dlg.close();
+  notify('已插入「'+template.title+'」模板。');
+}
+on('templateCancel',()=>{const dlg=$('templateDialog');if(dlg&&dlg.open)dlg.close();});
+on('templateCreate',createTemplateNote);
+on('templateInsert',insertTemplateNote);
+$('templateDialog').addEventListener('click',event=>{if(event.target===$('templateDialog'))$('templateDialog').close();});
+menu('menuTemplates',openTemplateDialog);
+
+/* ---------------- 笔记生成试题 ---------------- */
+function setQuizStage(stage){
+  const dlg=$('quizDialog');if(!dlg)return;
+  dlg.dataset.stage=stage;
+  $('quizSetup').hidden=stage!=='setup';
+  $('quizProgress').hidden=stage!=='generating';
+  $('quizBody').hidden=stage!=='ready'&&stage!=='graded';
+  $('quizSubmit').hidden=stage!=='ready';
+  $('quizRegenerate').hidden=stage==='generating';
+  $('quizCancel').hidden=stage!=='generating';
+  if(stage==='ready'){const result=$('quizResult');if(result){result.hidden=true;result.replaceChildren();}}
+}
+function openQuizDialog(){
+  if(worker){notify('请先停止运行，再使用笔记出题。');return;}
+  closeMenu();
+  const dlg=$('quizDialog');if(!dlg||dlg.open)return;
+  quizRequestToken++;
+  quizRequester.cancel({silent:true});
+  quizCurrent=null;quizAnswers={};quizSelfGrades={};quizResult=null;
+  quizNoteText=view?view.state.doc.toString():active().text;
+  const path=active()?active().path:'当前笔记';
+  const noteInfo=$('quizNoteInfo');
+  if(noteInfo)noteInfo.textContent='当前笔记：'+path+' · '+quizNoteText.length+' 字';
+  const availability=quizAIAvailability(currentAISettings(),{native});
+  const ai=$('quizAi'),offline=$('quizOffline'),hint=$('quizHint'),privacy=$('quizPrivacy');
+  const empty=!quizNoteText.trim();
+  if(ai){ai.disabled=empty||!availability.ok;ai.textContent=availability.ok?'AI 生成（发送笔记）':'AI 生成不可用';ai.classList.toggle('primary',availability.ok);ai.hidden=false;}
+  if(offline){offline.disabled=empty;offline.classList.toggle('primary',!availability.ok);}
+  if(privacy)privacy.textContent='隐私：点「AI 生成」会把当前笔记正文（最多前 '+QUIZ_NOTE_LIMIT+' 字）发送到你配置的接口'+(availability.endpoint?'（'+availability.endpoint+'）':'')+'。只有点击按钮才会发送；取消或关闭对话框会中断这次请求。离线练习只在本机从笔记句子出题，不发送任何内容。';
+  if(hint)hint.textContent=empty?'当前笔记是空的，先写几句。':(availability.ok?'AI 与离线练习都可以用。':'暂不能使用 AI：'+availability.message);
+  setQuizStage('setup');
+  dlg.showModal();
+}
+function quizAnswersFromForm(){
+  const answers={};
+  if(!quizCurrent)return answers;
+  for(const question of quizCurrent.questions){
+    if(question.type==='single'){
+      const checked=document.querySelector('input[name="quiz-'+question.id+'"]:checked');
+      answers[question.id]=checked?checked.value:'';
+    }else{
+      const input=document.querySelector('.quiz-input[data-qid="'+question.id+'"],.quiz-textarea[data-qid="'+question.id+'"]');
+      answers[question.id]=input?input.value:'';
+    }
+  }
+  return answers;
+}
+function renderQuiz(quiz){
+  quizCurrent=quiz;quizAnswers={};quizSelfGrades={};quizResult=null;
+  const title=$('quizMetaTitle'),source=$('quizSource'),hint=$('quizHint');
+  if(title)title.textContent=quiz.title||'笔记练习';
+  if(source){source.textContent=quiz.source==='ai'?'AI 生成':'离线基础练习';source.className='quiz-source '+(quiz.source==='ai'?'ai':'offline');}
+  if(hint)hint.textContent=quiz.note||(quiz.source==='ai'?'题目由 AI 生成；解析和原文依据仅供参考。':'题目在本机从笔记句子和关键词生成；答案回指原文。');
+  const box=$('quizQuestions');if(box)box.replaceChildren();
+  quiz.questions.forEach((question,index)=>{
+    const card=document.createElement('section');card.className='quiz-question';card.dataset.qid=question.id;
+    const head=document.createElement('div');head.className='quiz-qhead';
+    const number=document.createElement('span');number.className='quiz-number';number.textContent=String(index+1);
+    const type=document.createElement('span');type.className='quiz-type';type.textContent=QUIZ_TYPE_LABELS[question.type]||question.type;
+    head.append(number,type);
+    const prompt=document.createElement('p');prompt.className='quiz-prompt';prompt.textContent=question.question;
+    card.append(head,prompt);
+    if(question.type==='single'){
+      const options=document.createElement('div');options.className='quiz-options';
+      question.options.forEach((option,optionIndex)=>{
+        const label=document.createElement('label');label.className='quiz-option';
+        const input=document.createElement('input');input.type='radio';input.name='quiz-'+question.id;input.value=option;
+        const text=document.createElement('span');text.textContent=String.fromCharCode(65+optionIndex)+'. '+option;
+        label.append(input,text);options.append(label);
+      });
+      card.append(options);
+    }else if(question.type==='blank'){
+      const input=document.createElement('input');input.type='text';input.className='quiz-input';input.dataset.qid=question.id;
+      input.autocomplete='off';input.placeholder='填写答案';input.setAttribute('aria-label','第 '+(index+1)+' 题填空答案');
+      card.append(input);
+    }else{
+      const area=document.createElement('textarea');area.className='quiz-textarea';area.dataset.qid=question.id;
+      area.rows=3;area.placeholder='用自己的话回答；提交后可自评';area.setAttribute('aria-label','第 '+(index+1)+' 题简答');
+      card.append(area);
+    }
+    const feedback=document.createElement('div');feedback.className='quiz-feedback';feedback.hidden=true;
+    card.append(feedback);
+    if(box)box.append(card);
+  });
+  const submit=$('quizSubmit');if(submit){submit.disabled=false;submit.hidden=false;}
+  const save=$('quizSave');if(save){save.disabled=false;save.textContent='保存练习';save.hidden=true;}
+  const retry=$('quizRetry');if(retry)retry.hidden=true;
+  const result=$('quizResult');if(result){result.hidden=true;result.replaceChildren();}
+}
+function renderQuizFeedback(){
+  if(!quizCurrent||!quizResult)return;
+  const resultById=new Map(quizResult.items.map(item=>[item.id,item]));
+  const box=$('quizQuestions');
+  if(box)for(const card of box.querySelectorAll('.quiz-question')){
+    const question=quizCurrent.questions.find(item=>item.id===card.dataset.qid);
+    const item=resultById.get(card.dataset.qid);
+    if(!question||!item)continue;
+    card.classList.toggle('correct',item.status==='correct');
+    card.classList.toggle('wrong',item.status==='wrong');
+    card.classList.toggle('pending',item.status==='self');
+    for(const input of card.querySelectorAll('input,textarea'))input.disabled=true;
+    const feedback=card.querySelector('.quiz-feedback');if(!feedback)continue;
+    feedback.hidden=false;feedback.replaceChildren();
+    const status=document.createElement('strong');status.className='quiz-feedback-status';
+    status.textContent=item.status==='correct'?(item.selfGraded?'✓ 自评：答对了':'✓ 回答正确'):item.status==='wrong'?(item.selfGraded?'✗ 自评：还需加强':'✗ 回答错误'):'… 简答题待自评';
+    feedback.append(status);
+    if(question.type==='short'&&item.status==='self'){
+      const row=document.createElement('div');row.className='quiz-selfgrade';
+      for(const [value,label] of [[true,'答对了'],[false,'还需加强']]){
+        const button=document.createElement('button');button.type='button';button.textContent=label;
+        button.onclick=()=>{
+          quizSelfGrades[question.id]=value;
+          quizResult=gradeQuiz(quizCurrent,quizAnswers,quizSelfGrades);
+          renderQuizFeedback();
+        };
+        row.append(button);
+      }
+      feedback.append(row);
+    }
+    if(item.response&&String(item.response).trim()){
+      const mine=document.createElement('p');mine.className='quiz-mine';mine.textContent='我的作答：'+item.response;feedback.append(mine);
+    }
+    const answer=document.createElement('p');answer.className='quiz-correct-answer';
+    answer.textContent='正确答案：'+(question.type==='single'&&question.answerIndex>=0?String.fromCharCode(65+question.answerIndex)+'. ':'')+question.answer;
+    feedback.append(answer);
+    if(question.explanation){const p=document.createElement('p');p.className='quiz-explanation';p.textContent='解析：'+question.explanation;feedback.append(p);}
+    if(question.evidence){
+      const p=document.createElement('p');p.className='quiz-evidence';
+      p.textContent='原文依据'+(question.evidenceLine?'（第 '+question.evidenceLine+' 行）':'')+'：'+question.evidence;
+      feedback.append(p);
+    }
+  }
+  updateQuizSummary();
+}
+function updateQuizSummary(){
+  if(!quizResult)return;
+  const box=$('quizResult');if(!box)return;
+  box.hidden=false;box.replaceChildren();
+  const score=document.createElement('strong');score.className='quiz-score';
+  score.textContent=quizResult.complete
+    ?'得分 '+quizResult.correct+' / '+quizResult.total+' · '+quizResult.score+' 分'
+    :'自动判分 '+quizResult.correct+' / '+quizResult.decided+' · '+quizResult.pending+' 道简答待自评';
+  const note=document.createElement('p');
+  note.textContent=quizResult.complete?'可以点「保存练习」把题目、答案和原文依据写入工作区。':'简答题自评后会重新计算得分。';
+  box.append(score,note);
+  const retry=$('quizRetry');if(retry)retry.hidden=!quizResult.items.some(item=>item.status==='wrong');
+  const save=$('quizSave');if(save)save.hidden=false;
+}
+function startQuizGeneration(forceOffline){
+  if(!quizNoteText.trim()){
+    const hint=$('quizHint');if(hint)hint.textContent='当前笔记为空，先写几句再出题。';
+    notify('当前笔记为空，先写几句再出题。');return;
+  }
+  const token=++quizRequestToken;
+  let request;
+  try{
+    request=quizRequester.generate({
+      noteText:quizNoteText,
+      settings:currentAISettings(),
+      count:normalizeQuizCount($('quizCount').value),
+      forceOffline,
+      nativeAllowed:native
+    });
+  }catch(error){
+    setQuizStage('setup');
+    const hint=$('quizHint');if(hint)hint.textContent='练习生成失败：'+(error&&error.message?error.message:error);
+    notify('练习生成失败，请重试。');
+    return;
+  }
+  setQuizStage('generating');
+  const cancel=$('quizCancel');if(cancel)cancel.hidden=request.mode!=='ai';
+  const progress=$('quizProgressText');
+  if(progress)progress.textContent=forceOffline?'正在本机生成离线练习…':(request.mode==='ai'?'正在请求 AI 出题…（笔记正文会发送到你配置的接口）':'正在准备离线练习…');
+  request.promise.then(result=>{
+    if(token!==quizRequestToken||!$('quizDialog').open)return;
+    if(result.cancelled){setQuizStage('setup');$('quizHint').textContent='已取消生成，没有继续发送请求。';return;}
+    if(!result.ok){setQuizStage('setup');$('quizHint').textContent=result.error||'生成失败';notify(result.error||'生成失败');return;}
+    if(result.fallback)notify('AI 出题未完成，已改用离线基础练习。');
+    renderQuiz(result.quiz);
+    setQuizStage('ready');
+    const hint=$('quizHint');
+    if(hint)hint.textContent=result.source==='ai'?'AI 已生成练习；解析和原文依据仅供参考。':'已在本机生成离线练习，没有发送笔记。';
+  }).catch(error=>{
+    if(token!==quizRequestToken||!$('quizDialog').open)return;
+    setQuizStage('setup');
+    const hint=$('quizHint');if(hint)hint.textContent='练习生成失败：'+(error&&error.message?error.message:error);
+    notify('练习生成失败，请重试。');
+  });
+}
+on('quizCancel',()=>{
+  quizRequestToken++;
+  quizRequester.cancel({silent:false});
+  setQuizStage('setup');
+  const hint=$('quizHint');if(hint)hint.textContent='已取消生成。';
+});
+on('quizSubmit',()=>{
+  if(!quizCurrent)return;
+  quizAnswers=quizAnswersFromForm();
+  quizResult=gradeQuiz(quizCurrent,quizAnswers,quizSelfGrades);
+  renderQuizFeedback();
+  setQuizStage('graded');
+  const save=$('quizSave');if(save)save.hidden=false;
+});
+on('quizRetry',()=>{
+  if(!quizCurrent||!quizResult)return;
+  const retry=retryWrongQuiz(quizCurrent,quizResult);
+  if(!retry){
+    const hint=$('quizHint');if(hint)hint.textContent='没有需要重做的错题。';
+    notify('没有需要重做的错题。');return;
+  }
+  renderQuiz(retry);setQuizStage('ready');
+  const hint=$('quizHint');if(hint)hint.textContent='已筛出 '+retry.questions.length+' 道错题，重新作答。';
+});
+on('quizSave',()=>{
+  if(!quizCurrent)return;
+  const now=new Date();
+  if(state.files.length>=160){
+    const hint=$('quizHint');if(hint)hint.textContent='当前工作区最多 160 个文件，先整理或导出一些草稿。';
+    notify('当前工作区最多 160 个文件。');return;
+  }
+  const path=quizFileName(now,state.files.map(file=>file.path));
+  const markdown=quizToMarkdown(quizCurrent,quizResult,{date:now});
+  state.files.push(makeFile(path,markdown));
+  if(!state.opened.includes(path))state.opened.push(path);
+  changed();
+  const save=$('quizSave');if(save){save.disabled=true;save.textContent='已保存';}
+  const dlg=$('quizDialog');if(dlg&&dlg.open)dlg.close();
+  const open=!worker&&(workspaceMode==='notepad'||workspaceMode==='python');
+  if(open)switchFile(path);
+  notify('练习已保存到 '+path+(open?'':'，可在文件列表打开')+'。');
+});
+on('quizRegenerate',()=>{
+  quizRequestToken++;quizRequester.cancel({silent:true});
+  quizCurrent=null;quizAnswers={};quizSelfGrades={};quizResult=null;
+  setQuizStage('setup');
+  const hint=$('quizHint');if(hint)hint.textContent='可以重新选择 AI 或离线练习。';
+});
+on('quizClose',()=>{const dlg=$('quizDialog');if(dlg&&dlg.open)dlg.close();});
+$('quizDialog').addEventListener('close',()=>{
+  quizRequestToken++;
+  quizRequester.cancel({silent:true});
+});
+$('quizDialog').addEventListener('click',event=>{if(event.target===$('quizDialog'))$('quizDialog').close();});
+on('quizAi',()=>startQuizGeneration(false));
+on('quizOffline',()=>startQuizGeneration(true));
+menu('menuQuiz',openQuizDialog);
+
 for(const b of document.querySelectorAll('.quickkeys button')){
  let startX=0,startY=0,moved=false;
  b.addEventListener('pointerdown',event=>{startX=event.clientX;startY=event.clientY;moved=false;});
@@ -258,7 +610,7 @@ const landing=$('landing'),landingBack=$('landingBack'),landingStatus=$('landing
 const homeCards=[...document.querySelectorAll('.home-card')];
 const MODE_KEY='ember-studio-mode';
 const KNOWN_MODES=HOME_ACTIONS.map(item=>item.id);
-let landingOpen=true,landingTimer=0,selectedMode='',workspaceMode='python',lastCodePath='',lastTtsPath='',homeFromSession=false,lastOpened='';
+let landingOpen=true,landingTimer=0,selectedMode='',workspaceMode='python',lastCodePath='',lastTtsPath='',lastNotePath='',homeFromSession=false,lastOpened='';
 /* 原生侧在 ready 之后发 capabilities；浏览器预览里修图页可以直接打开，扫描需要相机。 */
 let moduleCaps={native,browserPhoto:!native,sdk:0};
 try{const savedMode=localStorage.getItem(MODE_KEY);if(KNOWN_MODES.includes(savedMode))selectedMode=savedMode;}catch(e){}
@@ -362,7 +714,15 @@ function handleSystemBack(){
     console.error('[Studio] back handling failed',error);
     return true;  }
 }
-function ensureNote(){let note=state.files.find(f=>f.path==='笔记.txt');if(!note){note=makeFile('笔记.txt','');state.files.push(note);}if(!state.opened.includes(note.path))state.opened.push(note.path);return note;}
+/* 刷新后 active 可能是模板笔记；先恢复它，不能又跳回固定的 笔记.txt。 */
+function ensureNote(){
+  const target=notepadTarget({active:state.active,lastNote:lastNotePath,files:state.files});
+  let note=state.files.find(f=>f.path===target.path);
+  if(!note){note=makeFile(target.path,'');state.files.push(note);}
+  lastNotePath=note.path;
+  if(!state.opened.includes(note.path))state.opened.push(note.path);
+  return note;
+}
 function ensureLectureNote(){let note=state.files.find(f=>f.path==='课堂笔记.md');if(!note){note=makeFile('课堂笔记.md','');state.files.push(note);changed();}if(!state.opened.includes(note.path))state.opened.push(note.path);return note;}
 function ensureEnglishText(){let text=state.files.find(f=>f.path==='English.txt');if(!text){const activeFile=state.files.find(f=>f.path===state.active&&/\.(txt|md)$/i.test(f.path)&&/[A-Za-z]/.test(f.text||''));if(activeFile)text=activeFile;}if(!text){if(state.files.length>=160){notify('工作区已有 160 个文件，请先打开英文文本或腾出一个文件名额。');return null;}text=makeFile('English.txt','Welcome to English Reading.\n\nType or open an English text here. The reader divides long paragraphs at natural sentence boundaries, so you can follow an entire article without losing your place.\n\nChoose an installed English voice, adjust the speaking rate, and use the same controls to pause, continue, or stop at any time.\n');state.files.push(text);changed();}if(!state.opened.includes(text.path))state.opened.push(text.path);lastTtsPath=text.path;return text;}
 function applyMode(mode){
@@ -390,7 +750,8 @@ function applyMode(mode){
   document.body.classList.remove('aiview');$('workbench').hidden=false;
   if(mode==='game'){document.body.classList.remove('notepad');document.body.classList.remove('lecture');document.body.classList.remove('tts');lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();showGame();return true;}
   showCode();
-  if(mode==='notepad'){document.body.classList.remove('lecture');document.body.classList.remove('tts');lectureModeLeave();if(state.active!=='笔记.txt')lastCodePath=state.active;document.body.classList.add('notepad');switchFile(ensureNote().path);if(drawToggle)drawToggle.hidden=false;}
+  /* 只有代码类文件进入 lastCodePath；模板/课堂笔记不能污染 Python 返回目标。 */
+  if(mode==='notepad'){document.body.classList.remove('lecture');document.body.classList.remove('tts');lectureModeLeave();if(shouldRememberCodePath(state.active))lastCodePath=state.active;document.body.classList.add('notepad');switchFile(ensureNote().path);if(drawToggle)drawToggle.hidden=false;}
   else if(mode==='lecture'){document.body.classList.remove('notepad');document.body.classList.remove('tts');document.body.classList.add('lecture');if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();const note=ensureLectureNote();switchFile(note.path);lectureModeEnter();}
   else if(mode==='tts'){document.body.classList.remove('notepad');document.body.classList.remove('lecture');lectureModeLeave();document.body.classList.add('tts');if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();switchFile(ttsTarget.path);ttsModeEnter();}
   else{document.body.classList.remove('notepad');document.body.classList.remove('lecture');document.body.classList.remove('tts');lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();const f=(lastCodePath&&state.files.find(x=>x.path===lastCodePath))||state.files.find(x=>x.path==='main.py')||state.files.find(x=>!x.path.endsWith('.txt'))||state.files[0];if(f)switchFile(f.path);}

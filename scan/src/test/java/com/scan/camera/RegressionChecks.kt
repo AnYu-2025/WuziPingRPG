@@ -79,6 +79,27 @@ fun main() {
         verify(ExportRules.safeBaseName("  章节1.pdf ", "默认") == "章节1", "自定义文件名不重复添加 PDF 后缀")
         verify(ExportRules.safeBaseName("../a:b\\c\n", "默认") == "abc", "文件名清理非法字符和控制字符")
         verify(ExportRules.safeBaseName(" ... ", "默认") == "默认", "空文件名使用默认值")
+        verify(ExportRules.colorCopyBaseName("扫描_20261110_120000.pdf") == "扫描_20261110_120000_彩色",
+            "彩色版沿用原文件名并添加彩色后缀")
+        verify(ExportRules.colorCopyBaseName("章节1.pdf") == "章节1_彩色", "自定义文件名生成彩色版后缀")
+        verify(ExportRules.colorCopyBaseName("章节1_彩色.pdf") == "章节1_彩色", "彩色版文件名不重复叠加后缀")
+        verify(ExportRules.colorCopyBaseName("../a:b\\c\n.pdf") == "abc_彩色", "彩色版文件名同样清理非法字符")
+        val longColorName = ExportRules.colorCopyBaseName("页".repeat(120))
+        verify(longColorName.length <= 100 && longColorName.endsWith(ExportRules.COLOR_SUFFIX),
+            "超长文件名截断后仍保留彩色后缀")
+        verify(ExportRules.safeBaseName(ExportRules.colorCopyBaseName("章节1.pdf"), "默认") + ".pdf" == "章节1_彩色.pdf",
+            "彩色版最终文件名带 PDF 后缀")
+        verify(ExportRules.exportMode(EnhanceMode.GRAY, colorCopy = false) == EnhanceMode.GRAY,
+            "普通导出保持默认灰度")
+        verify(ExportRules.exportMode(EnhanceMode.BW, colorCopy = false) == EnhanceMode.BW,
+            "普通导出保持当前黑白模式")
+        verify(ExportRules.exportMode(EnhanceMode.COLOR, colorCopy = false) == EnhanceMode.COLOR,
+            "普通导出保持当前原色模式")
+        verify(ExportRules.exportMode(EnhanceMode.GRAY, colorCopy = true) == EnhanceMode.COLOR,
+            "灰度模式下的彩色版强制使用原色")
+        verify(ExportRules.exportMode(EnhanceMode.BW, colorCopy = true) == EnhanceMode.COLOR,
+            "黑白模式下的彩色版强制使用原色")
+        verify(AppSettings().mode == EnhanceMode.GRAY.name, "默认增强模式仍为灰度")
         val key = ExportRules.ocrKey("page",1,100,2400,1800,"GRAY",50,50)
         verify(key != ExportRules.ocrKey("page",1,100,3200,2400,"GRAY",50,50), "OCR 分辨率切换使缓存失效")
         verify(key != ExportRules.ocrKey("page",1,101,2400,1800,"GRAY",50,50), "文件内容尺寸变化使缓存失效")

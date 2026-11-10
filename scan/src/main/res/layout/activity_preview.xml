@@ -9,7 +9,7 @@
         android:id="@+id/previewPager"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="90dp"
+        android:layout_marginTop="140dp"
         android:layout_marginBottom="80dp" />
 
     <Spinner
@@ -20,6 +20,21 @@
         android:layout_marginTop="48dp"
         android:backgroundTint="#FFFFFF"
         android:contentDescription="@string/preview_effect" />
+
+    <TextView
+        android:id="@+id/previewScopeHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="94dp"
+        android:background="#66000000"
+        android:gravity="center"
+        android:maxWidth="320dp"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="4dp"
+        android:text="@string/preview_scope_hint"
+        android:textColor="#B3FFFFFF"
+        android:textSize="11sp" />
 
     <TextView
         android:id="@+id/previewTitle"

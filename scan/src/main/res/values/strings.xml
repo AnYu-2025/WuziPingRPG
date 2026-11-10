@@ -66,4 +66,13 @@
     <string name="dark_hint">光线较暗，建议开闪光灯</string>
     <string name="correcting">正在校正页面…</string>
     <string name="copy_text">复制全文</string>
+    <string name="pdf_open">打开 PDF</string>
+    <string name="pdf_share">分享 PDF</string>
+    <string name="pdf_done">完成</string>
+    <string name="pdf_color_copy">另存彩色版（原色）</string>
+    <string name="pdf_color_title">彩色 PDF 已生成</string>
+    <string name="pdf_color_note">已按原色生成彩色版，当前增强模式保持不变。</string>
+    <string name="color_copy_empty">页面已清空，无法另存彩色版</string>
+    <string name="preview_scope_hint">仅改变预览；PDF 按主界面模式导出，生成后可另存彩色版</string>
+    <string name="preview_export_hint">原色仅用于预览；PDF 仍按%1$s导出，可在生成结果中另存彩色版</string>
 </resources>
