@@ -91,7 +91,7 @@ body.lecture #lectureSlides{display:flex;flex-direction:column;flex:none;min-hei
 .anchorjump b{font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--text-strong);flex:none}
 .anchorlabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
 .anchoredit{width:30px;min-width:30px;height:34px;min-height:34px;padding:0;color:var(--faint);font-size:13px}
-.anchorempty,.slidempty{font-size:11.5px;line-height:1.75;color:var(--faint);padding:8px 4px;margin:0}
+.anchorempty,.slidempty{font-size:12.5px;line-height:1.7;color:var(--muted);margin:8px 4px;padding:14px 12px;text-align:center;border:1px dashed var(--line-strong);border-radius:14px;background:var(--surface-2)}
 
 /* PPT 照片 */
 /* 当前页大图：录音/听课时不用点缩略图→预览→关闭，抬眼就能看 */

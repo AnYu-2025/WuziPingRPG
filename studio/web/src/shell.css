@@ -3,11 +3,11 @@
    只做外观与间距，不动任何交互逻辑；游戏用的是另一套 lounge/game 布局，这里整体排除。 */
 
 body{
-  --shell-accent:#0f766e;
-  --shell-bar:#eef7f3;
-  --shell-line:rgba(16,45,36,.10);
-  --shell-wash:#f4faf7;
-  --shell-ink:#10211b;
+  --shell-accent:var(--accent);
+  --shell-bar:var(--surface-2);
+  --shell-line:var(--line);
+  --shell-wash:var(--bg);
+  --shell-ink:var(--text-strong);
   --shell-gap:8px;
   --shell-radius:16px;
 }
@@ -26,16 +26,16 @@ body:not(.gameview) .appbar{
   background:var(--shell-bar);
   backdrop-filter:none;box-shadow:none;
 }
-body:not(.gameview) .appbar .icon{width:36px;min-width:36px;height:36px;min-height:36px;border-radius:10px;color:#1b2321;font-size:19px;flex:none}
-body:not(.gameview) #activePath{color:#1f2328}
+body:not(.gameview) .appbar .icon{width:36px;min-width:36px;height:36px;min-height:36px;border-radius:10px;color:var(--text-strong);font-size:19px;flex:none}
+body:not(.gameview) #activePath{color:var(--text-strong)}
 body:not(.gameview) .doc{padding:0 5px}
-body:not(.gameview) .doc strong{font-size:15px;font-weight:600;color:#1f2328;letter-spacing:0}
+body:not(.gameview) .doc strong{font-size:15px;font-weight:600;color:var(--text-strong);letter-spacing:0}
 body:not(.gameview) .doc small{display:none}
 /* 窄屏样式把「保存」压成 34px 方块，字会溢出；这里用 id 选择器抢回胶囊形态 */
 body:not(.gameview) #saveButton,
 body:not(.gameview) .appbar .saveicon{
   flex:none;width:auto;height:30px;min-height:30px;min-width:58px;padding:0 14px;border-radius:999px;
-  border:1px solid var(--shell-line);background:#fff;color:#1f2328;
+  border:1px solid var(--shell-line);background:var(--surface);color:var(--text-strong);
   font-size:12.5px;font-weight:600;box-shadow:0 1px 2px rgba(16,45,36,.06);
 }
 body:not(.gameview) #runButton{flex:none;height:32px;min-height:32px;padding:0 13px;border-radius:999px;font-size:13px}
@@ -49,13 +49,13 @@ body:not(.gameview) #moreButton{color:var(--shell-ink)}
 /* ===== 内容卡片 ===== */
 body:not(.gameview) #workbench{
   margin:0 var(--shell-gap) 6px;border:1px solid var(--shell-line);border-radius:18px;
-  background:#fff;overflow:hidden;box-shadow:0 6px 18px rgba(16,45,36,.05);
+  background:var(--surface);overflow:hidden;box-shadow:var(--elev-1);
 }
 body.notepad #workbench,body.notepad .workspace,body.notepad #editor,body.notepad .cm-editor{background:#fffdf8!important}
 body.lecture #workbench,body.tts #workbench{background:#fff}
 /* 行号栏跟着卡片走白底，别让上课模式的时间戳底色把别的模式染成粉色 */
-body:not(.gameview) .cm-gutters{background:#fff!important}
-body:not(.gameview) .cm-note-times{background:#fff}
+body:not(.gameview) .cm-gutters{background:var(--surface)!important}
+body:not(.gameview) .cm-note-times{background:var(--surface)}
 body.lecture .cm-gutters{background:#fffafa!important}
 body.lecture .cm-note-times{background:#fffafa}
 
@@ -64,7 +64,7 @@ body.lecture .cm-note-times{background:#fffafa}
 body.lecture #lectureBar{
   min-height:52px;margin:0 var(--shell-gap) 6px;padding:0 10px;
   border:1px solid var(--shell-line);border-radius:var(--shell-radius);
-  background:#fff;box-shadow:0 1px 2px rgba(225,29,72,.06);
+  background:var(--surface);box-shadow:var(--elev-1);
 }
 body.lecture #lectureBar[data-state="error"]{background:#fffbeb;border-color:#fde68a}
 body.lecture #lectureHint:not([hidden]){margin:0 var(--shell-gap) 6px;border-radius:12px;border:0;background:#fffbeb}
@@ -77,7 +77,7 @@ body.lecture #lectureHint:not([hidden]){margin:0 var(--shell-gap) 6px;border-rad
 }
 
 /* 翻译：改成一枚胶囊开关，去掉原生勾选框 */
-.rec-translate{height:30px;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid #fecdd3;background:#fff;color:#9f1239;font-size:12.5px;font-weight:600;gap:0}
+.rec-translate{height:30px;min-height:30px;padding:0 12px;border-radius:999px;border:1px solid #fecdd3;background:var(--surface);color:#9f1239;font-size:12.5px;font-weight:600;gap:0}
 .rec-translate input[type="checkbox"]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .rec-translate .reclabel{letter-spacing:.02em}
 .rec-translate.on{background:#e11d48;border-color:#e11d48;color:#fff}
@@ -86,7 +86,7 @@ body.lecture #lectureHint:not([hidden]){margin:0 var(--shell-gap) 6px;border-rad
 /* ===== 朗读：控制条卡片 ===== */
 body.tts #ttsBar{
   margin:0 var(--shell-gap) 6px;padding:10px 12px;border-radius:var(--shell-radius);
-  border:1px solid var(--shell-line);background:#fff;box-shadow:0 1px 2px rgba(13,148,136,.06);
+  border:1px solid var(--shell-line);background:var(--surface);box-shadow:var(--elev-1);
 }
 
 /* ===== 底部子面板：分段标签 =====
@@ -95,27 +95,27 @@ body.tts #ttsBar{
 @media(max-width:899px){
   body.lecture #lectureTabs{
     display:flex;gap:4px;margin:0 var(--shell-gap) 4px;padding:5px;border-radius:14px;
-    background:#f1f4f2;border:1px solid rgba(16,45,36,.06);
+    background:var(--surface-2);border:1px solid var(--line);
   }
   body.lecture .lecture-tab{
     flex:1;height:36px;min-height:36px;border:0;border-radius:9px;
-    background:transparent;color:#5f6f66;font-size:12.5px;font-weight:500;
+    background:transparent;color:var(--muted);font-size:12.5px;font-weight:500;
   }
-  body.lecture .lecture-tab.active{background:#fff;color:#be123c;font-weight:600;box-shadow:0 1px 3px rgba(16,45,36,.12)}
+  body.lecture .lecture-tab.active{background:var(--surface);color:#be123c;font-weight:600;box-shadow:var(--elev-1)}
 }
 
 /* Python 控制台里的「输出 / 输入」用同一套分段样式 */
 body:not(.gameview) .console{left:6px;right:6px;bottom:6px;border-radius:14px;border-color:var(--shell-line);box-shadow:0 10px 26px rgba(16,45,36,.10)}
-body:not(.gameview) .consolebar{margin:0 8px 8px;padding:4px;gap:3px;border:0;border-radius:11px;background:#f1f4f2}
+body:not(.gameview) .consolebar{margin:0 8px 8px;padding:4px;gap:3px;border:0;border-radius:11px;background:var(--surface-2)}
 body:not(.gameview) .consolebar button{height:26px;min-height:26px;border-radius:8px}
-body:not(.gameview) .consolebar button.active{background:#fff;color:var(--shell-ink);box-shadow:0 1px 3px rgba(16,45,36,.12)}
+body:not(.gameview) .consolebar button.active{background:var(--surface);color:var(--shell-ink);box-shadow:var(--elev-1)}
 
 /* ===== 快捷输入与状态栏 ===== */
 body:not(.gameview) .quickkeys{background:transparent;border-top:0;padding:0 10px 4px}
-body:not(.gameview) .quickkeys button{background:#fff;border:1px solid var(--shell-line);box-shadow:0 1px 2px rgba(16,45,36,.05)}
+body:not(.gameview) .quickkeys button{background:var(--surface);border:1px solid var(--shell-line);box-shadow:var(--elev-1)}
 body:not(.gameview) .statusbar{
   height:calc(24px + env(safe-area-inset-bottom));min-height:calc(24px + env(safe-area-inset-bottom));
-  border-top:0;background:transparent;color:#93a29a;padding:0 14px env(safe-area-inset-bottom);
+  border-top:0;background:transparent;color:var(--faint);padding:0 14px env(safe-area-inset-bottom);
 }
 body.notepad .statusbar,body.tts .statusbar{background:transparent;border-top:0}
 
