@@ -1050,7 +1050,8 @@ async function storeSlideImage(data,label,w,h){
   }catch(err){
     reportError('图片外置失败，已内嵌保存：'+((err&&err.message)||err));
   }
-  return {id:'s'+(slideSeq++),name:String(label||('slide_'+slideSeq)).slice(0,60),ref,w,h,anchorTime:null,createdAt:Date.now()};
+  /* 尺寸键名必须与 lectureSanitize 读取的 width/height 一致，否则保存/恢复后尺寸丢失。 */
+  return {id:'s'+(slideSeq++),name:String(label||('slide_'+slideSeq)).slice(0,60),ref,width:w,height:h,anchorTime:null,createdAt:Date.now()};
 }
 async function compressSlide(source,label){
   const img=await loadImage(source);
@@ -1238,13 +1239,15 @@ function onAnchorDialogClose(){
   renderAnchors();renderSlides();renderTimeline();
   env.scheduleSave();
 }
-function parseTime(text){
+export function parseTime(text){
   const raw=String(text||'').trim();
   if(!raw)return null;
   if(/^\d+(\.\d+)?$/.test(raw))return Number(raw);
   const parts=raw.split(':').map(Number);
   if(parts.some(n=>isNaN(n)))return null;
-  return parts.reverse().reduce((sum,n,i)=>sum+n*Math.pow(60,i),0);
+  /* '-5' 这类输入会算出负数：负时间会被 lectureSanitize 丢弃，等于锚点悄悄消失。 */
+  const seconds=parts.reverse().reduce((sum,n,i)=>sum+n*Math.pow(60,i),0);
+  return isFinite(seconds)&&seconds>=0?seconds:null;
 }
 
 /* ---------------- app.js 集成点 ---------------- */
@@ -1343,8 +1346,9 @@ export function lectureSanitize(data){
       id:String(s.id||('s'+(i+1))).slice(0,32),
       name:String(s.name||('slide_'+(i+1))).slice(0,60),
       ref:slideRef(s),
-      width:Math.max(1,Math.min(4096,Number(s.width)||SLIDE_MAX_W)),
-      height:Math.max(1,Math.min(4096,Number(s.height)||768)),
+      /* 旧快照的尺寸键是 w/h：兼容读取，恢复后统一按 width/height 落盘。 */
+      width:Math.max(1,Math.min(4096,Number(s.width||s.w)||SLIDE_MAX_W)),
+      height:Math.max(1,Math.min(4096,Number(s.height||s.h)||768)),
       anchorTime:typeof s.anchorTime==='number'&&isFinite(s.anchorTime)?Math.round(s.anchorTime*10)/10:null,
       createdAt:Number(s.createdAt)||Date.now()
     })):[];
