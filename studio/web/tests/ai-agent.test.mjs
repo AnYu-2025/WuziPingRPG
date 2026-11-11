@@ -105,6 +105,20 @@ test('phone arguments are narrowed and cannot grow a send flag', () => {
   assert.equal(prepareToolArgs('readClipboard', { text: 'secret' }).args && Object.keys(prepareToolArgs('readClipboard', { text: 'secret' }).args).length, 0);
 });
 
+test('openMaps rejects partial coordinates instead of defaulting to zero', () => {
+  const latOnly = prepareToolArgs('openMaps', { lat: 39.9, label: '北京' });
+  assert.equal(latOnly.ok, false);
+  assert.match(latOnly.error, /坐标格式无效/);
+  const lngOnly = prepareToolArgs('openMaps', { lng: 116.4 });
+  assert.equal(lngOnly.ok, false);
+  assert.match(lngOnly.error, /坐标格式无效/);
+  const pair = prepareToolArgs('openMaps', { lat: 23.1, lng: 113.3 });
+  assert.equal(pair.ok, true);
+  assert.deepEqual(pair.args, { lat: 23.1, lng: 113.3, label: '' });
+  assert.equal(prepareToolArgs('openMaps', { lat: 0, lng: 0 }).ok, true);
+  assert.deepEqual(prepareToolArgs('openMaps', { query: '中山大学' }).args, { query: '中山大学', label: '' });
+});
+
 test('alarms stay on the three safe actions', () => {
   assert.deepEqual(ALARM_ACTIONS, ['remind', 'dailyLog', 'scanReport']);
   for (const name of PHONE_TOOLS) assert.equal(alarmAllows(name), false, name);

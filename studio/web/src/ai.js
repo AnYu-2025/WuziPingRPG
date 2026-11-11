@@ -199,6 +199,7 @@ export function prepareToolArgs(name,raw){
       const latText=args.lat==null||args.lat===''?'':String(args.lat).trim();
       const lngText=args.lng==null||args.lng===''?'':String(args.lng).trim();
       if(latText||lngText){
+        if(!latText||!lngText)return {ok:false,error:'坐标格式无效。'};
         const lat=Number(latText),lng=Number(lngText);
         if(!Number.isFinite(lat)||!Number.isFinite(lng)||lat<-90||lat>90||lng<-180||lng>180)return {ok:false,error:'坐标超出范围。'};
         return {ok:true,args:{lat,lng,label}};
