@@ -401,9 +401,8 @@ function chooseDistractors(answer,sentence,allKeywords){
 }
 
 function blankOut(text,keyword){
-  const index=text.indexOf(keyword);
-  if(index<0)return '';
-  return text.slice(0,index)+'____'+text.slice(index+keyword.length);
+  if(!keyword||text.indexOf(keyword)<0)return '';
+  return text.split(keyword).join('____');
 }
 
 function mulberry32(seed){

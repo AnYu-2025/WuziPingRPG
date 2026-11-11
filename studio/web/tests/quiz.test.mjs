@@ -208,6 +208,33 @@ test('offline practice keeps headings as context and never emits truncated/conte
   }
 });
 
+test('offline blanks hide every occurrence of a repeated keyword', () => {
+  const sentence = '光合作用需要光，光合作用产生氧气。';
+  const repeated = [
+    sentence,
+    '呼吸作用在线粒体中进行。',
+    '细胞核储存遗传物质DNA。',
+    '酶能够降低化学反应活化能。',
+    '植物细胞壁主要成分是纤维素。'
+  ].join('\n');
+  for (const seed of [1, 2, 3, 5, 7]) {
+    const result = generateOfflineQuiz(repeated, { count: 5, seed, now: 123 });
+    assert.equal(result.ok, true, 'seed ' + seed);
+    for (const question of result.quiz.questions) {
+      if (question.type === 'short') continue;
+      assert.ok(!question.question.includes(question.answer),
+        'answer leaked into prompt (seed ' + seed + '): ' + question.question);
+    }
+    const target = result.quiz.questions.find(question => question.evidence === sentence);
+    assert.ok(target, 'photosynthesis sentence is quizzed (seed ' + seed + ')');
+    assert.ok(target.type === 'single' || target.type === 'blank', target.type);
+    assert.equal(target.answer, '光合作用');
+    assert.ok(target.question.includes('____需要光'), target.question);
+    assert.ok(target.question.includes('____产生氧气'), target.question);
+    assert.ok(!target.question.includes('光合作用'), 'all occurrences blanked: ' + target.question);
+  }
+});
+
 test('a heading alone is context, not a quiz sentence', () => {
   const result = generateOfflineQuiz('# 生物复习', { count: 5 });
   assert.equal(result.ok, false);
