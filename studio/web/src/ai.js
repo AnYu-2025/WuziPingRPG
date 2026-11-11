@@ -118,6 +118,12 @@ export function trimMessages(list){
   }
   return out.reverse();
 }
+/* The native bridge can deliver a whole non-stream reply as one aiChunk, so cap
+   the accumulated buffer instead of slicing each chunk. */
+export function appendStreamChunk(buffer,text,cap=200000){
+  if(buffer.length>=cap)return buffer;
+  return buffer+String(text==null?'':text).slice(0,cap-buffer.length);
+}
 /** Self-defined tool-card protocol: fenced ```tool blocks containing {tool,args}. */
 export function parseToolCalls(text){
   const out=[];if(typeof text!=='string')return out;
@@ -131,7 +137,14 @@ export function parseToolCalls(text){
   }
   return out;
 }
-function digits(v){return str(v,40).replace(/[\s-]/g,'');}
+/* Models often emit phone numbers as JSON numbers. Only a non-negative safe
+   integer is coerced: a minus is not a formatting hyphen (the strip below would
+   turn -13800138000 into 13800138000), and an unsafe integer rounds to a
+   different number before it ever reaches the regex. */
+function digits(v){
+  if(typeof v==='number')return Number.isSafeInteger(v)&&v>=0?String(v):'';
+  return str(v,40).replace(/[\s-]/g,'');
+}
 export function validHttpUrl(url){
   if(typeof url!=='string')return false;
   const v=url.trim();
@@ -193,6 +206,7 @@ export function prepareToolArgs(name,raw){
       const latText=args.lat==null||args.lat===''?'':String(args.lat).trim();
       const lngText=args.lng==null||args.lng===''?'':String(args.lng).trim();
       if(latText||lngText){
+        if(!latText||!lngText)return {ok:false,error:'坐标格式无效。'};
         const lat=Number(latText),lng=Number(lngText);
         if(!Number.isFinite(lat)||!Number.isFinite(lng)||lat<-90||lat>90||lng<-180||lng>180)return {ok:false,error:'坐标超出范围。'};
         return {ok:true,args:{lat,lng,label}};
@@ -625,7 +639,7 @@ export function aiReceive(m){
   if(!m||typeof m!=='object')return false;
   if(m.type==='aiChunk'){
     if(!busy||m.id!==currentId)return true;
-    streamBuffer+=str(m.text,4000);
+    streamBuffer=appendStreamChunk(streamBuffer,m.text);
     if(messages.length&&messages[messages.length-1].role==='assistant')messages[messages.length-1].content=streamBuffer;
     renderMessages();return true;
   }
