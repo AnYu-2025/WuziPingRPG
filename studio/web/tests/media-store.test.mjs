@@ -99,3 +99,50 @@ test('缺少 audioSaved 回执时按超时 reject，不会被错误 resolve', as
   assert.equal(result.value, undefined, '超时不能 resolve 出 ref');
   assert.match(result.error.message, /录音落盘超时/);
 });
+
+test('audioStarted 失败后不再写分片，end() 立刻抛原生错误', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const sent = setup(t);
+  const sink = beginAudio('record', 'audio/webm');
+  const message = await until(() => sentOf(sent, 'audioBegin'), 'audioBegin');
+
+  assert.equal(mediaMessage({ type: 'audioStarted', id: message.payload.id, ok: false, message: '磁盘已满' }), true);
+  await flush();   // 等创建失败记进 failure
+
+  await sink.chunk(new Blob([new Uint8Array([1, 2, 3])]));
+  assert.equal(sentOf(sent, 'audioChunk'), undefined, '文件没建起来不能再发 audioChunk');
+
+  const outcome = sink.end().then(value => ({ value }), error => ({ error }));
+  await flush();
+  assert.equal(sentOf(sent, 'audioEnd'), undefined, '创建失败后不该再关流');
+
+  const result = await outcome;   // 不 tick 30s 也要有结果
+  assert.equal(result.value, undefined, '创建失败不能 resolve 出 ref');
+  assert.match(result.error.message, /磁盘已满/);
+});
+
+test('abort() 在创建回执前放弃时清掉创建定时器', async (t) => {
+  const sent = setup(t);
+  const cleared = t.mock.method(globalThis, 'clearTimeout');
+  const sink = beginAudio('record', 'audio/webm');
+  const message = await until(() => sentOf(sent, 'audioBegin'), 'audioBegin');
+
+  const before = cleared.mock.callCount();
+  sink.abort();
+  assert.equal(cleared.mock.callCount(), before + 1, '创建定时器不能留在事件循环里');
+  assert.equal(sentOf(sent, 'audioAbort').payload.id, message.payload.id);
+});
+
+test('abort() 在关流回执前放弃时清掉 audioEnd 定时器', async (t) => {
+  const sent = setup(t);
+  const cleared = t.mock.method(globalThis, 'clearTimeout');
+  const sink = beginAudio('record', 'audio/webm');
+  const id = await begin(sent);
+  const { done } = await end(sink, sent);
+  done.catch(() => {});   // abort 之后不会再有回执
+
+  const before = cleared.mock.callCount();
+  sink.abort();
+  assert.equal(cleared.mock.callCount(), before + 1, 'audioEnd 的超时定时器要被清掉');
+  assert.equal(sentOf(sent, 'audioAbort').payload.id, id);
+});

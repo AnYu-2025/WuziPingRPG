@@ -128,13 +128,14 @@ export function beginAudio(name,mime){
       pending.set(id,{resolve,reject,timer});
     });
     send('audioBegin',{id,name:file,mime:type});
-    job.catch(()=>{/* 创建失败会在第一个 chunk/end 上报出来 */});
+    job.catch(err=>{failure=failure||err;/* 创建失败会在第一个 chunk/end 上报出来 */});
   }
   return {
     ref,
     chunk(blob){
       chain=chain.then(()=>blob.arrayBuffer()).then(buffer=>{
         if(!buffer||!buffer.byteLength)return;
+        if(failure)return;   // 文件没建起来，别再往不存在的流里写
         send('audioChunk',{data:bytesToBase64(new Uint8Array(buffer))});
       }).catch(err=>{failure=failure||err;});
       return chain;
@@ -149,6 +150,8 @@ export function beginAudio(name,mime){
     },
     abort(){
       try{if(mediaNative())hooks.send('audioAbort',{id});}catch(err){/* 已经没了 */}
+      const job=pending.get(id);if(job&&job.timer)clearTimeout(job.timer);
+      const closing=pending.get(endId);if(closing&&closing.timer)clearTimeout(closing.timer);
       pending.delete(id);pending.delete(endId);
     }
   };
