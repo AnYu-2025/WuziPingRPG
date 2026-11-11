@@ -12,7 +12,7 @@ final class LegacySaves {
     }
     /** Format 8 is the live save. 7 drops the seventh forge level and tuned launch parameters. */
     static byte[] snapshot(Game g,int version)throws IOException{
-        if(version<1||version>9)throw new IllegalArgumentException("Unsupported legacy fixture version");
+        if(version<1||version>10)throw new IllegalArgumentException("Unsupported legacy fixture version");
         ByteArrayOutputStream current=new ByteArrayOutputStream();g.save(current);byte[] currentBytes=current.toByteArray();
         byte[] story=bytes(g.story::write),body=bytes(g.body::write),guest=bytes(g.guest::write);
         byte[] arsenal=bytes(g.arsenal::write),math=bytes(g.math::write),physics=bytes(g.physics::write);
@@ -26,6 +26,7 @@ final class LegacySaves {
         ByteArrayOutputStream expected=new ByteArrayOutputStream();
         expected.write(story);expected.write(body);expected.write(guest);expected.write(arsenal);expected.write(math);expected.write(physics);expected.write(profile);expected.write(history);
         if(!Arrays.equals(tail,expected.toByteArray()))throw new IOException("Snapshot tail does not match section writers");
+        if(version==10){byte[] v=Arrays.copyOf(currentBytes,currentBytes.length);v[7]=10;return v;}
         if(version==8||version==9){int omit=version==8?history.length:history.length-4;byte[] v=Arrays.copyOf(currentBytes,currentBytes.length-omit);v[7]=(byte)version;return v;}
         ByteArrayOutputStream out=new ByteArrayOutputStream();out.write(currentBytes,0,prefix);DataOutputStream d=new DataOutputStream(out);
         if(version>=2)d.write(story);

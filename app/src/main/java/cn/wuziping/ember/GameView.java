@@ -25,7 +25,7 @@ public final class GameView extends View implements Painter {
         super(context);game=state;setFocusable(true);setFocusableInTouchMode(true);requestFocus();
         game.editorHost=context instanceof MainActivity&&((MainActivity)context).isEditorHost();
         paint.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
-        for(String name:new String[]{"tiles.png","actors.png","objects.png","icons.png","town.png","town_tiles.png","town_props.png","npcs.png","body_tiles.png","body_enemies.png","body_atlas.png","nailong.png","bosses.png","weapons.png"}){
+        for(String name:new String[]{"tiles.png","actors.png","objects.png","icons.png","town.png","town_tiles.png","town_props.png","npcs.png","body_tiles.png","body_enemies.png","body_atlas.png","nailong.png","bosses.png","weapons.png","history_road.png","history_ford.png","history_soldier.png","history_bandit.png","history_commander.png"}){
             try(InputStream s=context.getAssets().open(name)){BitmapFactory.Options opts=new BitmapFactory.Options();opts.inScaled=false;images.put(name,BitmapFactory.decodeStream(s,null,opts));}catch(IOException e){throw new IllegalStateException("Missing game asset: "+name,e);}
         }
         audio=new GameAudio(context);setContentDescription("伍子平星火远征，横屏二维像素动作游戏");

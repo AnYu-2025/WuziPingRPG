@@ -85,7 +85,7 @@ public final class PhysicsTests {
         g=workshop();g.physics.launchAngle=62;g.physics.launchPower=73;
         ByteArrayOutputStream out=new ByteArrayOutputStream();g.save(out);byte[] saved=out.toByteArray();
         Game loaded=Game.load(new ByteArrayInputStream(saved));
-        check(saved[7]==10&&loaded.physics.launchAngle==62&&loaded.physics.launchPower==73,"Current format persists tuned launch parameters");
+        check(saved[7]==11&&loaded.physics.launchAngle==62&&loaded.physics.launchPower==73,"Current format persists tuned launch parameters");
         Game graduate=town();graduate.physics.active=true;graduate.physics.level=4;graduate.physics.solved=31;
         byte[] format7=LegacySaves.snapshot(graduate,7);Game upgraded=Game.load(new ByteArrayInputStream(format7));
         check(format7[7]==7&&upgraded.physics.launchAngle==45&&upgraded.physics.launchPower==50&&upgraded.arsenal.owned(6),"Format 7 graduates migrate with default setup and receive the weapon");

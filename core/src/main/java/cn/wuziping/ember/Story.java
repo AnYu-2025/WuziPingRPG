@@ -141,7 +141,7 @@ public final class Story {
     public void choose(Game g,int index){
         Dialogue d=dialogue;if(d==null||g.mode!=Game.DIALOGUE||!d.last()||!d.complete()||index<0||index>=d.actions.length)return;
         int action=d.actions[index];dialogue=null;g.mode=Game.PLAY;
-        if(action>=400&&action<=411){g.history.action(g,action);return;}
+        if(action>=400&&action<=413){g.history.action(g,action);return;}
         if(action==310){g.physics.enter(g);return;}
         if(action>=300){if(action==303){g.x=1080;g.y=660;g.announce("东庭 · 数学之门在前方");}else if(action>=320)g.physics.action(g,action);else g.math.action(g,action);return;}
         if(d.npc==TownGuest.NPC&&action>=200){g.guest.action(g,action);return;}

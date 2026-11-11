@@ -23,7 +23,7 @@ public final class Desktop extends JPanel implements cn.wuziping.ember.Painter {
     private File saveFile=new File("desktop-journey.bin");
     public Desktop(Game state)throws Exception{
         game=state;
-        for(String n:new String[]{"tiles.png","actors.png","objects.png","icons.png","town.png","town_tiles.png","town_props.png","npcs.png","body_tiles.png","body_enemies.png","body_atlas.png","nailong.png","bosses.png","weapons.png"}){
+        for(String n:new String[]{"tiles.png","actors.png","objects.png","icons.png","town.png","town_tiles.png","town_props.png","npcs.png","body_tiles.png","body_enemies.png","body_atlas.png","nailong.png","bosses.png","weapons.png","history_road.png","history_ford.png","history_soldier.png","history_bandit.png","history_commander.png"}){
             InputStream in=Desktop.class.getResourceAsStream("/"+n);
             if(in==null)in=new FileInputStream("app/src/main/assets/"+n);
             try(InputStream stream=in){images.put(n,ImageIO.read(stream));}

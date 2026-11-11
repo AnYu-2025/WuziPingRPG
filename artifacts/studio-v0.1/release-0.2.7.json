@@ -1,0 +1,25 @@
+{
+  "version": "0.2.7",
+  "version_code": 39,
+  "android_device_tested": false,
+  "apks": [
+    {
+      "file": "Ember-Studio-0.2.7.apk",
+      "package": "cn.wuziping.ember",
+      "bytes": 66743880,
+      "sha256": "18e69ae921776e240d406cc08b17b0776c3ae88870166030c02983a00b64c8a2",
+      "signature_sha256": "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca",
+      "zip_crc_valid": true,
+      "alignment_valid": true
+    },
+    {
+      "file": "Ember-Studio-0.2.7-parallel.apk",
+      "package": "cn.wuziping.ember.preview07",
+      "bytes": 66743880,
+      "sha256": "7e23335345b8a83953c4aa29f8d6288c94b507eec2f2581b3b1ee4c6faeba67e",
+      "signature_sha256": "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca",
+      "zip_crc_valid": true,
+      "alignment_valid": true
+    }
+  ]
+}

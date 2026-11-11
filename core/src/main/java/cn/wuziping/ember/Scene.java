@@ -239,34 +239,38 @@ public final class Scene {
         if(g.mode==Game.PLAY){float tagW=Math.max(60,Math.min(112,g.heroName.codePointCount(0,g.heroName.length())*11+12));p.rect(px-tagW/2,py-66,tagW,16,0xcc101820);p.rect(px-tagW/2,py-66,tagW,2,GOLD);p.text(g.heroName,px,py-53,Math.min(11,100f/Math.max(1,g.heroName.codePointCount(0,g.heroName.length()))),CREAM,1);}
     }
     private void historyTerrain(){
-        boolean ford=g.history.stage==6;int ground=ford?0xff51483f:0xff615144;
-        p.rect(0,0,W,H,ground);
-        for(int y=(int)camY/24-1;y<(camY+H/2)/24+2;y++)for(int x=(int)camX/24-1;x<(camX+W/2)/24+2;x++){
-            int h=(x*97+y*157)^(x*y*13);float xx=sx(x*24),yy=sy(y*24);
-            p.rect(xx,yy,48,48,(h&1)==0?(ford?0xff514a41:0xff625349):(ford?0xff504941:0xff615249));
-            if((h&7)==0)p.rect(xx+8,yy+19,5,3,0xff88705a);
+        boolean ford=g.history.stage==6||g.history.stage==9;
+        float dx=-40-camX/Math.max(1,Game.WORLD_W)*80,dy=-20-camY/Math.max(1,Game.WORLD_H)*40;
+        p.image(ford?"history_ford.png":"history_road.png",0,0,840,472,dx,dy,W+160,H+80,1,false);
+        p.rect(0,0,W,H,0x220c1822);
+        // The three travellers accompany the convoy; their pixels share the game's own NPC atlas.
+        float cartX=sx(554),cartY=sy(655);
+        p.rect(cartX-28,cartY-15,56,17,0xff584031);p.rect(cartX-25,cartY-23,50,10,0xffa27c54);
+        p.oval(cartX-23,cartY,12,12,0xff29211e);p.oval(cartX+11,cartY,12,12,0xff29211e);
+        p.rect(cartX-12,cartY-33,22,10,0xffd5b689);
+        for(int i=0;i<3;i++){
+            Town.Npc ally=Town.NPCS[10+i];float ax=sx(520+i*31),ay=sy(625+(i%2)*10);int slot=ally.sprite*4+(int)(clock*2+i)%4;
+            p.oval(ax-10,ay-4,20,8,0x66101820);p.image("npcs.png",slot%8*32,slot/8*32,32,32,ax-22,ay-40,44,44,1,false);
+            worldTag(ally.name,520+i*31,625+(i%2)*10+9,0xfff5dfb3);
         }
-        if(ford){p.rect(0,sy(520),W,Math.max(0,sy(580)-sy(520)),0xff284f5b);for(int i=0;i<24;i++){float xx=(i*87+clock*8)%W;p.rect(xx,sy(528+(i%3)*16),28,2,0x667da0a4);}p.rect(sx(480),sy(530),640,18,0xff977456);p.rect(sx(500),sy(542),600,10,0xff473a32);}
-        else {p.rect(sx(230),sy(610),sx(1050)-sx(230),55,0xff776652);for(int i=0;i<8;i++){float xx=sx(280+i*100);p.rect(xx,sy(630),15,24,0xff554034);p.rect(xx-8,sy(633),30,5,0xffae8c66);}}
-        for(int i=0;i<6;i++){float xx=sx(250+i*155),yy=sy(510+(i%2)*225);p.rect(xx,yy,5,55,0xff302d2b);p.rect(xx+5,yy,32,18,ford?0xffa94f45:0xff776a4a);p.rect(xx+10,yy+4,15,2,0xffdfbd88);}
-        // A supply cart and refugees make the protected convoy visible on the road.
-        float cartX=sx(690),cartY=sy(ford?565:620);
-        p.rect(cartX-42,cartY-16,84,20,0xff594332);p.rect(cartX-37,cartY-24,74,11,0xff967250);
-        p.oval(cartX-37,cartY,18,18,0xff292625);p.oval(cartX+19,cartY,18,18,0xff292625);
-        p.rect(cartX-22,cartY-38,22,13,0xffae9670);p.rect(cartX+2,cartY-34,26,10,0xffc0a783);
-        for(int i=0;i<3;i++){float xx=cartX-65+i*18; p.rect(xx,cartY-34,11,12,0xffd3ac86);p.rect(xx-2,cartY-22,15,20,i==1?0xff6f7c7b:0xff88745e);p.rect(xx,cartY-40,11,6,0xff38302c);}
-        for(int i=0;i<16;i++){float xx=sx(310+(i*137)%660),yy=sy(570+(i*89)%210);p.rect(xx,yy,6,3,0x779d866c);p.rect(xx+7,yy+5,3,2,0x66413a34);}
-        for(int i=0;i<12;i++){float xx=(float)((i*89+clock*8)%W),yy=(float)((i*131-clock*15+H*100)%H);p.rect(xx,yy,3,3,0xaac88759);}
+        for(int i=0;i<18;i++){
+            float xx=(float)((i*107+clock*(6+i%3)*2)%W),yy=(float)((i*73-clock*8+H*100)%H);
+            p.rect(xx,yy,i%4==0?3:2,i%4==0?3:2,i%3==0?0x99e0aa6a:0x77d4cfac);
+        }
     }
     private void historyEnemy(Game.Enemy e,float x,float y){
-        boolean boss=e.type==4,ford=g.history.stage==6;float q=boss?1.5f:1f;int cloth=ford?0xff4b5060:0xff76604a;
-        p.oval(x-15*q,y-3*q,30*q,9*q,0x88101618);
-        if(e.windup>0)p.oval(sx(e.targetX)-95,sy(e.targetY)-65,190,130,0x66d45e50);
-        p.rect(x-12*q,y-39*q,24*q,20*q,cloth);p.rect(x-16*q,y-36*q,5*q,16*q,cloth);p.rect(x+11*q,y-36*q,5*q,16*q,cloth);p.rect(x-10*q,y-55*q,20*q,17*q,0xffd2aa83);
-        p.rect(x-13*q,y-60*q,26*q,7*q,ford?0xff332e2b:0xff493b32);p.rect(x-11*q,y-19*q,8*q,18*q,0xff272b2e);p.rect(x+3*q,y-19*q,8*q,18*q,0xff272b2e);
-        p.rect(x-7*q,y-48*q,3*q,3*q,0xff252324);p.rect(x+4*q,y-48*q,3*q,3*q,0xff252324);p.rect(x-9*q,y-29*q,18*q,3*q,ford?0xffbf8f67:0xffb48761);p.rect(x-7*q,y-38*q,3*q,8*q,0xffa18e79);p.rect(x+5*q,y-38*q,3*q,8*q,0xffa18e79);
-        p.line(x+12*q,y-35*q,x+27*q,y-57*q,3*q,0xffd7c5a6);
-        if(e.hp<e.maxHp||boss){float w=boss?70:34;p.rect(x-w/2,y-68*q,w,5,0xff222021);p.rect(x-w/2,y-68*q,w*Math.max(0,e.hp/e.maxHp),4,0xffd68a70);}
+        boolean boss=e.type==4,soldier=g.history.stage==6||g.history.stage==9;
+        float width=boss?79:56,height=boss?99:70;
+        float bob=e.windup>0?0:(float)Math.sin(clock*7+e.id)*1.5f;
+        p.oval(x-width*.24f,y-5,width*.48f,10,0x88101618);
+        if(e.windup>0){
+            if(e.bossAttack)p.oval(sx(e.targetX)-100,sy(e.targetY)-70,200,140,0x66d45e50);
+            else p.oval(x-52,y-38,104,76,0x55d68a55);
+        }
+        p.image(boss?"history_commander.png":soldier?"history_soldier.png":"history_bandit.png",0,0,64,80,x-width/2,y-height+7+bob,width,height,1,e.x>g.x);
+        if(e.type==3&&soldier){p.line(x+width*.25f,y-height*.7f,x+width*.4f,y-height*.36f,2,0xffcfb88e);p.line(x+width*.4f,y-height*.36f,x+width*.25f,y-height*.1f,2,0xffcfb88e);}
+        if(e.hit>0)p.oval(x-width*.32f,y-height*.7f,width*.64f,height*.4f,0x88fff2c8);
+        if(e.hp<e.maxHp||boss){float w=boss?76:36;p.rect(x-w/2-1,y-height-5,w+2,6,0xff20222a);p.rect(x-w/2,y-height-4,w*Math.max(0,e.hp/e.maxHp),4,0xffd48769);}
     }
     private void historyResult(){
         veil();panel(248,58,464,430);center("残灯未灭",480,157,34,0xfff0c994);center("这段路须从头再走，但你并非一无所获。",480,218,13,MUTED);
@@ -344,7 +348,7 @@ public final class Scene {
         p.rect(70,49,190,12,0xff142028);p.rect(71,50,188*g.hp/Math.max(1,g.maxHp),10,g.hp<g.maxHp*.34f?0xffe07a45:0xffc45c6a);p.rect(71,50,188*g.hp/Math.max(1,g.maxHp),2,0x66ffd5cc);center((int)g.hp+" / "+(int)g.maxHp,165,59,10,0xfffff0d4);
         label("经验 "+g.xp+" / "+g.requiredXp(),30,74,9,MUTED);
         p.rect(28,78,240,5,0xff142028);p.rect(28,78,240*(float)g.xp/g.requiredXp(),5,0xff7ec8b0);p.rect(28,78,240*(float)g.xp/g.requiredXp(),1,0x88e8fff0);
-        anchor(0,-1);panel(325,16,310,56);p.rect(340,66,280,2,0x55e8c27a);center(g.inTown()?"中山大学 · "+(g.body.enabled?"梦境据点":"灯火长明"):g.inHistory()?(g.history.stage==5?"两宋之交 · 逃难山道":"两宋之交 · 残灯渡口"):g.inBody()?g.body.name()+" · 体内远征":"迷雾森林 · "+Game.WAVE_NAMES[g.wave-1],480,39,17,CREAM);center(g.inTown()?"安全区域  ·  可以交谈与补给":g.inHistory()?"守护归途 · 敌人 "+g.enemies.size():g.inBody()?BodyJourney.SUBTITLES[g.body.organ]+"  ·  "+time(g.elapsed):"第 "+g.wave+" / 5 波  ·  "+time(g.elapsed),480,59,11,MUTED);
+        anchor(0,-1);panel(325,16,310,56);p.rect(340,66,280,2,0x55e8c27a);center(g.inTown()?"中山大学 · "+(g.body.enabled?"梦境据点":"灯火长明"):g.inHistory()?(g.history.stage==5?"两宋之交 · 逃难山道":g.history.stage==9?"两宋之交 · 雾中驿道":"两宋之交 · 残灯渡口"):g.inBody()?g.body.name()+" · 体内远征":"迷雾森林 · "+Game.WAVE_NAMES[g.wave-1],480,39,17,CREAM);center(g.inTown()?"安全区域  ·  可以交谈与补给":g.inHistory()?"守护归途 · 敌人 "+g.enemies.size():g.inBody()?BodyJourney.SUBTITLES[g.body.organ]+"  ·  "+time(g.elapsed):"第 "+g.wave+" / 5 波  ·  "+time(g.elapsed),480,59,11,MUTED);
         anchor(1,-1);icon(9,646,21,23);label(""+g.gold,674,40,16,GOLD);smallToggle("札记",716,19,58);
         smallToggle(g.autoAttack?"自动 开":"自动 关",780,19,76);smallToggle("菜单",862,19,78);
         anchor(-1,-1);panel(18,107,286,83);p.rect(22,116,3,64,g.body.ending?0xff8ed0b7:GOLD);icon(11,32,118,24);label(g.inHistory()?"历史 · 残灯渡":g.math.active?"数学星庭 · 发现 "+Integer.bitCount(g.math.solved)+" / 3":g.body.enabled?(g.body.ending?"终章完成 · 梦醒时分":"梦入体内 · 净化 "+g.body.clearedCount()+" / 8"):g.story.enabled?g.story.chapterName():"当前委托",64,136,12,GOLD);
@@ -773,11 +777,14 @@ public final class Scene {
         p.rect(104,290,186,34,0xffe6d2a2);p.rect(106,292,182,30,0xff1c2c36);p.rect(106,292,182,2,GOLD);String speaker=d.speaker().equals(Game.HERO)?g.heroName:d.speaker();label(speaker,120,315,Math.min(17,160f/Math.max(1,speaker.codePointCount(0,speaker.length()))),GOLD);
         label("故事对话",764,336,11,MUTED);p.text((d.page+1)+" / "+d.pages.length,855,336,11,MUTED,2);
         p.rect(97,344,109,145,0xffe6d2a2);p.rect(100,347,103,139,0xff1c303b);p.rect(105,352,93,2,EMBER);
-        if(d.speaker().equals(Game.HERO))p.image("actors.png",0,0,32,32,108,367,89,89,1,false);
+        if(g.inHistory()&&d.speaker().equals("旁白"))icon(11,120,384,63);
+        else if(d.speaker().equals(Game.HERO))p.image("actors.png",0,0,32,32,108,367,89,89,1,false);
         else if(d.npc==TownGuest.NPC)p.image("nailong.png",(g.guest.stage==2?3:0)*64,0,64,64,100,358,103,103,1,false);
-        else if(d.npc>=0){int slot=d.npc*4;p.image("npcs.png",slot%8*32,slot/8*32,32,32,108,367,89,89,1,false);}
+        else if(d.npc>=0){int portrait=d.npc;if(g.inHistory()||d.npc>=10){if(d.speaker().equals("沈照"))portrait=10;else if(d.speaker().equals("秦砚舟"))portrait=11;else if(d.speaker().equals("小槐"))portrait=12;}int slot=Town.NPCS[portrait].sprite*4;p.image("npcs.png",slot%8*32,slot/8*32,32,32,108,367,89,89,1,false);}
         else icon(11,120,384,63);
-        center(d.npc==TownGuest.NPC?(g.guest.stage==2?"愿意等你的朋友":"角落里的小伙伴"):d.npc>=0&&!d.speaker().equals(Game.HERO)?Town.NPCS[d.npc].role:"长夜的来信",151,475,10,MUTED);
+        String role=d.npc==TownGuest.NPC?(g.guest.stage==2?"愿意等你的朋友":"角落里的小伙伴"):d.npc>=0&&!d.speaker().equals(Game.HERO)?Town.NPCS[d.npc].role:"长夜的来信";
+        if(g.inHistory()){if(d.speaker().equals("旁白"))role="残灯渡 · 故事";else if(d.speaker().equals("秦砚舟"))role="渡口守卒";else if(d.speaker().equals("小槐"))role="点灯童";else if(d.speaker().equals("沈照"))role="护送人";else if(d.speaker().equals(Game.HERO))role="旅人";}
+        center(role,151,475,10,MUTED);
         String visible=d.text().substring(0,d.visible());wrapped(visible,232,371,17,CREAM,610,27,3);
         if(d.complete()&&d.last()){
             for(int i=0;i<d.options.length;i++)button(d.options[i],232+i*293,454,d.options.length==1?570:277,39,i==0);
