@@ -1041,7 +1041,7 @@ function loadImage(url){
     img.src=url;
   });
 }
-/* 每页压缩成 1024px 宽的 JPEG 后立刻外置保存，工作区 JSON 里只留引用。 */
+/* 每页压缩成长边 1024px 的 JPEG 后立刻外置保存，工作区 JSON 里只留引用。 */
 async function storeSlideImage(data,label,w,h){
   const base64=data.slice(data.indexOf(',')+1);
   let ref=data;
@@ -1053,10 +1053,16 @@ async function storeSlideImage(data,label,w,h){
   /* 尺寸键名必须与 lectureSanitize 读取的 width/height 一致，否则保存/恢复后尺寸丢失。 */
   return {id:'s'+(slideSeq++),name:String(label||('slide_'+slideSeq)).slice(0,60),ref,width:w,height:h,anchorTime:null,createdAt:Date.now()};
 }
+/* 按最长边缩放：竖拍照片也要压进 1024px，只按宽度缩会超出工作区配额。 */
+export function slideScale(w,h,max=SLIDE_MAX_W){
+  const width=Number.isFinite(w)&&w>0?w:max;
+  const height=Number.isFinite(h)&&h>0?h:Math.round(max*0.75);
+  const scale=Math.min(1,max/Math.max(width,height));
+  return {width:Math.max(1,Math.round(width*scale)),height:Math.max(1,Math.round(height*scale))};
+}
 async function compressSlide(source,label){
   const img=await loadImage(source);
-  const scale=Math.min(1,SLIDE_MAX_W/(img.width||SLIDE_MAX_W));
-  const w=Math.max(1,Math.round((img.width||SLIDE_MAX_W)*scale)),h=Math.max(1,Math.round((img.height||SLIDE_MAX_W*0.75)*scale));
+  const {width:w,height:h}=slideScale(img.width,img.height);
   const cv=document.createElement('canvas');cv.width=w;cv.height=h;
   cv.getContext('2d').drawImage(img,0,0,w,h);
   const raw=cv.toDataURL('image/jpeg',SLIDE_QUALITY);
