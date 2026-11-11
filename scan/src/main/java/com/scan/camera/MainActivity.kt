@@ -101,6 +101,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pageStore: PageStore
     @Volatile private var pendingEditFile: File? = null
     private val autoGate = AutoCaptureGate()
+    private val quadMotion = QuadMotion()
     private val busy get() = generating || processing || captureBusy || previewOpen || pendingCaptureFile != null || pendingEditFile != null
     private var aeafLocked = false
     private var pdfJob: kotlinx.coroutines.Job? = null
@@ -401,6 +402,7 @@ class MainActivity : AppCompatActivity() {
             autoEnabled = !autoEnabled
             binding.autoChip.isSelected = autoEnabled
             autoGate.reset()
+            quadMotion.reset()
             binding.pageFrame.setAutoProgress(0f)
             syncAnalysis()
             saveSettings()
@@ -582,22 +584,20 @@ class MainActivity : AppCompatActivity() {
         try {
             if (!analysisEnabled) return
             val (gray, w, h) = PageDetect.toUprightGray(image) ?: return
-            val quad = PageDetect.detectQuad(gray, w, h)
-            if (quad != null) {
-                lastDetectedQuad = quad
+            val raw = PageDetect.detectQuad(gray, w, h)
+            val tracked = quadMotion.update(raw)
+            val locked = tracked.let { quadMotion.confident && !quadMotion.fallback }
+            if (locked) {
+                lastDetectedQuad = tracked
                 lastDetectedAt = SystemClock.elapsedRealtime()
             }
             val now = SystemClock.elapsedRealtime()
-            if (quad != null && now - lastOverlayPost > 90) {
+            if (now - lastOverlayPost > 90) {
                 lastOverlayPost = now
+                val aspect = w.toFloat() / h
                 runOnUiThread {
-                    binding.pageFrame.setDetection(quad, w.toFloat() / h)
-                }
-            } else if (quad == null && now - lastOverlayPost > 600) {
-                lastOverlayPost = now
-                runOnUiThread {
-                    binding.pageFrame.setDetection(null, 0f)
-                    binding.pageFrame.setAutoProgress(0f)
+                    binding.pageFrame.setDetection(tracked, aspect, locked)
+                    if (!locked) binding.pageFrame.setAutoProgress(0f)
                 }
             }
             // 暗光提示（低频刷新）+ 可选自动开闪光灯
@@ -621,7 +621,7 @@ class MainActivity : AppCompatActivity() {
                     val y = ((i/16+0.5f)*h/16).toInt().coerceIn(0,h-1)
                     gray[y*w+x]
                 }
-                val shoot = autoGate.update(quad, signature, now, busy || !windowFocused)
+                val shoot = autoGate.update(if (locked) tracked else null, signature, now, busy || !windowFocused)
                 val progress = autoGate.progress
                 runOnUiThread {
                     binding.pageFrame.setAutoProgress(progress)

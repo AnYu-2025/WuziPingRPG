@@ -20,6 +20,7 @@ import {initAI,aiSerialize,aiSanitize,aiRestore,aiModeEnter,aiModeLeave,aiHidePa
 import {BACK,resolveBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS,moduleById,isNativeModule,moduleAvailability} from './back.js';
 import {NOTE_TEMPLATES,templateById,templateFileName,sanitizeTemplateState,insertTemplate,noteTemplateAction,notepadTarget,isNotepadNotePath,shouldRememberCodePath} from './note-templates.js';
 import {createQuizRequester,quizAIAvailability,normalizeQuizCount,gradeQuiz,retryWrongQuiz,quizToMarkdown,quizFileName,QUIZ_TYPE_LABELS,QUIZ_NOTE_LIMIT} from './quiz.js';
+import {readStoredTheme,sanitizeTheme,writeStoredTheme,themeFromSettings,applyTheme,themeColor} from './theme.js';
 
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
 /* 原生工作区快照的硬上限（EditorActivity 里是同一个数）。
@@ -28,37 +29,37 @@ const WORKSPACE_LIMIT=30*1024*1024;
 
 /* Light editor surface: calm paper background, quiet gutters, GitHub-like syntax colours. */
 const codeTheme=EditorView.theme({
-  '&':{backgroundColor:'#ffffff',color:'#1f2937',height:'100%'},
-  '.cm-content':{caretColor:'#111827'},
-  '.cm-cursor,.cm-dropCursor':{borderLeftColor:'#111827'},
-  '&.cm-focused .cm-selectionBackground,.cm-selectionBackground,.cm-content ::selection':{backgroundColor:'#dbeafe'},
-  '.cm-gutters':{backgroundColor:'#ffffff',color:'#a7b3c2',border:'none'},
-  '.cm-activeLine':{backgroundColor:'#f7f9fc'},
-  '.cm-activeLineGutter':{backgroundColor:'#f7f9fc',color:'#5b6b80'},
-  '.cm-panels':{backgroundColor:'#f7f9fc',color:'#1f2937'},
+  '&':{backgroundColor:'var(--code)',color:'var(--text)',height:'100%'},
+  '.cm-content':{caretColor:'var(--accent)'},
+  '.cm-cursor,.cm-dropCursor':{borderLeftColor:'var(--accent)'},
+  '&.cm-focused .cm-selectionBackground,.cm-selectionBackground,.cm-content ::selection':{backgroundColor:'var(--accent-soft)'},
+  '.cm-gutters':{backgroundColor:'var(--code)',color:'var(--faint)',border:'none'},
+  '.cm-activeLine':{backgroundColor:'var(--accent-soft)'},
+  '.cm-activeLineGutter':{backgroundColor:'var(--accent-soft)',color:'var(--muted)'},
+  '.cm-panels':{backgroundColor:'var(--surface-2)',color:'var(--text)'},
   '.cm-searchMatch':{backgroundColor:'#fde68a'},
   '.cm-searchMatch.cm-searchMatch-selected':{backgroundColor:'#fca5a5'},
-  '.cm-tooltip':{backgroundColor:'#ffffff',border:'1px solid #e3e8ef',color:'#1f2937'},
-  '.cm-tooltip-autocomplete>ul>li[aria-selected]':{backgroundColor:'#eef4ff',color:'#1d4ed8'}
+  '.cm-tooltip':{backgroundColor:'var(--surface)',border:'1px solid var(--line)',color:'var(--text)'},
+  '.cm-tooltip-autocomplete>ul>li[aria-selected]':{backgroundColor:'var(--accent-soft)',color:'var(--accent-strong)'}
 },{dark:false});
 const codeHighlight=HighlightStyle.define([
-  {tag:tags.comment,color:'#6b7280',fontStyle:'italic'},
-  {tag:[tags.keyword,tags.operatorKeyword,tags.modifier,tags.controlKeyword],color:'#cf222e'},
-  {tag:[tags.string,tags.special(tags.string),tags.regexp],color:'#0a3069'},
-  {tag:[tags.number,tags.bool,tags.null],color:'#0550ae'},
-  {tag:[tags.function(tags.variableName),tags.definition(tags.function(tags.variableName))],color:'#8250df'},
-  {tag:[tags.className,tags.typeName,tags.namespace],color:'#953800'},
-  {tag:[tags.propertyName,tags.attributeName],color:'#116329'},
-  {tag:[tags.tagName],color:'#116329'},
-  {tag:tags.heading,color:'#0550ae',fontWeight:'600'},
-  {tag:[tags.link,tags.url],color:'#0969da',textDecoration:'underline'},
-  {tag:tags.invalid,color:'#b91c1c'}
+  {tag:tags.comment,color:'var(--syn-comment)',fontStyle:'italic'},
+  {tag:[tags.keyword,tags.operatorKeyword,tags.modifier,tags.controlKeyword],color:'var(--syn-keyword)'},
+  {tag:[tags.string,tags.special(tags.string),tags.regexp],color:'var(--syn-string)'},
+  {tag:[tags.number,tags.bool,tags.null],color:'var(--syn-number)'},
+  {tag:[tags.function(tags.variableName),tags.definition(tags.function(tags.variableName))],color:'var(--syn-function)'},
+  {tag:[tags.className,tags.typeName,tags.namespace],color:'var(--syn-type)'},
+  {tag:[tags.propertyName,tags.attributeName],color:'var(--syn-property)'},
+  {tag:[tags.tagName],color:'var(--syn-property)'},
+  {tag:tags.heading,color:'var(--syn-heading)',fontWeight:'600'},
+  {tag:[tags.link,tags.url],color:'var(--syn-link)',textDecoration:'underline'},
+  {tag:tags.invalid,color:'var(--syn-invalid)'}
 ]);
 const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript',javascript],ts:['TypeScript',()=>javascript({typescript:true})],html:['HTML',html],htm:['HTML',html],css:['CSS',css],json:['JSON',json],c:['C',cpp],h:['C/C++',cpp],cpp:['C++',cpp],cc:['C++',cpp],java:['Java',java],md:['Markdown',markdown]};
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 天工 · 离线 Python\n# 标准输入在下方面板填写，每行一项\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\nfor i in range(1, 4):\n    print("让想法运行起来", "✦" * i)\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这是手机上写出的第一个页面。</p>\n<button onclick="this.textContent=\'想法变成了现实 ✦\'">试着点一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize()});
+const defaults=()=>({version:1,files:[makeFile('main.py','# 天工 · 离线 Python\n# 标准输入在下方面板填写，每行一项\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\nfor i in range(1, 4):\n    print("让想法运行起来", "✦" * i)\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这是手机上写出的第一个页面。</p>\n<button onclick="this.textContent=\'想法变成了现实 ✦\'">试着点一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize()});
 let state=defaults(),view,restoring=false,worker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 /* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
 const micWaiters=new Map();let micSeq=0;
@@ -116,6 +117,7 @@ function loadState(data){
   state.drawStrokes=Array.isArray(data.drawStrokes)?data.drawStrokes:[];
   state.drawView=(data&&data.drawView&&typeof data.drawView==='object')?data.drawView:null;
   state.settings.fontSize=Math.max(12,Math.min(24,Number(state.settings.fontSize)||15));state.settings.timeLimit=[15,30,60].includes(+state.settings.timeLimit)?+state.settings.timeLimit:15;if(window.innerWidth<700)state.settings.wrap=true;
+  adoptTheme(data.settings);
   state.active=files.some(f=>f.path===state.active)?state.active:files[0].path;state.opened=Array.isArray(state.opened)?state.opened.filter(p=>files.some(f=>f.path===p)):[];if(!state.opened.includes(state.active))state.opened.push(state.active);
 }
 function restore(data){try{loadState(data);}catch(e){if(data)notify('工作区格式无法读取；原备份未被覆盖，请先导出或检查。');}if(isNotepadNotePath(state.active))lastNotePath=state.active;restoring=true;editorStates.clear();$('stdin').value=state.stdin||'';createEditor();restoring=false;ready=true;renderFiles();applySettings();markLandingReady();lectureAfterRestore();ttsAfterRestore();aiRestore(state.ai);loadDrawView(state.drawView);if(state.drawStrokes&&state.drawStrokes.length)loadDrawStrokes(state.drawStrokes);}
@@ -152,8 +154,59 @@ function refreshBadges(){
 function switchFile(path){if(worker){notify('请先停止运行，再切换文件。');return;}const f=state.files.find(f=>f.path===path);if(!f)return;if(isNotepadNotePath(path)&&(workspaceMode==='notepad'||workspaceMode==='python'))lastNotePath=path;if(workspaceMode==='tts')lastTtsPath=path;editorStates.set(state.active,view.state);state.active=path;if(!state.opened.includes(path))state.opened.push(path);restoring=true;const previous=editorStates.get(path);if(previous&&previous.doc.toString()===f.text){view.setState(previous);view.dispatch({effects:[langConfig.reconfigure(language(path)[1]()),wrapConfig.reconfigure(state.settings.wrap?EditorView.lineWrapping:[]),editConfig.reconfigure(EditorState.readOnly.of(false))]});}else createEditor();restoring=false;renderFiles();document.body.classList.remove('drawer');position();scheduleSave();if(workspaceMode==='tts')ttsDocumentChanged('switched');}
 function nameDialog(path=null){if(worker)return;renamePath=path;$('nameTitle').textContent=path?'修改工作区路径':'新建文件';$('confirmName').textContent=path?'重命名':'创建';$('fileName').value=path||(workspaceMode==='notepad'?'笔记.txt':workspaceMode==='tts'?'English.txt':'new_file.py');const hint=$('nameHint');if(hint)hint.textContent=workspaceMode==='notepad'?'可带子文件夹；例如 日记/今天.txt。':workspaceMode==='tts'?'可带子文件夹；例如 Articles/chapter-one.txt。':'可带子文件夹；请写扩展名，例如 .py。';$('nameDialog').returnValue='cancel';$('nameDialog').showModal();setTimeout(()=>$('fileName').select(),50);}
 $('nameDialog').addEventListener('close',()=>{if($('nameDialog').returnValue!=='default')return;const path=$('fileName').value.trim();if(!validPath(path)){notify('路径无效，请使用文件名或 folder/file.py。');return;}if(state.files.some(f=>f.path===path)&&path!==renamePath){notify('已有同名文件。');return;}if(renamePath){const f=state.files.find(f=>f.path===renamePath);f.path=path;state.opened=state.opened.map(p=>p===renamePath?path:p);if(state.active===renamePath)state.active=path;editorStates.delete(renamePath);}else{if(state.files.length>=160){notify('当前工作区最多 160 个文件。');return;}state.files.push(makeFile(path,''));}switchFile(path);changed();});
-function applySettings(){$('fontSize').value=state.settings.fontSize;$('fontSizeValue').textContent=state.settings.fontSize;$('wordWrap').checked=!!state.settings.wrap;$('timeLimit').value=state.settings.timeLimit;if(view){view.dom.style.fontSize=state.settings.fontSize+'px';view.dispatch({effects:[wrapConfig.reconfigure(state.settings.wrap?EditorView.lineWrapping:[])]});}}
-for(const id of ['fontSize','wordWrap','timeLimit'])$(id).oninput=()=>{state.settings={fontSize:+$('fontSize').value,wrap:$('wordWrap').checked,timeLimit:+$('timeLimit').value};applySettings();scheduleSave();};
+const themeQuery=window.matchMedia('(prefers-color-scheme: dark)');
+function prefersDark(){try{return !!themeQuery.matches;}catch(e){return false;}}
+function syncTheme(){
+  const theme=sanitizeTheme(state.settings);
+  state.settings.appearance=theme.appearance;
+  state.settings.accent=theme.accent;
+  const resolved=applyTheme(document.documentElement,theme,prefersDark());
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta)meta.setAttribute('content',themeColor(resolved));
+  paintThemeChoices();
+}
+function paintThemeChoices(){
+  const appearance=state.settings.appearance;
+  const accent=state.settings.accent;
+  document.querySelectorAll('#themeAppearance button').forEach(btn=>{
+    const on=btn.dataset.value===appearance;
+    btn.classList.toggle('selected',on);
+    btn.setAttribute('aria-pressed',on?'true':'false');
+  });
+  document.querySelectorAll('#themeAccent button').forEach(btn=>{
+    const on=btn.dataset.value===accent;
+    btn.classList.toggle('selected',on);
+    btn.setAttribute('aria-pressed',on?'true':'false');
+  });
+}
+function adoptTheme(settings){
+  let stored;
+  try{stored=readStoredTheme(localStorage);}catch(e){stored=sanitizeTheme(null);}
+  const theme=themeFromSettings(settings,stored);
+  state.settings.appearance=theme.appearance;
+  state.settings.accent=theme.accent;
+  try{writeStoredTheme(localStorage,theme);}catch(e){}
+  syncTheme();
+}
+function chooseTheme(partial){
+  adoptTheme({...sanitizeTheme(state.settings),...partial});
+  scheduleSave();
+}
+function bindThemeGroup(id,key){
+  const root=$(id);
+  if(!root)return;
+  root.addEventListener('click',event=>{
+    const btn=event.target.closest('button');
+    if(!btn||!root.contains(btn)||!btn.dataset.value)return;
+    chooseTheme({[key]:btn.dataset.value});
+  });
+}
+try{themeQuery.addEventListener('change',()=>{if(state.settings.appearance==='system')syncTheme();});}catch(e){}
+adoptTheme(null);
+bindThemeGroup('themeAppearance','appearance');
+bindThemeGroup('themeAccent','accent');
+function applySettings(){$('fontSize').value=state.settings.fontSize;$('fontSizeValue').textContent=state.settings.fontSize;$('wordWrap').checked=!!state.settings.wrap;$('timeLimit').value=state.settings.timeLimit;syncTheme();if(view){view.dom.style.fontSize=state.settings.fontSize+'px';view.dispatch({effects:[wrapConfig.reconfigure(state.settings.wrap?EditorView.lineWrapping:[])]});}}
+for(const id of ['fontSize','wordWrap','timeLimit'])$(id).oninput=()=>{state.settings.fontSize=+$('fontSize').value;state.settings.wrap=$('wordWrap').checked;state.settings.timeLimit=+$('timeLimit').value;applySettings();scheduleSave();};
 function append(text,error=false){if($('output').textContent.length>=70000)return;const span=document.createElement('span');if(error)span.className='error';span.textContent=String(text).slice(0,70000-$('output').textContent.length);$('output').append(span);$('output').scrollTop=$('output').scrollHeight;}
 function setConsole(open){$('consolePanel').classList.toggle('folded',!open);$('foldConsole').setAttribute('aria-expanded',String(open));}
 function outputTab(input=false){$('output').hidden=input;$('stdin').hidden=!input;$('inputTab').classList.toggle('active',input);$('outputTab').classList.toggle('active',!input);setConsole(true);}
@@ -223,7 +276,7 @@ function setWorkspaceMode(mode){
   if(mode!=='game')document.body.classList.remove('gameview');
 }
 on('filesToggle',()=>{closeMenu();document.body.classList.toggle('drawer');});on('backdrop',closeDrawer);on('closeExplorer',closeDrawer);on('newFile',()=>nameDialog());on('newTab',()=>nameDialog());menu('menuNew',()=>nameDialog());
-menu('findButton',()=>{openSearchPanel(view);const searchInput=document.querySelector('.cm-search input');if(searchInput)searchInput.focus();else if(view)view.focus();});menu('settingsButton',()=>$('settingsDialog').showModal());on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
+menu('findButton',()=>{openSearchPanel(view);const searchInput=document.querySelector('.cm-search input');if(searchInput)searchInput.focus();else if(view)view.focus();});menu('settingsButton',()=>{applySettings();$('settingsDialog').showModal();});on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
 on('codeTab',()=>{if(workspaceMode==='game'){flush();openLanding(true);return;}showCode();});on('gameTab',showGame);menu('menuGame',showGame);menu('menuMode',()=>{flush();openLanding(true);});on('playGame',()=>{flush();if(native)send('play');else notify('此预览仅展示编辑器，安装 APK 后可直接进入原生游戏。');});on('exportGame',()=>native?send('exportGame'):notify('游戏存档备份在 Android APK 中使用。'));on('importGame',()=>native?send('importGame'):notify('安装 APK 后可导入游戏备份。'));on('drawToggle',()=>{if(workspaceMode!=='notepad')return;if(isDrawMode()){exitDrawMode();}else{enterDrawMode();}});
 $('menuDialog').addEventListener('click',event=>{if(event.target===$('menuDialog'))$('menuDialog').close();});
 /* 菜单关掉以后焦点别丢在 body 上：没有别的对话框接着开、也没有谁自己接过焦点，

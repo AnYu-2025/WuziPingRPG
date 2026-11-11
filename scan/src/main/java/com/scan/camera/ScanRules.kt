@@ -20,6 +20,15 @@ object ScanRules {
         return abs(area) >= 0.01f
     }
 
+    /** 检测失败时的居中内缩框，比贴死四边更容易再拖。 */
+    fun centeredQuad(inset: Float = 0.08f): FloatArray {
+        val m = inset.coerceIn(0.02f, 0.3f)
+        return floatArrayOf(m, m, 1f - m, m, 1f - m, 1f - m, m, 1f - m)
+    }
+
+    /** 页面几乎铺满画面、边缘又对不上时，退回略内缩的整帧。 */
+    fun fullFrameQuad(inset: Float = 0.02f): FloatArray = centeredQuad(inset.coerceIn(0.01f, 0.08f))
+
     fun rotateQuad(q: FloatArray): FloatArray {
         // 保持左上、右上、右下、左下语义，避免旋转后透视变换把照片转回去。
         val out = FloatArray(8)

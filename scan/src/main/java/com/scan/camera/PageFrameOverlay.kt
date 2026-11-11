@@ -23,9 +23,9 @@ class PageFrameOverlay @JvmOverloads constructor(
 ) : View(context, attrs) {
 
     private var quad: FloatArray? = null
+    private var confident = true
     private var frameAspect = 4f / 3f
     private var lastQuadAt = 0L
-    private var animator: ValueAnimator? = null
     private var previewView: android.view.View? = null
     private var frameVisible = true
 
@@ -79,14 +79,20 @@ class PageFrameOverlay @JvmOverloads constructor(
         invalidate()
     }
 
-    /** 检测结果（null 视为本次无更新），四边形为相机帧归一化坐标 */
-    fun setDetection(q: FloatArray?, aspect: Float) {
+    /**
+     * 检测结果（null 视为本次无更新），四边形为相机帧归一化坐标。
+     * 跟踪器已经做了平滑，这里直接落位，避免再套一层追赶动画把框拖出残影。
+     * locked=false 表示这是丢失检测后的整帧 / 居中建议框。
+     */
+    fun setDetection(q: FloatArray?, aspect: Float, locked: Boolean = true) {
         if (q == null || q.size != 8 || aspect <= 0.1f) return
         frameAspect = aspect
+        confident = locked
         lastQuadAt = SystemClock.elapsedRealtime()
         removeCallbacks(staticTimeoutRunnable)
         postDelayed(staticTimeoutRunnable, 1600)
-        animateTo(q)
+        quad = q.copyOf()
+        invalidate()
     }
 
     /**
@@ -122,20 +128,6 @@ class PageFrameOverlay @JvmOverloads constructor(
             }
         }
         focusAnim?.start()
-    }
-
-    private fun animateTo(target: FloatArray) {
-        val from = quad ?: target.copyOf()
-        animator?.cancel()
-        val a = ValueAnimator.ofFloat(0f, 1f)
-        a.duration = 140
-        a.addUpdateListener { va ->
-            val t = va.animatedValue as Float
-            quad = FloatArray(8) { i -> from[i] + (target[i] - from[i]) * t }
-            invalidate()
-        }
-        animator = a
-        a.start()
     }
 
     /** 自动拍摄稳定进度（0~1，0 表示不显示） */
@@ -231,6 +223,10 @@ class PageFrameOverlay @JvmOverloads constructor(
         fun px(i: Int) = rect.left + q[2 * i] * rect.width()
         fun py(i: Int) = rect.top + q[2 * i + 1] * rect.height()
 
+        val edgeAlpha = if (confident) 0xB0 else 0x66
+        val bracketAlpha = if (confident) 0xF2 else 0x88
+        edgePaint.color = (edgeAlpha shl 24) or 0x00FFFFFF
+        bracketPaint.color = (bracketAlpha shl 24) or 0x00FFFFFF
         // 页面边缘细连线
         path.reset()
         path.moveTo(px(0), py(0))
