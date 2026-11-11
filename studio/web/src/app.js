@@ -882,7 +882,7 @@ initAI({
  writeFile:(path,text)=>{const p=String(path).slice(0,200);if(!validPath(p))return '路径无效';
    const f=state.files.find(x=>x.path===p);
    if(f){f.text=String(text).slice(0,20000);editorStates.delete(p);}else if(state.files.length<160)state.files.push(makeFile(p,String(text).slice(0,20000)));else return '工作区已满';
-   restoring=true;createEditor();restoring=false;renderFiles();changed();scheduleSave();return '已写入草稿：'+p;},
+   restoring=true;if(state.active===p)createEditor();restoring=false;renderFiles();changed();scheduleSave();return '已写入草稿：'+p;},
  insertText:text=>{if(!view)return '编辑器未就绪';const at=view.state.selection.main.head,value=String(text).slice(0,20000);
    view.dispatch({changes:{from:at,to:at,insert:value},selection:{anchor:at+value.length}});changed();scheduleSave();return '已插入编辑器';},
  switchFile:path=>{const p=String(path).slice(0,200);if(!state.files.some(f=>f.path===p))return '文件不存在：'+p;switchFile(p);return '已打开：'+p;},
