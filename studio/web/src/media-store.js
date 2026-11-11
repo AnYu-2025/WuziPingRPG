@@ -20,6 +20,7 @@ let hooks=null;               // {native:()=>bool, send:(type,payload)=>void}
 const pending=new Map();      // id -> {resolve,reject,timer}
 const urls=new Map();         // ref -> objectURL
 const loading=new Map();      // ref -> Promise<objectURL>
+const generations=new Map();  // ref -> 加载代数，release/重新加载都会递增，让在途请求作废
 let seq=0;
 
 export function initMediaStore(h){hooks=h||null;}
@@ -174,6 +175,8 @@ export function resolveMedia(ref,mimeHint){
   if(known)return Promise.resolve(known);
   const busy=loading.get(text);
   if(busy)return busy;
+  const gen=(generations.get(text)||0)+1;
+  generations.set(text,gen);
   const job=fetch(mediaUrl(text)).then(res=>{
     if(!res.ok)throw new Error('读取媒体失败（HTTP '+res.status+'）');
     return res.arrayBuffer();
@@ -181,12 +184,18 @@ export function resolveMedia(ref,mimeHint){
     if(!buffer.byteLength)throw new Error('媒体文件为空');
     const type=mimeHint||guessType(text);
     const url=URL.createObjectURL(new Blob([buffer],{type}));
+    /* fetch 期间被 release 或起了更新的加载：这个 URL 没人要了，立刻回收，
+       不进缓存，并 reject 让调用方别拿去播放。 */
+    if(generations.get(text)!==gen){
+      try{URL.revokeObjectURL(url);}catch(e){/* 已释放 */}
+      throw new Error('媒体引用已释放');
+    }
     urls.set(text,url);
     return url;
   }).catch(err=>{
-    loading.delete(text);
+    if(loading.get(text)===job)loading.delete(text);
     throw err;
-  }).then(url=>{loading.delete(text);return url;});
+  }).then(url=>{if(loading.get(text)===job)loading.delete(text);return url;});
   loading.set(text,job);
   return job;
 }
@@ -204,6 +213,7 @@ function guessType(path){
 
 export function releaseMedia(ref){
   const text=String(ref||'');
+  generations.set(text,(generations.get(text)||0)+1);
   const url=urls.get(text);
   if(url){try{URL.revokeObjectURL(url);}catch(e){/* 已释放 */}urls.delete(text);}
   loading.delete(text);
