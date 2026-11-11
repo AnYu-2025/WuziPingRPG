@@ -116,6 +116,10 @@ test('openMaps rejects partial coordinates instead of defaulting to zero', () =>
   assert.equal(pair.ok, true);
   assert.deepEqual(pair.args, { lat: 23.1, lng: 113.3, label: '' });
   assert.equal(prepareToolArgs('openMaps', { lat: 0, lng: 0 }).ok, true);
+  assert.deepEqual(prepareToolArgs('openMaps', { lat: 0, lng: 0 }).args, { lat: 0, lng: 0, label: '' });
+  assert.equal(prepareToolArgs('openMaps', { lat: 0 }).ok, false, 'lat 0 is a real coordinate, not a missing value');
+  assert.equal(prepareToolArgs('openMaps', { lng: 0 }).ok, false);
+  assert.equal(prepareToolArgs('openMaps', { lat: 39.9, lng: '  ' }).ok, false);
   assert.deepEqual(prepareToolArgs('openMaps', { query: '中山大学' }).args, { query: '中山大学', label: '' });
 });
 
@@ -134,6 +138,10 @@ test('dial and draftSms accept JSON number arguments', () => {
   assert.equal(prepareToolArgs('dial', { number: { toString: () => '110' } }).ok, false);
   assert.equal(prepareToolArgs('dial', { number: [110] }).ok, false);
   assert.equal(prepareToolArgs('draftSms', { number: NaN, body: 'hi' }).ok, false);
+  assert.equal(prepareToolArgs('dial', { number: -13800138000 }).ok, false, 'a minus must not be stripped into a real number');
+  assert.equal(prepareToolArgs('dial', { number: 110.5 }).ok, false);
+  assert.equal(prepareToolArgs('dial', { number: 10000000000000000 }).ok, false, 'unsafe integers round and must not be dialed');
+  assert.equal(prepareToolArgs('draftSms', { number: -10086, body: 'hi' }).ok, false);
 });
 
 test('alarms stay on the three safe actions', () => {

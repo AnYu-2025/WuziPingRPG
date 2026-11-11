@@ -137,8 +137,14 @@ export function parseToolCalls(text){
   }
   return out;
 }
-/* Models often emit phone numbers as JSON numbers; only finite numbers are coerced. */
-function digits(v){return str(Number.isFinite(v)?String(v):v,40).replace(/[\s-]/g,'');}
+/* Models often emit phone numbers as JSON numbers. Only a non-negative safe
+   integer is coerced: a minus is not a formatting hyphen (the strip below would
+   turn -13800138000 into 13800138000), and an unsafe integer rounds to a
+   different number before it ever reaches the regex. */
+function digits(v){
+  if(typeof v==='number')return Number.isSafeInteger(v)&&v>=0?String(v):'';
+  return str(v,40).replace(/[\s-]/g,'');
+}
 export function validHttpUrl(url){
   if(typeof url!=='string')return false;
   const v=url.trim();
