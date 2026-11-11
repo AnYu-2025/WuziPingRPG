@@ -927,11 +927,16 @@ async function loadPlayback(force){
   const promise=(async()=>{
     try{
       const src=await resolveMedia(ref,persist.audio?persist.audio.mime:'');
+      /* 等待期间可能已经换课或重录。过期结果不能盖住新的录音。 */
+      if(audioRef()!==ref)return false;
       p.load(src);
       p.loadedKey=ref;
       updateTimer();
       return true;
     }catch(err){
+      /* 在途 fetch 被 release 后会 reject。那是取消，不是当前文件损坏：
+         不能清掉新录音的 loadedKey，也不能把「读取失败」报到当前这一条上。 */
+      if(audioRef()!==ref)return false;
       p.loadedKey='';
       reportError('录音读取失败：'+((err&&err.message)||err));
       return false;
@@ -943,7 +948,11 @@ async function loadPlayback(force){
 }
 async function playAudio(){
   if(!hasAudio()){notify('还没有录音。点「🎙 开始录音」先录一段。');return;}
-  if(!await loadPlayback()){notify('录音数据无法解码，可能已经损坏。');return;}
+  const ref=audioRef();
+  const ok=await loadPlayback();
+  /* 加载完成时已经换成另一条录音：别把旧请求的失败说成文件损坏，也别自动开播。 */
+  if(audioRef()!==ref)return;
+  if(!ok){notify('录音数据无法解码，可能已经损坏。');return;}
   const p=ensurePlayback();
   p.audio.play().then(()=>{setBar('playing');ensureAnim();}).catch(()=>notify('播放失败，请再试一次。'));
 }
@@ -964,7 +973,8 @@ function stopAudio(){
 }
 async function seekTo(t,play){
   if(!hasAudio())return;
-  if(!await loadPlayback())return;
+  const ref=audioRef();
+  if(!await loadPlayback()||audioRef()!==ref)return;
   const p=ensurePlayback();
   const dur=playDur();
   try{p.audio.currentTime=Math.max(0,Math.min(dur||t,t));}catch(e){/* 元数据未就绪 */}
@@ -1248,12 +1258,17 @@ function onAnchorDialogClose(){
 export function parseTime(text){
   const raw=String(text||'').trim();
   if(!raw)return null;
-  if(/^\d+(\.\d+)?$/.test(raw))return Number(raw);
-  const parts=raw.split(':').map(Number);
-  if(parts.some(n=>isNaN(n)))return null;
-  /* '-5' 这类输入会算出负数：负时间会被 lectureSanitize 丢弃，等于锚点悄悄消失。 */
-  const seconds=parts.reverse().reduce((sum,n,i)=>sum+n*Math.pow(60,i),0);
-  return isFinite(seconds)&&seconds>=0?seconds:null;
+  let seconds;
+  if(/^\d+(\.\d+)?$/.test(raw)){
+    seconds=Number(raw);
+  }else{
+    const parts=raw.split(':').map(Number);
+    /* '1:-2' 的加权和是 58：只拒绝负的总和会把这种负字段存成一个正时间。 */
+    if(parts.some(n=>!Number.isFinite(n)||n<0))return null;
+    seconds=parts.reverse().reduce((sum,n,i)=>sum+n*Math.pow(60,i),0);
+  }
+  /* 纯数字太长会变成 Infinity，冒号路径也可能算出负数。两种都不能存进锚点。 */
+  return Number.isFinite(seconds)&&seconds>=0?seconds:null;
 }
 
 /* ---------------- app.js 集成点 ---------------- */

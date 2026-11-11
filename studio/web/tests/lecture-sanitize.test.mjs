@@ -48,3 +48,17 @@ test('parseTime rejects negative and invalid input instead of storing it', () =>
   assert.equal(parseTime('abc'), null);
   assert.equal(parseTime('1:xx'), null);
 });
+
+test('parseTime rejects a negative field even when the weighted total is positive', () => {
+  // 1*-60 + -2 === 58 with the old reducer, which sanitize would then keep.
+  assert.equal(parseTime('1:-2'), null);
+  assert.equal(parseTime('-1:00'), null);
+  assert.equal(parseTime('1:2:-3'), null);
+  assert.equal(parseTime('0'), 0);
+  assert.equal(parseTime('00:00'), 0);
+});
+
+test('parseTime rejects non-finite totals from an overlong plain number', () => {
+  assert.equal(parseTime('9'.repeat(400)), null);
+  assert.equal(Number('9'.repeat(400)), Infinity);
+});

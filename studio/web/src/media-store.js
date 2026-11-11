@@ -150,10 +150,18 @@ export function beginAudio(name,mime){
       })).then(result=>({ref:(result&&result.ref)||ref,bytes:(result&&result.bytes)||0}));
     },
     abort(){
+      /* 先记失败，分片回调里才能马上停。只清定时器的话，创建回执的 Promise
+         永远不会结束，定时器被清掉之后也不会再有人把它 reject。 */
+      failure=failure||new Error('录音已放弃');
       try{if(mediaNative())hooks.send('audioAbort',{id});}catch(err){/* 已经没了 */}
-      const job=pending.get(id);if(job&&job.timer)clearTimeout(job.timer);
-      const closing=pending.get(endId);if(closing&&closing.timer)clearTimeout(closing.timer);
-      pending.delete(id);pending.delete(endId);
+      const drop=key=>{
+        const job=pending.get(key);
+        if(!job)return;
+        pending.delete(key);
+        if(job.timer)clearTimeout(job.timer);
+        job.reject(failure);
+      };
+      drop(id);drop(endId);
     }
   };
 }

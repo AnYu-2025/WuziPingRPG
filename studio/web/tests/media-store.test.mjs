@@ -133,6 +133,31 @@ test('abort() 在创建回执前放弃时清掉创建定时器', async (t) => {
   assert.equal(sentOf(sent, 'audioAbort').payload.id, message.payload.id);
 });
 
+test('abort() 放弃后不再写分片，未完成的 end() 立刻失败', async (t) => {
+  const sent = setup(t);
+  const early = beginAudio('early', 'audio/webm');
+  await until(() => sentOf(sent, 'audioBegin'), 'audioBegin');
+  early.abort();
+  await early.chunk(new Blob([new Uint8Array([1])]));
+  assert.equal(sentOf(sent, 'audioChunk'), undefined, '放弃之后不能再发 audioChunk');
+  const earlyEnd = early.end().then(value => ({ value }), error => ({ error }));
+  await flush();
+  const earlyResult = await earlyEnd;
+  assert.equal(earlyResult.value, undefined);
+  assert.match(earlyResult.error.message, /录音已放弃/);
+  assert.equal(sentOf(sent, 'audioEnd'), undefined, '已经放弃的录音不该再关流');
+
+  const sink = beginAudio('later', 'audio/webm');
+  const started = await until(() => sent.find(item => item.type === 'audioBegin' && item.payload.name === 'later.webm'), 'later audioBegin');
+  assert.equal(mediaMessage({ type: 'audioStarted', id: started.payload.id, ok: true, ref: 'lecture-media/later.webm' }), true);
+  const outcome = sink.end().then(value => ({ value }), error => ({ error }));
+  await until(() => sent.find(item => item.type === 'audioEnd' && item.payload.sinkId === started.payload.id), 'later audioEnd');
+  sink.abort();
+  const result = await outcome;
+  assert.equal(result.value, undefined, '放弃不能把未完成的 end() 留在 30 秒超时上');
+  assert.match(result.error.message, /录音已放弃/);
+});
+
 test('abort() 在关流回执前放弃时清掉 audioEnd 定时器', async (t) => {
   const sent = setup(t);
   const cleared = t.mock.method(globalThis, 'clearTimeout');
