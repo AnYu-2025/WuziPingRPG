@@ -241,7 +241,7 @@ export class AudioEngine{
       if(!rec){resolve(null);return;}
       if(this.state==='recording')this.elapsedMs+=Math.max(0,Date.now()-this.resumeAt);
       clearInterval(this.timer);this.timer=0;
-      const envelope=this.envelope,anchors=this.anchors,mime=this.mime,duration=this.elapsedMs/1000,interrupted=this.interrupted;
+      const envelope=this.envelope,anchors=this.anchors,mime=this.mime,duration=this.elapsedMs/1000;
       let settled=false,guard=0;
       const finish=()=>{
         if(settled)return;
@@ -254,7 +254,8 @@ export class AudioEngine{
         stopStream(this.stream);
         try{if(this.ctx&&this.ctx.state!=='closed')this.ctx.close();}catch(e){/* 已关闭 */}
         this.state='idle';this.recorder=null;this.stream=null;this.ctx=null;this.analyser=null;this.tracks=[];
-        resolve({blob,mime,duration,envelope,anchors,chunks:this.chunks.length,interrupted,streamed,bytes,sinkError});
+        /* interrupted 必须读实时值：onerror / 4s 兜底可能在 stop() 发起之后才写入原因 */
+        resolve({blob,mime,duration,envelope,anchors,chunks:this.chunks.length,interrupted:this.interrupted,streamed,bytes,sinkError});
       };
       rec.onstop=finish;
       /* 录音器已经进入 inactive（比如被系统打断）时 stop() 不再触发 onstop，
@@ -263,7 +264,7 @@ export class AudioEngine{
       try{
         if(rec.state==='inactive')finish();else rec.stop();
       }catch(e){finish();}
-      guard=setTimeout(()=>{if(!settled){if(!interrupted)this.interrupted='录音器没有响应停止请求';finish();}},4000);
+      guard=setTimeout(()=>{if(!settled){if(!this.interrupted)this.interrupted='录音器没有响应停止请求';finish();}},4000);
     });
   }
 }
