@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   aiSanitize, trimMessages, parseToolCalls, shareCardData, endpointOf, requestBody,
-  i18n, AI_TOOLS, DEVICE_TOOLS, AI_THEMES
+  i18n, AI_TOOLS, DEVICE_TOOLS, AI_THEMES, appendStreamChunk
 } from '../src/ai.js';
 
 test('networking is disabled by default and keys stay local', () => {
@@ -91,4 +91,33 @@ test('interface language switches between Chinese and English', () => {
   assert.equal(i18n('send', 'zh'), '发送');
   assert.equal(i18n('send', 'en'), 'Send');
   assert.equal(i18n('unknown-key', 'zh'), 'unknown-key');
+});
+
+test('a single stream chunk longer than 4000 chars is appended in full', () => {
+  // The native bridge sends a whole non-stream reply as one aiChunk; it must
+  // not be cut at the old per-chunk 4000 limit.
+  const text = '开头：' + 'x'.repeat(6000) + '结尾标记';
+  const out = appendStreamChunk('', text);
+  assert.ok(out.length > 4000);
+  assert.equal(out.length, text.length);
+  assert.ok(out.startsWith('开头：'));
+  assert.ok(out.includes(text.slice(4000)), 'text past offset 4000 survives');
+  assert.ok(out.endsWith('结尾标记'));
+});
+
+test('successive stream chunks are truncated at the 200000 char cap', () => {
+  let buffer = appendStreamChunk('', 'a'.repeat(150000));
+  buffer = appendStreamChunk(buffer, 'b'.repeat(100000));
+  assert.equal(buffer.length, 200000);
+  assert.equal(buffer.slice(0, 150000), 'a'.repeat(150000));
+  assert.equal(buffer.slice(150000), 'b'.repeat(50000));
+  buffer = appendStreamChunk(buffer, 'overflow');
+  assert.equal(buffer.length, 200000, 'a full buffer ignores further chunks');
+});
+
+test('stream append honors a custom cap and tolerates missing text', () => {
+  assert.equal(appendStreamChunk('abc', 'defgh', 5), 'abcde');
+  assert.equal(appendStreamChunk('abcde', 'f', 5), 'abcde');
+  assert.equal(appendStreamChunk('abc', null), 'abc');
+  assert.equal(appendStreamChunk('abc', undefined), 'abc');
 });

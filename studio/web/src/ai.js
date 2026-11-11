@@ -118,6 +118,12 @@ export function trimMessages(list){
   }
   return out.reverse();
 }
+/* The native bridge can deliver a whole non-stream reply as one aiChunk, so cap
+   the accumulated buffer instead of slicing each chunk. */
+export function appendStreamChunk(buffer,text,cap=200000){
+  if(buffer.length>=cap)return buffer;
+  return buffer+String(text==null?'':text).slice(0,cap-buffer.length);
+}
 /** Self-defined tool-card protocol: fenced ```tool blocks containing {tool,args}. */
 export function parseToolCalls(text){
   const out=[];if(typeof text!=='string')return out;
@@ -625,7 +631,7 @@ export function aiReceive(m){
   if(!m||typeof m!=='object')return false;
   if(m.type==='aiChunk'){
     if(!busy||m.id!==currentId)return true;
-    streamBuffer+=str(m.text,4000);
+    streamBuffer=appendStreamChunk(streamBuffer,m.text);
     if(messages.length&&messages[messages.length-1].role==='assistant')messages[messages.length-1].content=streamBuffer;
     renderMessages();return true;
   }
