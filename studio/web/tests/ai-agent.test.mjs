@@ -119,6 +119,23 @@ test('openMaps rejects partial coordinates instead of defaulting to zero', () =>
   assert.deepEqual(prepareToolArgs('openMaps', { query: '中山大学' }).args, { query: '中山大学', label: '' });
 });
 
+test('dial and draftSms accept JSON number arguments', () => {
+  const emergency = prepareToolArgs('dial', { number: 110 });
+  assert.equal(emergency.ok, true);
+  assert.equal(emergency.args.number, '110');
+  const mobile = prepareToolArgs('dial', { number: 13800138000 });
+  assert.equal(mobile.ok, true);
+  assert.equal(mobile.args.number, '13800138000');
+  const sms = prepareToolArgs('draftSms', { number: 10086, body: 'hi' });
+  assert.equal(sms.ok, true);
+  assert.deepEqual(sms.args, { number: '10086', body: 'hi' });
+  assert.equal(prepareToolArgs('dial', { number: '+86 138-0000-0000' }).args.number, '+8613800000000');
+  assert.equal(prepareToolArgs('dial', { number: 'abc' }).ok, false);
+  assert.equal(prepareToolArgs('dial', { number: { toString: () => '110' } }).ok, false);
+  assert.equal(prepareToolArgs('dial', { number: [110] }).ok, false);
+  assert.equal(prepareToolArgs('draftSms', { number: NaN, body: 'hi' }).ok, false);
+});
+
 test('alarms stay on the three safe actions', () => {
   assert.deepEqual(ALARM_ACTIONS, ['remind', 'dailyLog', 'scanReport']);
   for (const name of PHONE_TOOLS) assert.equal(alarmAllows(name), false, name);

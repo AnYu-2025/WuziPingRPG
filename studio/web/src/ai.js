@@ -137,7 +137,8 @@ export function parseToolCalls(text){
   }
   return out;
 }
-function digits(v){return str(v,40).replace(/[\s-]/g,'');}
+/* Models often emit phone numbers as JSON numbers; only finite numbers are coerced. */
+function digits(v){return str(Number.isFinite(v)?String(v):v,40).replace(/[\s-]/g,'');}
 export function validHttpUrl(url){
   if(typeof url!=='string')return false;
   const v=url.trim();
