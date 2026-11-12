@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.0</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.1</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -117,6 +117,7 @@
   <div class="model-top">
    <span class="model-selchip" id="modelSelChip">点一个物体选中，空白处拖动转视角</span>
    <button class="model-chipbtn" id="modelUndoBtn" type="button" aria-label="撤销" title="撤销" disabled>↶</button>
+   <button class="model-chipbtn" id="modelRedoBtn" type="button" aria-label="重做" title="重做" disabled>↷</button>
    <button class="model-chipbtn" id="modelDupBtn" type="button" aria-label="复制选中物体" title="复制" disabled>⧉</button>
    <button class="model-chipbtn" id="modelDeleteBtn" type="button" aria-label="删除选中物体" title="删除" disabled>🗑</button>
   </div>
@@ -132,6 +133,7 @@
    <button type="button" id="modelInsetBtn">⬇ 内插</button>
    <button type="button" id="modelDelFaceBtn" class="danger">✕ 删面</button>
    <button type="button" id="modelWeldBtn">⚭ 焊接</button>
+   <button type="button" id="modelMirrorEditBtn">⇋ 镜像</button>
   </div>
   <div class="model-views" aria-label="视角与显示">
    <button type="button" data-view="home" aria-label="默认视角">⌂</button>
@@ -152,7 +154,7 @@
  </div>
  <div class="model-sheet" data-sheet="add">
   <div class="model-sheethead"><strong>添加形体</strong><button type="button" aria-label="关闭">✕</button></div>
-  <div class="model-sheetbody"><div class="model-addgrid" id="modelAddGrid"></div><button type="button" class="model-importrow" id="modelImportBtn2">⇪ 导入模型文件（OBJ / GLB / STL）</button><input type="file" id="modelImportInput" accept=".obj,.glb,.gltf,.stl" hidden><p class="model-note">添加后切到「移动 / 旋转 / 缩放」拖彩色轴；「编辑」里可以拖顶点、多选面挤出/内插/删面。导入的模型会自动缩放到合适大小。</p></div>
+  <div class="model-sheetbody"><div class="model-addgrid" id="modelAddGrid"></div><p class="model-note" style="margin:10px 2px 6px">组合预设（每个部件可单独编辑）</p><div class="model-presetrow" id="modelPresetRow"></div><button type="button" class="model-importrow" id="modelImportBtn2">⇪ 导入模型文件（OBJ / GLB / STL）</button><input type="file" id="modelImportInput" accept=".obj,.glb,.gltf,.stl" hidden><p class="model-note">添加后切到「移动 / 旋转 / 缩放」拖彩色轴；「编辑」里可以拖顶点、多选面挤出/内插/删面。导入的模型会自动缩放到合适大小。</p></div>
  </div>
  <div class="model-sheet" data-sheet="props">
   <div class="model-sheethead"><strong>属性</strong><button type="button" aria-label="关闭">✕</button></div>

@@ -87,7 +87,7 @@ export function initModel(env){
   let scene=null,renderer=null,camera=null,perspCamera=null,orthoCamera=null,orbit=null,gizmo=null,grid=null;
   let orthoHalfH=3,wireframe=false;
   let meshes=new Map(),selectedId=0,mode='object',editSel=null,editDrag=null;
-  let active=false,dirty=false,raf=0,sheet='',history=[],editOverlay=null;
+  let active=false,dirty=false,raf=0,sheet='',history=[],redoStack=[],editOverlay=null,mirrorEdit=false;
   let raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
   let hintTimer=0,saveTimer=0;
   const host=()=>$('modelPanel');
@@ -489,8 +489,21 @@ export function initModel(env){
     const pos=base.geometry.getAttribute('position');
     const indices=editDrag.vi>=0?[editDrag.vi]:editFaces.flatMap(f=>[f.a,f.b,f.c]);
     const unique=[...new Set(indices)];
+    /* 镜像编辑：拖一个顶点，X 对称位置的顶点反向跟着动。 */
+    const mirrorPairs=[];
+    if(mirrorEdit&&editDrag.vi>=0){
+      const sx=-pos.getX(editDrag.vi),sy=pos.getY(editDrag.vi),sz=pos.getZ(editDrag.vi);
+      for(let i=0;i<pos.count;i++){
+        if(i===editDrag.vi)continue;
+        const dx=pos.getX(i)-sx,dy=pos.getY(i)-sy,dz=pos.getZ(i)-sz;
+        if(dx*dx+dy*dy+dz*dz<1e-6)mirrorPairs.push(i);
+      }
+    }
     for(const i of unique){
       pos.setXYZ(i,pos.getX(i)+delta.x,pos.getY(i)+delta.y,pos.getZ(i)+delta.z);
+    }
+    for(const i of mirrorPairs){
+      pos.setXYZ(i,pos.getX(i)-delta.x,pos.getY(i)+delta.y,pos.getZ(i)+delta.z);
     }
     pos.needsUpdate=true;
     base.geometry.computeVertexNormals();
@@ -578,18 +591,34 @@ export function initModel(env){
   function pushHistory(){
     history.push(JSON.stringify(env.getState().objects));
     if(history.length>MAX_HISTORY)history.shift();
-    const btn=$('modelUndoBtn');if(btn)btn.disabled=false;
+    /* 新的改动会让重做链失效。 */
+    redoStack.length=0;
+    syncHistoryButtons();
   }
-  function undo(){
-    if(!history.length){env.notify('没有可撤销的操作了。');return;}
-    const objects=JSON.parse(history.pop());
+  function syncHistoryButtons(){
+    const u=$('modelUndoBtn');if(u)u.disabled=!history.length;
+    const r=$('modelRedoBtn');if(r)r.disabled=!redoStack.length;
+  }
+  function restoreObjects(objects){
     const data=env.getState();
     env.setState({...data,objects});
     historyPending=false;
     rebuildAll();
     if(!findData(selectedId))selectedId=0;
     refreshSelection();syncProps();commitSoon();
-    const btn=$('modelUndoBtn');if(btn)btn.disabled=!history.length;
+    syncHistoryButtons();
+  }
+  function undo(){
+    if(!history.length){env.notify('没有可撤销的操作了。');return;}
+    redoStack.push(JSON.stringify(env.getState().objects));
+    if(redoStack.length>MAX_HISTORY)redoStack.shift();
+    restoreObjects(JSON.parse(history.pop()));
+  }
+  function redo(){
+    if(!redoStack.length){env.notify('没有可重做的操作了。');return;}
+    history.push(JSON.stringify(env.getState().objects));
+    if(history.length>MAX_HISTORY)history.shift();
+    restoreObjects(JSON.parse(redoStack.pop()));
   }
 
   /* ---------- 数据操作 ---------- */
@@ -601,6 +630,63 @@ export function initModel(env){
     fn(next);
     env.setState(next);
     commitSoon();
+  }
+  /* 场景预设：一组摆好位置的基础体，落地即可继续编辑。 */
+  const PRESETS={
+    table:{name:'桌子',parts:[
+      {type:'cube',pos:[0,.78,0],scl:[1.7,.08,1],color:'#8a6fc0'},
+      {type:'cube',pos:[-.75,.37,-.4],scl:[.09,.74,.09],color:'#6b5a9e'},
+      {type:'cube',pos:[.75,.37,-.4],scl:[.09,.74,.09],color:'#6b5a9e'},
+      {type:'cube',pos:[-.75,.37,.4],scl:[.09,.74,.09],color:'#6b5a9e'},
+      {type:'cube',pos:[.75,.37,.4],scl:[.09,.74,.09],color:'#6b5a9e'}
+    ]},
+    chair:{name:'椅子',parts:[
+      {type:'cube',pos:[0,.45,0],scl:[.55,.06,.5],color:'#c2703e'},
+      {type:'cube',pos:[0,.78,-.23],scl:[.55,.62,.06],color:'#c2703e'},
+      {type:'cube',pos:[-.23,.21,-.2],scl:[.06,.42,.06],color:'#9e5a30'},
+      {type:'cube',pos:[.23,.21,-.2],scl:[.06,.42,.06],color:'#9e5a30'},
+      {type:'cube',pos:[-.23,.21,.2],scl:[.06,.42,.06],color:'#9e5a30'},
+      {type:'cube',pos:[.23,.21,.2],scl:[.06,.42,.06],color:'#9e5a30'}
+    ]},
+    cup:{name:'杯子',parts:[
+      {type:'cylinder',pos:[0,.5,0],scl:[.62,1,.62],color:'#5b7fc7'},
+      {type:'torus',pos:[.42,.5,0],rot:[0,0,0],scl:[.42,.42,.42],color:'#5b7fc7'}
+    ]},
+    snowman:{name:'雪人',parts:[
+      {type:'sphere',pos:[0,.55,0],scl:[1.1,1.1,1.1],color:'#d8d2c4'},
+      {type:'sphere',pos:[0,1.35,0],scl:[.78,.78,.78],color:'#e4dfd4'},
+      {type:'sphere',pos:[0,1.95,0],scl:[.5,.5,.5],color:'#efeae0'},
+      {type:'cone',pos:[0,1.95,.28],rot:[Math.PI/2,0,0],scl:[.12,.3,.12],color:'#c2703e'}
+    ]},
+    rocket:{name:'火箭',parts:[
+      {type:'cylinder',pos:[0,.9,0],scl:[.5,1.5,.5],color:'#d8d2c4'},
+      {type:'cone',pos:[0,1.95,0],scl:[.5,.7,.5],color:'#b04a5a'},
+      {type:'cube',pos:[-.3,.25,0],rot:[0,0,.35],scl:[.08,.5,.3],color:'#b04a5a'},
+      {type:'cube',pos:[.3,.25,0],rot:[0,0,-.35],scl:[.08,.5,.3],color:'#b04a5a'},
+      {type:'sphere',pos:[0,1.15,.26],scl:[.22,.22,.1],color:'#5b7fc7'}
+    ]}
+  };
+  function addPreset(key){
+    const preset=PRESETS[key];if(!preset)return;
+    const data=env.getState();
+    if(data.objects.length+preset.parts.length>MAX_OBJECTS){env.notify('场景放不下整个'+preset.name+'，先删掉一些物体。');return;}
+    pushHistory();historyPending=false;
+    const objects=[...data.objects];
+    let nextId=data.nextId;
+    preset.parts.forEach((p,i)=>{
+      objects.push({
+        id:nextId++,type:p.type,
+        name:preset.name+(i===0?'':' '+(i+1)),
+        pos:[...p.pos],rot:p.rot?[...p.rot]:[0,0,0],scl:[...p.scl],
+        color:p.color,metal:0,rough:.65,visible:true,
+        mods:{mirror:false,array:0,subdiv:0},verts:null,faces:null
+      });
+    });
+    env.setState({...data,nextId,objects});
+    for(const o of objects.slice(data.objects.length))rebuildMesh(o);
+    select(objects[data.objects.length].id);
+    closeSheet();commitSoon();updateEmpty();
+    env.notify('已添加'+preset.name+'，每个部件都能单独编辑。');
   }
   function addObject(type){
     const data=env.getState();
@@ -1079,6 +1165,18 @@ export function initModel(env){
     }
     for(const b of document.querySelectorAll('.model-sheethead button'))b.onclick=closeSheet;
     const undoBtn=$('modelUndoBtn');if(undoBtn){undoBtn.disabled=true;undoBtn.onclick=undo;}
+    const redoBtn=$('modelRedoBtn');if(redoBtn){redoBtn.disabled=true;redoBtn.onclick=redo;}
+    const mirrorBtn=$('modelMirrorEditBtn');
+    if(mirrorBtn)mirrorBtn.onclick=()=>{mirrorEdit=!mirrorEdit;mirrorBtn.classList.toggle('active',mirrorEdit);env.notify(mirrorEdit?'镜像编辑开：拖顶点时 X 对称点跟着动。':'镜像编辑关。');};
+    const presetRow=$('modelPresetRow');
+    if(presetRow){
+      presetRow.replaceChildren();
+      for(const [key,p] of Object.entries(PRESETS)){
+        const b=document.createElement('button');b.type='button';b.textContent=p.name;
+        b.onclick=()=>addPreset(key);
+        presetRow.append(b);
+      }
+    }
     const dupBtn=$('modelDupBtn');if(dupBtn)dupBtn.onclick=duplicateSelected;
     const delBtn=$('modelDeleteBtn');if(delBtn)delBtn.onclick=deleteSelected;
     const extBtn=$('modelExtrudeBtn');if(extBtn)extBtn.onclick=extrudeSelected;
@@ -1113,7 +1211,17 @@ export function initModel(env){
   api.leave=leave;
   api.status=()=>{
     const data=env.getState();
-    return data.objects.length+' 个物体'+(selectedId?' · 已选中':'');
+    let verts=0,faces=0;
+    for(const o of data.objects){
+      if(o.verts){verts+=o.verts.length/3;faces+=o.faces?o.faces.length/3:0;}
+      else if(PRIMS[o.type]){
+        const g=PRIMS[o.type].make();
+        verts+=g.getAttribute('position').count;
+        faces+=g.getIndex()?g.getIndex().count/3:g.getAttribute('position').count/3;
+        g.dispose();
+      }
+    }
+    return data.objects.length+' 个物体 · '+verts+' 顶点 / '+faces+' 面'+(selectedId?' · 已选中':'');
   };
   api.panelOpen=()=>!!sheet;
   api.closePanel=closeSheet;

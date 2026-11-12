@@ -13,14 +13,14 @@ const STAR_COLORS={
   python:0xffb347, notepad:0x6f8dff, photo:0xff8a4d, model:0xb06fff,
   ai:0xff5dc8, game:0xffd75e
 };
-const DEFAULT_PREFS=()=>({starred:[],motion:true});
+const DEFAULT_PREFS=()=>({starred:[],motion:true,view:'sky'});
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 
 export function starSanitize(raw,knownIds){
   const r=raw&&typeof raw==='object'?raw:{};
   const known=new Set(Array.isArray(knownIds)?knownIds:[]);
   const starred=Array.isArray(r.starred)?[...new Set(r.starred.filter(id=>known.has(id)))]:[];
-  return {starred,motion:r.motion!==false};
+  return {starred,motion:r.motion!==false,view:r.view==='list'?'list':'sky'};
 }
 
 /* 斐波那契球面布点，稍微压扁上下极，保证星星都在可拨到的范围。 */
@@ -239,9 +239,21 @@ export function initStarHome(env){
     const s=stars.get(id);if(!s)return;
     s.sprite.position.copy(s.base);
   }
+  let sucking=null;
   function starStar(id){
+    const s=stars.get(id);
+    if(s){
+      /* 吸入动画：星被拉向黑洞并缩小，结束后才真正隐藏。 */
+      const label=labels.get(id);if(label)label.style.opacity='0';
+      sucking={id,t0:performance.now(),from:s.sprite.position.clone()};
+    }else{
+      finishStar(id);
+    }
+  }
+  function finishStar(id){
     if(!prefs.starred.includes(id))prefs.starred.push(id);
     savePrefs();applyStarred();
+    const s=stars.get(id);if(s)s.sprite.position.copy(s.base);
     const m=env.modules().find(x=>x.id===id);
     env.notify('「'+(m?m.title:id)+'」收进黑洞了，点黑洞可以找回。');
   }
@@ -302,6 +314,19 @@ export function initStarHome(env){
   function loop(t){
     if(!active)return;
     raf=requestAnimationFrame(loop);
+    /* 黑洞吸入动画 */
+    if(sucking){
+      const s=stars.get(sucking.id);
+      const k=clamp((t-sucking.t0)/380,0,1);
+      if(s){
+        const target=group.worldToLocal(hole.position.clone());
+        s.sprite.position.lerpVectors(sucking.from,target,k*k);
+        const sc=.9*(1-k*.9);
+        s.sprite.scale.set(sc,sc,1);
+      }
+      if(k>=1){const id=sucking.id;sucking=null;finishStar(id);}
+      dirty=true;
+    }
     /* 惯性拨转 */
     if(!drag){
       group.rotation.y+=vel.y;
@@ -319,22 +344,34 @@ export function initStarHome(env){
     /* 星星呼吸 + 标签投影 */
     const stage=host();
     const w=stage?stage.clientWidth:1,h=stage?stage.clientHeight:1;
+    /* 先投影全部星，按深度排序；标签重叠时只留近的，避免糊成一团。 */
+    const proj=[];
     for(const [id,s] of stars){
       if(!s.sprite.visible)continue;
-      const pulse=1+Math.sin(t*.0016+s.phase)*.12;
-      s.sprite.scale.set(.9*pulse,.9*pulse,1);
+      if(!sucking||sucking.id!==id){
+        const pulse=1+Math.sin(t*.0016+s.phase)*.12;
+        s.sprite.scale.set(.9*pulse,.9*pulse,1);
+      }
       const wp=s.sprite.getWorldPosition(new THREE.Vector3());
+      const depth=wp.distanceTo(camera.position);
       const behind=wp.clone().sub(camera.position).dot(camera.getWorldDirection(new THREE.Vector3()))<0;
       const p=wp.project(camera);
-      const label=labels.get(id);
-      if(label){
-        if(behind||p.z>1){label.style.opacity='0';label.style.pointerEvents='none';}
-        else{
-          label.style.opacity=String(clamp(1.15-Math.abs(p.x)*.5,0,1));
-          label.style.pointerEvents='auto';
-          label.style.transform='translate(-50%,0) translate('+((p.x*.5+.5)*w)+'px,'+((-p.y*.5+.5)*h+14)+'px)';
-        }
-      }
+      proj.push({id,behind,p,depth,x:(p.x*.5+.5)*w,y:(-p.y*.5+.5)*h});
+    }
+    proj.sort((a,b)=>a.depth-b.depth);
+    const placed=[];
+    for(const item of proj){
+      const label=labels.get(item.id);
+      if(!label)continue;
+      if(item.behind||item.p.z>1){label.style.opacity='0';label.style.pointerEvents='none';continue;}
+      const lw=Math.max(56,(env.modules().find(m=>m.id===item.id)||{title:''}).title.length*13+20);
+      const rect={x:item.x-lw/2,y:item.y+14,w:lw,h:24};
+      const overlap=placed.some(r=>rect.x<r.x+r.w&&rect.x+rect.w>r.x&&rect.y<r.y+r.h&&rect.y+rect.h>r.y);
+      if(overlap){label.style.opacity='0';label.style.pointerEvents='none';continue;}
+      placed.push(rect);
+      label.style.opacity=String(clamp(1.15-Math.abs(item.p.x)*.5,0,1));
+      label.style.pointerEvents='auto';
+      label.style.transform='translate(-50%,0) translate('+item.x+'px,'+(item.y+14)+'px)';
     }
     holeDisk.rotation.z+=.01;
     renderer.render(scene,camera);

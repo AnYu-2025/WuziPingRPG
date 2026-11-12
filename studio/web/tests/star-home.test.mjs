@@ -43,3 +43,11 @@ test('single star and empty list do not throw',()=>{
   assert.equal(starPositions(1).length,1);
   assert.equal(starPositions(0).length,0);
 });
+
+test('view preference defaults to sky and only accepts list',()=>{
+  assert.equal(starSanitize({},IDS).view,'sky');
+  assert.equal(starSanitize({view:'list'},IDS).view,'list');
+  assert.equal(starSanitize({view:'bogus'},IDS).view,'sky');
+  const p=starSanitize({view:'list',starred:['ai']},IDS);
+  assert.deepEqual(starSanitize(p,IDS),p);
+});

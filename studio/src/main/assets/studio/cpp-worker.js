@@ -1,12 +1,14 @@
 /* C/C++ 运行线程：与 python-worker 同一套消息协议，共用工作区与终端。
-   每次运行新建 worker，「停止」直接 terminate，和 Python 的行为一致。
-   编译器是 Clang 22 的 WebAssembly 版（@live-codes/clang-wasm），资源全部本地加载：
-   首次运行读取约 28 MB 的本地工具链，之后同一页面内多次运行走内存缓存。
+   0.3.1 起线程常驻复用：编译器只加载一次，二次运行直接编译；
+   「停止」/超时由主线程 terminate 销毁，下次运行重新创建。
+   每条消息带 runId，主线程据此丢弃过期输出。
+   编译器是 Clang 22 的 WebAssembly 版（@live-codes/clang-wasm），资源全部本地加载。
    多文件项目：工作区里的 .c/.cc/.cpp/.cxx 会一起编译链接，头文件随处可 include。 */
 importScripts('worker-output.js');
 const valid=p=>typeof p==='string'&&p.length<=200&&!p.startsWith('/')&&!p.split('/').some(x=>!x||x==='.'||x==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(p);
-const SOURCE=/\.(c|cc|cpp|cxx)$/i;
 let toolchain=null,toolchainLoading=null;
+let runId=0,busy=false;
+const send=m=>postMessage(Object.assign({runId},m));
 
 async function ensureToolchain(){
   if(toolchain)return toolchain;
@@ -15,7 +17,7 @@ async function ensureToolchain(){
       importScripts('clang/clang-wasm-toolchain.global.js');
       const made=await self.clangWasmToolchain.createToolchain({
         baseUrl:new URL('clang/',self.location.href).href,
-        onProgress:value=>postMessage({type:'progress',value:Math.max(0,Math.min(1,Number(value)||0))})
+        onProgress:value=>send({type:'progress',value:Math.max(0,Math.min(1,Number(value)||0))})
       });
       toolchain=made;return made;
     })().catch(error=>{toolchainLoading=null;throw error;});
@@ -30,12 +32,14 @@ function diagnostics(raw){
 }
 
 self.onmessage=async({data})=>{
+  if(busy){send({type:'done',ok:false,refused:true});return;}
+  runId=data.runId||0;busy=true;outputRunId=runId;outputSize=0;truncated=false;
   try{
     const files=(data.files||[]).filter(f=>valid(f.path)&&typeof f.text==='string');
     const isC=/\.c$/i.test(data.path);
     const language=isC?'C':'CPP';
     const std=isC?'gnu23':'gnu++23';
-    postMessage({type:'loading'});
+    if(!toolchain)send({type:'loading'});
     const chain=await ensureToolchain();
     const workspaceFiles=files.map(f=>({path:f.path,content:f.text}));
     const compileStarted=performance.now();
@@ -50,10 +54,10 @@ self.onmessage=async({data})=>{
     if(built.error){
       const lines=diagnostics(built.raw);
       emit('stderr',(lines.length?lines.join('\n'):String(built.error&&built.error.message||built.error))+'\n');
-      flushOutput();postMessage({type:'done',ok:false,compileMs});return;
+      flushOutput();send({type:'done',ok:false,compileMs});return;
     }
     emit('stdout','[编译完成 '+(compileMs/1000).toFixed(2)+'s · Clang 22 · '+std+']\n');
-    postMessage({type:'started',compileMs});
+    send({type:'started',compileMs});
     const stdinLines=String(data.stdin||'').split('\n');
     if(stdinLines[stdinLines.length-1]==='')stdinLines.pop();
     let inputIndex=0;
@@ -92,9 +96,11 @@ self.onmessage=async({data})=>{
       walk(host.rootDirectory,'',0);
     }
     flushOutput();
-    postMessage({type:'done',ok:result.exitCode===0,files:outFiles,compileMs,runMs,exitCode:result.exitCode});
+    send({type:'done',ok:result.exitCode===0,files:outFiles,compileMs,runMs,exitCode:result.exitCode});
   }catch(error){
     emit('stderr',String(error&&error.message||error)+'\n');
-    flushOutput();postMessage({type:'done',ok:false});
+    flushOutput();send({type:'done',ok:false});
+  }finally{
+    busy=false;
   }
 };
