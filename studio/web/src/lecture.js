@@ -388,7 +388,7 @@ function renderAnchors(){
   }
   if(!persist.anchors.length){
     const empty=document.createElement('p');empty.className='anchorempty';
-    empty.textContent='暂无锚点。录音时说话会自动标记，也可以点「📌 标记锚点」。';
+    empty.textContent='还没有锚点。录音时开口说话会自动打点，也可以随手点「📌 标记锚点」。';
     list.append(empty);
   }
   refreshStatus();
@@ -442,7 +442,7 @@ function renderSlides(){
   });
   if(!persist.slides.length){
     const empty=document.createElement('p');empty.className='slidempty';
-    empty.textContent='还没有 PPT 页面。下方可以拍照片，也可以导入整个 PPT 文件，每一页都会记录在时间轴旁。';
+    empty.textContent='还没有 PPT 页面。拍几张照片，或整个 PPT 文件导进来，每页都会挂在时间轴上。';
     list.append(empty);
   }
   renderSlideStage(false);

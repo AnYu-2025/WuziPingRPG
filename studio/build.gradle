@@ -3,14 +3,31 @@ def studioParallel = project.findProperty('studioParallel') == 'true'
 android {
     namespace 'cn.wuziping.studio'
     compileSdk 34
-    defaultConfig { applicationId (studioParallel ? 'cn.wuziping.ember.preview07' : 'cn.wuziping.ember'); manifestPlaceholders = [studioLabel: studioParallel ? '天工 · 试玩' : '天工']; minSdk 23; targetSdk 34; versionCode 39; versionName '0.2.7' }
+    defaultConfig { applicationId (studioParallel ? 'cn.wuziping.ember.preview07' : 'cn.wuziping.ember'); manifestPlaceholders = [studioLabel: studioParallel ? '天工 · 试玩' : '天工']; minSdk 23; targetSdk 34; versionCode 40; versionName '0.3.0' }
     sourceSets {
         main.java.srcDirs += ['../core/src/main/java','../app/src/main/java']
         main.assets.srcDirs += ['../app/src/main/assets']
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
+    /* Pyodide 的 wasm/zip 保持不压缩（流式编译需要）。clang 工具链按字节读取、
+       可以压缩，发布时改名为 .bin 避开 wasm 不压缩规则（见 web/build.mjs）。 */
     androidResources { noCompress 'wasm','zip','wav','js','mjs' }
-    buildTypes { release { minifyEnabled false } }
+    /* 与手工构建链同一把原始开发密钥：Gradle 产物也能在已装设备上覆盖升级。 */
+    signingConfigs {
+        manual {
+            storeFile rootProject.file('build/manual/debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    buildTypes {
+        debug { signingConfig signingConfigs.manual }
+        release { minifyEnabled false; signingConfig signingConfigs.manual }
+    }
+    /* ML Kit OCR 的 x86/x86_64 库只服务模拟器，真机用 arm；去掉省约 22 MB。
+       需要在 x86 模拟器上跑扫描时，临时注释掉这段再构建。 */
+    packaging { jniLibs { excludes += ['lib/x86/**','lib/x86_64/**'] } }
 }
 
 dependencies {

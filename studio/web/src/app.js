@@ -20,6 +20,7 @@ import {initAI,aiSerialize,aiSanitize,aiRestore,aiModeEnter,aiModeLeave,aiHidePa
 import {BACK,resolveBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS,moduleById,isNativeModule,moduleAvailability} from './back.js';
 import {NOTE_TEMPLATES,templateById,templateFileName,sanitizeTemplateState,insertTemplate,noteTemplateAction,notepadTarget,isNotepadNotePath,shouldRememberCodePath} from './note-templates.js';
 import {createQuizRequester,quizAIAvailability,normalizeQuizCount,gradeQuiz,retryWrongQuiz,quizToMarkdown,quizFileName,QUIZ_TYPE_LABELS,QUIZ_NOTE_LIMIT} from './quiz.js';
+import {initModel,modelSerialize,modelSanitize,modelModeEnter,modelModeLeave,modelStatusText,modelPanelOpen,modelClosePanel,modelDebug} from './model3d.js';
 
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
 /* 原生工作区快照的硬上限（EditorActivity 里是同一个数）。
@@ -58,7 +59,7 @@ const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript'
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 天工 · 离线 Python\n# 标准输入在下方面板填写，每行一项\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\nfor i in range(1, 4):\n    print("让想法运行起来", "✦" * i)\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这是手机上写出的第一个页面。</p>\n<button onclick="this.textContent=\'想法变成了现实 ✦\'">试着点一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize()});
+const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSerialize()});
 let state=defaults(),view,restoring=false,worker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 /* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
 const micWaiters=new Map();let micSeq=0;
@@ -77,7 +78,7 @@ function active(){return state.files.find(f=>f.path===state.active)||state.files
 function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize()};}
+function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSerialize()};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
 function mb(bytes){return (bytes/1048576).toFixed(1);}
@@ -115,6 +116,7 @@ function loadState(data){
   state.noteTemplates=sanitizeTemplateState(data.noteTemplates);
   state.drawStrokes=Array.isArray(data.drawStrokes)?data.drawStrokes:[];
   state.drawView=(data&&data.drawView&&typeof data.drawView==='object')?data.drawView:null;
+  state.model=modelSanitize(data.model);
   state.settings.fontSize=Math.max(12,Math.min(24,Number(state.settings.fontSize)||15));state.settings.timeLimit=[15,30,60].includes(+state.settings.timeLimit)?+state.settings.timeLimit:15;if(window.innerWidth<700)state.settings.wrap=true;
   state.active=files.some(f=>f.path===state.active)?state.active:files[0].path;state.opened=Array.isArray(state.opened)?state.opened.filter(p=>files.some(f=>f.path===p)):[];if(!state.opened.includes(state.active))state.opened.push(state.active);
 }
@@ -139,7 +141,7 @@ function createEditor(){
  ]};
  view=new EditorView({state:EditorState.create(config),parent:$('editor')});view.dom.style.fontSize=state.settings.fontSize+'px';editorStates.set(active().path,view.state);position();lectureViewCreated();
 }
-function position(){if(!view)return;const pos=view.state.selection.main.head,line=view.state.doc.lineAt(pos);$('position').textContent=`第 ${line.number} 行，第 ${pos-line.from+1} 列`;const note=$('noteCount');if(note&&document.body.classList.contains('notepad'))note.textContent=view.state.doc.length+' 字 · '+view.state.doc.lines+' 行';else if(note&&document.body.classList.contains('lecture'))note.textContent=lectureStatusText();else if(note&&document.body.classList.contains('tts'))note.textContent=ttsStatusText();else if(note&&document.body.classList.contains('aiview'))note.textContent=aiStatusText();const empty=$('noteEmpty');if(empty){const blank=document.body.classList.contains('notepad')||document.body.classList.contains('lecture');empty.classList.toggle('show',blank&&view.state.doc.length===0);}}
+function position(){if(!view)return;const pos=view.state.selection.main.head,line=view.state.doc.lineAt(pos);$('position').textContent=`第 ${line.number} 行，第 ${pos-line.from+1} 列`;const note=$('noteCount');if(note&&document.body.classList.contains('notepad'))note.textContent=view.state.doc.length+' 字 · '+view.state.doc.lines+' 行';else if(note&&document.body.classList.contains('lecture'))note.textContent=lectureStatusText();else if(note&&document.body.classList.contains('tts'))note.textContent=ttsStatusText();else if(note&&document.body.classList.contains('aiview'))note.textContent=aiStatusText();else if(note&&document.body.classList.contains('modelview'))note.textContent=modelStatusText();const empty=$('noteEmpty');if(empty){const blank=document.body.classList.contains('notepad')||document.body.classList.contains('lecture');empty.classList.toggle('show',blank&&view.state.doc.length===0);}}
 function renderFiles(){
  const list=$('fileList');list.replaceChildren();for(const f of state.files){const row=document.createElement('div');row.className='fileitem'+(f.path===state.active?' active':'');const b=document.createElement('button');b.className='fileopen';b.title=f.path;b.dataset.path=f.path;const glyph=document.createElement('span');glyph.className='fileglyph';glyph.textContent=extension(f.path).slice(0,3);const name=document.createElement('span');name.textContent=f.path+(f.text!==f.savedText?' •':'');b.append(glyph,name);b.onclick=()=>switchFile(f.path);const menu=document.createElement('button');menu.className='filemenu';menu.textContent='⋯';menu.setAttribute('aria-label','重命名 '+f.path);menu.onclick=()=>nameDialog(f.path);row.append(b,menu);list.append(row);}
  refreshBadges();
@@ -161,10 +163,12 @@ function setRunning(running){$('runButton').hidden=running;$('stopButton').hidde
 function stop(reason='已停止运行'){runToken++;if(worker)worker.terminate();worker=null;clearTimeout(timeout);setRunning(false);$('runState').textContent=reason;}
 function applyRunFiles(files){let updated=0;for(const f of files||[]){if(!validPath(f.path)||typeof f.text!=='string'||f.text.length>MAX_FILE)continue;const existing=state.files.find(x=>x.path===f.path);if(existing){if(existing.text===f.text)continue;existing.text=f.text;editorStates.delete(f.path);}else if(state.files.length<160)state.files.push(makeFile(f.path,f.text));else continue;updated++;}if(updated){restoring=true;createEditor();restoring=false;changed();append(`\n[工作区] 已保留 ${updated} 个新增或修改的文件，写回手机文件需点击保存。\n`);}}
 async function run(){
- if(worker)return;const f=active(),ext=extension(f.path);if(['html','htm'].includes(ext)){preview();return;}if(!['py','js','mjs'].includes(ext)){notify(language(f.path)[0]+' 暂仅支持编辑；请运行 .py、.js 或预览 .html。');return;}
- flush();outputTab(false);$('output').replaceChildren();$('runState').textContent=ext==='py'?'准备 Python…':'运行 JavaScript…';runFiles=state.files.map(f=>({path:f.path,text:f.text}));const token=++runToken;worker=new Worker(ext==='py'?'python-worker.js':'javascript-worker.js');setRunning(true);const started=performance.now();let hasStarted=false;
- timeout=setTimeout(()=>{if(token!==runToken)return;append('\n运行超时，已停止。可以在设置中调整运行上限。\n',true);stop('运行超时');},45000);
- worker.onmessage=event=>{if(token!==runToken)return;const m=event.data||{};if(m.type==='started'&&!hasStarted){hasStarted=true;clearTimeout(timeout);$('runState').textContent='运行中 · 可停止';timeout=setTimeout(()=>{append('\n达到运行上限，已终止工作线程。\n',true);stop('运行超时');},state.settings.timeLimit*1000);}else if(m.type==='stdout'||m.type==='stderr')append(m.text,m.type==='stderr');else if(m.type==='done'){const elapsed=((performance.now()-started)/1000).toFixed(2);stop(m.ok?'执行完成 · '+elapsed+'s':'执行失败 · '+elapsed+'s');applyRunFiles(m.files);flush();}else if(m.type==='error'){append(m.text+'\n',true);stop('运行环境未能启动');}};
+ if(worker)return;const f=active(),ext=extension(f.path);if(['html','htm'].includes(ext)){preview();return;}if(!['py','js','mjs','c','cc','cpp','cxx'].includes(ext)){notify(language(f.path)[0]+' 只能编辑，不能运行。可运行 .py、.js、.cpp/.c，或预览 .html。');return;}
+ const isCpp=['c','cc','cpp','cxx'].includes(ext);
+ flush();outputTab(false);$('output').replaceChildren();$('runState').textContent=ext==='py'?'准备 Python…':isCpp?'准备 C/C++ 编译器…':'运行 JavaScript…';runFiles=state.files.map(f=>({path:f.path,text:f.text}));const token=++runToken;worker=new Worker(ext==='py'?'python-worker.js':isCpp?'cpp-worker.js':'javascript-worker.js');setRunning(true);const started=performance.now();let hasStarted=false;
+ /* C++ 首次要读 28 MB 本地工具链再编译，准备阶段给 120 秒；运行上限从 started 起算。 */
+ timeout=setTimeout(()=>{if(token!==runToken)return;append('\n准备超时，已停止。'+(isCpp?'C++ 编译器首次加载较慢，请重试；多次失败请更新系统 WebView。':'可以在设置中调整运行上限。')+'\n',true);stop('准备超时');},isCpp?120000:45000);
+ worker.onmessage=event=>{if(token!==runToken)return;const m=event.data||{};if(m.type==='loading'){$('runState').textContent='读取本地 C++ 编译器…';}else if(m.type==='progress'){const pct=Math.round((m.value||0)*100);$('runState').textContent='读取编译器 '+pct+'%（仅首次较慢）';}else if(m.type==='started'&&!hasStarted){hasStarted=true;clearTimeout(timeout);$('runState').textContent='运行中 · 可停止';timeout=setTimeout(()=>{append('\n达到运行上限，已终止工作线程。\n',true);stop('运行超时');},state.settings.timeLimit*1000);}else if(m.type==='stdout'||m.type==='stderr')append(m.text,m.type==='stderr');else if(m.type==='done'){const elapsed=((performance.now()-started)/1000).toFixed(2);stop(m.ok?'执行完成 · '+elapsed+'s':'执行失败 · '+elapsed+'s');applyRunFiles(m.files);flush();}else if(m.type==='error'){append(m.text+'\n',true);stop('运行环境未能启动');}};
  worker.onerror=event=>{if(token!==runToken)return;append('运行环境错误：'+event.message+'\n请确认系统 WebView 支持 WebAssembly。\n',true);stop('运行环境错误');};
  worker.postMessage({path:f.path,code:f.text,files:runFiles,stdin:$('stdin').value});
 }
@@ -192,7 +196,7 @@ window.StudioNative={receive(m){
     }
   }
   else if(m.type==='imported'){const result=importFiles(m.files||[]);if(result&&result.accepted<(m.files||[]).length)notify('工作区接收 '+result.accepted+' / '+m.files.length+' 个文件，其余因容量或未保存草稿冲突未导入；原文件保留。');else notify((m.message||'导入完成')+(result?.backups?'；同名旧稿已备份':''));}
-  else if(m.type==='saved'){const pending=pendingSaves.get(m.id);pendingSaves.delete(m.id);if(m.ok&&pending){const f=state.files.find(f=>f.path===pending.path);if(f){f.savedText=pending.text;f.uri=m.uri||f.uri;f.encoding=m.encoding||f.encoding;changed();}notify('已保存到手机文件。');}else notify(m.message||'保存未完成，草稿仍保留。');}
+  else if(m.type==='saved'){const pending=pendingSaves.get(m.id);pendingSaves.delete(m.id);if(m.ok&&pending){if(pending.binary){notify('已导出到手机文件。');}else{const f=state.files.find(f=>f.path===pending.path);if(f){f.savedText=pending.text;f.uri=m.uri||f.uri;f.encoding=m.encoding||f.encoding;changed();}notify('已保存到手机文件。');}}else notify(m.message||'保存未完成，草稿仍保留。');}
   /* 一次性出题请求有独立的 quiz- id；先于聊天接收器，避免落进 AI 会话。 */
   else if(quizRequester.receive(m)){}
   else if(ttsReceive(m)){}
@@ -221,6 +225,7 @@ function setWorkspaceMode(mode){
   if(mode!=='tts')document.body.classList.remove('tts');
   if(mode!=='ai')document.body.classList.remove('aiview');
   if(mode!=='game')document.body.classList.remove('gameview');
+  if(mode!=='model')document.body.classList.remove('modelview');
 }
 on('filesToggle',()=>{closeMenu();document.body.classList.toggle('drawer');});on('backdrop',closeDrawer);on('closeExplorer',closeDrawer);on('newFile',()=>nameDialog());on('newTab',()=>nameDialog());menu('menuNew',()=>nameDialog());
 menu('findButton',()=>{openSearchPanel(view);const searchInput=document.querySelector('.cm-search input');if(searchInput)searchInput.focus();else if(view)view.focus();});menu('settingsButton',()=>$('settingsDialog').showModal());on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
@@ -634,11 +639,12 @@ function refreshHomeTitle(){const t=$('homeTitle');if(t)t.textContent=greet()+'�
 function refreshAvailability(){for(const card of homeCards){const a=moduleAvailability(card.dataset.mode,moduleCaps);card.dataset.unavailable=a.ok?'0':'1';if(!a.ok)card.title=a.message;else card.removeAttribute('title');}}
 function setHomeEnabled(on){for(const card of homeCards)card.disabled=!on;const resume=$('resumeCard');if(resume)resume.disabled=!on;}
 function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(landingStatus)landingStatus.textContent='草稿已就绪';setHomeEnabled(true);refreshAvailability();refreshHomeTitle();refreshResume();}
-function hideLanding(){if(!landingOpen||!landing)return;if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},280);}
+function hideLanding(){if(!landingOpen||!landing)return;if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model')modelModeEnter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},280);}
 function openLanding(reopen=false){
   if(!landing)return;
   if(reopen&&workspaceMode==='tts')ttsHideBar();
   if(reopen&&workspaceMode==='ai'){setAISettings(false);aiHidePanel();}
+  if(reopen&&workspaceMode==='model')modelModeLeave();
   closeDrawer();closeMenu();
   if(view){try{closeSearchPanel(view);}catch(e){}}
   clearTimeout(landingTimer);
@@ -660,7 +666,8 @@ function setLectureTab(name){
 }
 /* 模块自己的子层，栈顶在前。新功能要加子层时在这里登记，返回键就会先关它。 */
 const MODULE_LAYERS=[
-  {id:'aiSettings',mode:'ai',open:()=>!!$('aiPanel')&&$('aiPanel').classList.contains('settings-open'),close:()=>setAISettings(false)}
+  {id:'aiSettings',mode:'ai',open:()=>!!$('aiPanel')&&$('aiPanel').classList.contains('settings-open'),close:()=>setAISettings(false)},
+  {id:'modelPanel',mode:'model',open:()=>modelPanelOpen(),close:()=>modelClosePanel()}
 ];
 function moduleLayers(){return MODULE_LAYERS.filter(layer=>(!layer.mode||layer.mode===workspaceMode)&&layer.open()).map(layer=>layer.id);}
 function closeModuleLayer(id){const layer=MODULE_LAYERS.find(item=>item.id===id);if(layer)layer.close();}
@@ -725,7 +732,7 @@ function ensureNote(){
   return note;
 }
 function ensureLectureNote(){let note=state.files.find(f=>f.path==='课堂笔记.md');if(!note){note=makeFile('课堂笔记.md','');state.files.push(note);changed();}if(!state.opened.includes(note.path))state.opened.push(note.path);return note;}
-function ensureEnglishText(){let text=state.files.find(f=>f.path==='English.txt');if(!text){const activeFile=state.files.find(f=>f.path===state.active&&/\.(txt|md)$/i.test(f.path)&&/[A-Za-z]/.test(f.text||''));if(activeFile)text=activeFile;}if(!text){if(state.files.length>=160){notify('工作区已有 160 个文件，请先打开英文文本或腾出一个文件名额。');return null;}text=makeFile('English.txt','Welcome to English Reading.\n\nType or open an English text here. The reader divides long paragraphs at natural sentence boundaries, so you can follow an entire article without losing your place.\n\nChoose an installed English voice, adjust the speaking rate, and use the same controls to pause, continue, or stop at any time.\n');state.files.push(text);changed();}if(!state.opened.includes(text.path))state.opened.push(text.path);lastTtsPath=text.path;return text;}
+function ensureEnglishText(){let text=state.files.find(f=>f.path==='English.txt');if(!text){const activeFile=state.files.find(f=>f.path===state.active&&/\.(txt|md)$/i.test(f.path)&&/[A-Za-z]/.test(f.text||''));if(activeFile)text=activeFile;}if(!text){if(state.files.length>=160){notify('工作区已有 160 个文件，请先打开英文文本或腾出一个文件名额。');return null;}text=makeFile('English.txt','The old lighthouse stood at the edge of the bay, and every evening its light swept across the water. Mara liked to sit on the steps below it and read until the pages went grey.\n\nOne night a storm rolled in from the sea. The wind tore at her jacket, but the light kept turning, steady as a heartbeat. She closed her book and watched it work, and decided she would write about it in the morning.\n');state.files.push(text);changed();}if(!state.opened.includes(text.path))state.opened.push(text.path);lastTtsPath=text.path;return text;}
 function applyMode(mode){
   const guard=canLeaveMode({recording:workspaceMode==='lecture'&&lectureBusy(),running:!!worker,to:mode});
   if(!guard.ok&&guard.reason==='recording'){notify('正在上课录音，请先点「⏹ 停止」结束录音，再切换模式。');selectedMode='lecture';return false;}
@@ -733,12 +740,22 @@ function applyMode(mode){
   const ttsTarget=mode==='tts'?((lastTtsPath&&state.files.find(x=>x.path===lastTtsPath))||state.files.find(x=>x.path==='English.txt')||ensureEnglishText()):null;
   if(mode==='tts'&&!ttsTarget)return false;
   if(workspaceMode==='tts'&&mode!=='tts')ttsModeLeave();
+  if(workspaceMode==='model'&&mode!=='model')modelModeLeave();
   const leavingAI=workspaceMode==='ai'&&mode!=='ai';
   setWorkspaceMode(mode);  const noteEmpty=$('noteEmpty');
   if(noteEmpty)noteEmpty.textContent=mode==='lecture'?'点上方「🎙 开始录音」，边听边记；每一行都会自动带上时间戳。':'从这里开始写点什么…';
   const drawToggle=$('drawToggle');
   if(leavingAI)aiModeLeave();
   const aiPanel=$('aiPanel');
+  if(mode==='model'){
+    document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('modelview');
+    lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
+    $('workbench').hidden=true;$('lounge').hidden=true;
+    if(aiPanel)aiPanel.hidden=true;
+    const panel=$('modelPanel');if(panel)panel.hidden=false;
+    $('activePath').textContent='3D 建模';$('dirtyFlag').textContent='场景自动保存';
+    modelModeEnter();return true;
+  }
   if(mode==='ai'){
     document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('aiview');
     lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
@@ -748,6 +765,7 @@ function applyMode(mode){
     aiModeEnter();return true;
   }
   if(aiPanel)aiPanel.hidden=true;
+  const modelPanelEl=$('modelPanel');if(modelPanelEl)modelPanelEl.hidden=true;
   document.body.classList.remove('aiview');$('workbench').hidden=false;
   if(mode==='game'){document.body.classList.remove('notepad');document.body.classList.remove('lecture');document.body.classList.remove('tts');lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();showGame();return true;}
   showCode();
@@ -846,6 +864,21 @@ initTTS({
   view:()=>view,
   activePath:()=>state.active
 });
+initModel({
+  notify,
+  native,
+  send:(type,payload)=>send(type,payload),
+  getState:()=>state.model,
+  setState:value=>{state.model=modelSanitize(value);},
+  scheduleSave,
+  /* 二进制导出（OBJ/GLB）走原生导出通道；浏览器里退回下载。 */
+  exportBinary:(name,bytes,mime)=>{
+    const id='model-'+Date.now()+'-'+Math.floor(Math.random()*1e6);
+    if(native){pendingSaves.set(id,{path:name,text:'',binary:true});send('exportBinary',{id,path:name,data:bytesToBase64(bytes),mime});}
+    else{const blob=new Blob([bytes],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('已导出 '+name);}
+  }
+});
+function bytesToBase64(bytes){let binary='';const chunk=0x8000;for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk));return btoa(binary);}
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
   getDrawData:()=>state.drawStrokes||[],
@@ -866,12 +899,15 @@ function aiTool(tool,args){
 }
 function aiRunSnippet(code,lang){
  return new Promise(resolve=>{
-  const js=/^(js|javascript|mjs)$/i.test(lang||''),w=new Worker(js?'javascript-worker.js':'python-worker.js');
-  let out='';const timer=setTimeout(()=>{try{w.terminate();}catch(e){}resolve(out+'\n[达到 15 秒运行上限]');},15000);
+  const l=String(lang||'').toLowerCase();
+  const js=/^(js|javascript|mjs)$/.test(l),cpp=/^(c|cc|cpp|cxx|c\+\+)$/.test(l);
+  /* C++ 首次要加载本地工具链，准备阶段放宽到 90 秒。 */
+  const w=new Worker(js?'javascript-worker.js':cpp?'cpp-worker.js':'python-worker.js');
+  let out='';const timer=setTimeout(()=>{try{w.terminate();}catch(e){}resolve(out+'\n[达到运行上限]');},cpp?90000:15000);
   const done=value=>{clearTimeout(timer);try{w.terminate();}catch(e){}resolve(String(value||out||'(无输出)').slice(0,8000));};
   w.onmessage=e=>{const m=e.data||{};if(m.type==='stdout'||m.type==='stderr')out+=m.text;else if(m.type==='done')done();};
   w.onerror=e=>done('运行失败：'+(e.message||'未知错误'));
-  try{w.postMessage({code,path:js?'ai_snippet.js':'ai_snippet.py',stdin:'',files:state.files.map(f=>({path:f.path,text:f.text}))});}catch(e){done('运行环境未能启动：'+e.message);}
+  try{w.postMessage({code,path:js?'ai_snippet.js':cpp?'ai_snippet.cpp':'ai_snippet.py',stdin:'',files:state.files.map(f=>({path:f.path,text:f.text}))});}catch(e){done('运行环境未能启动：'+e.message);}
  });
 }
 initAI({
@@ -889,5 +925,5 @@ initAI({
  runSnippet:aiRunSnippet
 });
 openLanding(false);
-window.Studio={getState:()=>({...snapshot(),mode:workspaceMode,home:landingOpen,layers:moduleLayers(),resume:rememberedMode(),caps:moduleCaps}),get view(){return view;},run,stop,flush,importFiles,back:handleSystemBack,exitMessage:()=>exitCopy(state.files).message,lecture:lectureDebug,tts:ttsDebug,ai:aiDebug};
+window.Studio={getState:()=>({...snapshot(),mode:workspaceMode,home:landingOpen,layers:moduleLayers(),resume:rememberedMode(),caps:moduleCaps}),get view(){return view;},run,stop,flush,importFiles,back:handleSystemBack,exitMessage:()=>exitCopy(state.files).message,lecture:lectureDebug,tts:ttsDebug,ai:aiDebug,model:modelDebug};
 if(native)send('ready');else{let saved=null;try{saved=JSON.parse(localStorage.getItem('ember-studio-v1'));}catch(e){}restore(saved);}

@@ -41,7 +41,7 @@ export const DEVICE_TOOLS=['authorizeTree','scanFiles','organizeFiles','deleteFi
 const SETTINGS_SCREENS=['wifi','bluetooth','location','apps','battery','notifications','accessibility','display','sound','wireless'];
 export const DEFAULT_AI={
   enabled:false,baseUrl:'https://api.deepseek.com/chat/completions',apiKey:'',model:'deepseek-chat',
-  temperature:.7,system:'你是天工工作台里的手机助手。回答简洁，用中文。需要读文件、查看设备或代为打开网页、拨号盘、短信草稿、地图、设置和其他应用时，输出一个 tool 代码块。每轮只调用一个工具，等结果再继续。短信只起草不发送，电话只打开拨号盘。',
+  temperature:.7,system:'你是天工工作台里的手机助手，说话直接、简短，用中文，别绕弯子。runCode 可以在本机跑 Python（lang 填 py）、JavaScript（js）和 C/C++（cpp 或 c），不联网。需要读文件、查看设备或代为打开网页、拨号盘、短信草稿、地图、设置和其他应用时，输出一个 tool 代码块。每轮只调用一个工具，等结果再继续。短信只起草不发送，电话只打开拨号盘。',
   lang:'zh',theme:'jade',view:'chat',remote:false,remoteUrl:'',autoApprove:false,agentLoop:true
 };
 export const AI_LABELS={
@@ -51,11 +51,11 @@ export const AI_LABELS={
       remoteUrl:'电脑服务地址',auto:'自动批准只读工具',system:'系统提示',lang:'语言',theme:'主题',view:'视图',
       chat:'对话',web:'网页',thinking:'正在思考…',idle:'就绪',done:'已完成',waiting:'等待确认',
       approve:'允许',deny:'拒绝',tool:'工具过程',quick:'快捷指令',explain:'解释当前代码',generate:'生成代码',
-      run:'运行当前文件',summarize:'总结会话',phone:'看看手机状态',placeholder:'问点什么，或让我帮你改代码、打开网页…',
-      gate:'AI 助手默认不联网。开启后，请求只发往你填写的服务，密钥仅保存在本机工作区。',
-      gateBtn:'我了解，开启联网',noKey:'请先填写 API Key 或服务地址。',
-      browser:'浏览器预览不支持外部请求，请在天工 APK 中使用 AI 助手。',
-      confirm:'打开其他应用、分享、短信草稿、剪贴板和写文件之前，需要你点「允许」。',tools:'工具卡',pet:'小助手',
+      run:'运行当前文件',summarize:'总结会话',phone:'看看手机状态',placeholder:'想问什么，或者让我搭把手…',
+      gate:'AI 助手平时不联网。开启后，消息只发给你自己填的服务，密钥也只存在这台手机上。',
+      gateBtn:'知道了，开启联网',noKey:'先填一下 API Key 或服务地址。',
+      browser:'浏览器预览发不了外部请求，装天工 APK 后就能用 AI 助手。',
+      confirm:'开别的应用、分享、动剪贴板、写文件这些事，都会先问你，点「允许」才做。',tools:'工具卡',pet:'小助手',
       copy:'复制会话',load:'载入会话文本',shareTitle:'天工 · AI 助手对话',session:'会话回放',close:'关闭',
       attach:'添加图片',voice:'语音输入',voiceNo:'当前浏览器不支持语音识别',saved:'会话已保存'},
   en:{title:'AI Assistant',off:'Networking off',on:'On · requests go only to your endpoint',enable:'Enable networking',

@@ -20,7 +20,7 @@
     <string name="grant_camera">授予相机权限</string>
     <string name="open_settings">去设置</string>
     <string name="close">关闭</string>
-    <string name="hint_empty">对准书页，连续拍摄多页，然后生成 PDF</string>
+    <string name="hint_empty">对准书页一页页拍，拍完生成 PDF</string>
     <string name="correct">校正</string>
     <string name="ocr">识别</string>
     <string name="frame">取景框</string>
@@ -28,7 +28,7 @@
     <string name="content_auto">自动拍摄开关</string>
     <string name="content_post">后期处理设置</string>
     <string name="post_title">后期处理</string>
-    <string name="post_note">锐化与对比用于灰度 / 黑白的预览、PDF 和图片导出；点开页面可比较效果。分辨率决定导出清晰度，PDF 内存不足时逐档降低。</string>
+    <string name="post_note">锐化和对比只影响灰度 / 黑白的效果，点开页面能对比前后。分辨率越高导出越清楚；手机内存吃紧时会自动降一档。</string>
     <string name="post_sharpen">锐化强度</string>
     <string name="post_contrast">对比增强</string>
     <string name="post_res">生成分辨率</string>

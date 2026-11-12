@@ -1,18 +1,18 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"><meta name="theme-color" content="#ffffff"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 23V9h4v5.4L17.2 9h5.2l-5.8 6.1L23 23h-5.2l-3.7-5.4L12 19.4V23z' fill='white'/%3E%3C/svg%3E"><meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'"><title>天工</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lecture.css"><link rel="stylesheet" href="tts.css"><link rel="stylesheet" href="ai.css"><link rel="stylesheet" href="shell.css"></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"><meta name="theme-color" content="#ffffff"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 23V9h4v5.4L17.2 9h5.2l-5.8 6.1L23 23h-5.2l-3.7-5.4L12 19.4V23z' fill='white'/%3E%3C/svg%3E"><meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'"><title>天工</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lecture.css"><link rel="stylesheet" href="tts.css"><link rel="stylesheet" href="ai.css"><link rel="stylesheet" href="model.css"><link rel="stylesheet" href="shell.css"></head>
 <body>
 <section id="landing" class="home" aria-label="天工首页" data-ready="0">
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.2.7</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.0</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div class="home-scroll" id="homeScroll">
  <div class="home-hero">
   <p class="home-status"><span class="status-dot" aria-hidden="true"></span><span id="landingStatus">正在读取草稿</span></p>
   <h1 id="homeTitle">今天从这里开始</h1>
-  <p class="home-lead" id="homeLead">所有功能都从这里进。返回键一层层退回首页，在首页再按一次才会问你要不要退出。</p>
+  <p class="home-lead" id="homeLead">挑一件想做的事。随时按返回键回到这里，东西都留在本机。</p>
  </div>
  <button id="resumeCard" class="home-resume" type="button" hidden disabled>
   <span class="home-resume-icon" id="resumeIcon" aria-hidden="true">↺</span>
@@ -30,9 +30,10 @@
  <section class="home-group" data-group="create" aria-label="创作">
   <div class="home-ghead"><h2>创作</h2><span>代码、文字和照片</span></div>
   <div class="home-grid">
-   <button class="home-card" type="button" data-mode="python" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">&lt;/&gt;</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>写 Python</strong><small>离线运行代码和项目文件</small></span></button>
+   <button class="home-card" type="button" data-mode="python" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">&lt;/&gt;</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>写代码</strong><small>Python、C++、网页，离线运行</small></span></button>
    <button class="home-card" type="button" data-mode="notepad" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✎</span><span class="home-tag">草稿</span></span><span class="home-copy"><strong>记事本</strong><small>写字、手绘，草稿自动留在本机</small></span></button>
    <button class="home-card" type="button" data-mode="photo" data-kind="native" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">◐</span><span class="home-tag">照片</span></span><span class="home-copy"><strong>修图</strong><small>浮生图梦：调色、裁剪、拼图、水印</small></span></button>
+   <button class="home-card" type="button" data-mode="model" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">◈</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>3D 建模</strong><small>手机上捏模型，导出 OBJ / GLB</small></span></button>
   </div>
  </section>
  <section class="home-group" data-group="more" aria-label="助手与休息">
@@ -42,7 +43,7 @@
    <button class="home-card" type="button" data-mode="game" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✦</span><span class="home-tag">游戏</span></span><span class="home-copy"><strong>星火远征</strong><small>原来的游戏存档还在</small></span></button>
   </div>
  </section>
- <p class="home-foot">草稿自动留在本机。要写回手机上的原文件，进到文件里点「保存」。扫描和修图在独立页面里打开，用返回键或左上角「‹ 天工」回到这里。</p>
+ <p class="home-foot">草稿会自动存好。想把改动写回手机上的原文件，打开文件点「保存」就行。</p>
 </div>
 </section>
 <header class="appbar"><button id="homeButton" class="homeback" type="button" aria-label="回到首页" title="回到首页"><span class="homeback-chev" aria-hidden="true">‹</span><span class="homeback-label">首页</span></button><button id="filesToggle" class="icon" aria-label="文件列表" title="文件列表">☰</button><div class="doc"><strong id="activePath">main.py</strong><small id="dirtyFlag">本地草稿</small></div><button id="drawToggle" class="icon drawtoggle" aria-label="画画" title="画画" aria-pressed="false" hidden>🖌️</button><button id="saveButton" class="icon saveicon" aria-label="保存" title="保存">保存</button><button id="runButton" class="primary">▶ 运行</button><button id="stopButton" class="danger" hidden>■ 停止</button><button id="moreButton" class="icon" aria-label="更多操作" title="更多操作">⋯</button></header>
@@ -80,8 +81,8 @@
     <button class="draw-action" id="drawBack" title="返回文字">✎ 文字</button>
   </div>
 </div>
-<section class="console folded" id="consolePanel"><button class="consolehead" id="foldConsole" aria-expanded="false" aria-controls="consoleBody" title="展开或收起终端"><span class="ctitle">终端</span><span id="runState">就绪</span><span class="chev">⌃</span></button><div class="consolebody" id="consoleBody"><div class="consolebar"><button id="outputTab" class="active">输出</button><button id="inputTab">输入</button><span class="grow"></span><button id="clearOutput">清空</button></div><pre id="output" role="log" aria-live="polite"><span class="dim">Python 已内置。写好代码后点“运行”。
-需要 input() 时，先切到“输入”填写内容。</span></pre><textarea id="stdin" hidden aria-label="标准输入" placeholder="运行前填写，每个 input() 一行。未提供的输入返回 EOF。" spellcheck="false"></textarea></div></section>
+<section class="console folded" id="consolePanel"><button class="consolehead" id="foldConsole" aria-expanded="false" aria-controls="consoleBody" title="展开或收起终端"><span class="ctitle">终端</span><span id="runState">就绪</span><span class="chev">⌃</span></button><div class="consolebody" id="consoleBody"><div class="consolebar"><button id="outputTab" class="active">输出</button><button id="inputTab">输入</button><span class="grow"></span><button id="clearOutput">清空</button></div><pre id=”output” role=”log” aria-live=”polite”><span class=”dim”>写好代码点「运行」。Python、C++、JavaScript 都在本机跑，不联网。
+程序要读输入时，先在「输入」页填好，一行一条。</span></pre><textarea id="stdin" hidden aria-label="标准输入" placeholder="运行前填写，每个 input() 一行。未提供的输入返回 EOF。" spellcheck="false"></textarea></div></section>
 </main>
 <aside id="lectureTimeline" aria-label="时间轴与锚点"><canvas id="timelineCanvas" aria-label="录音波形时间轴"></canvas><div class="tl-controls"><button id="zoomOut" aria-label="缩小时间轴" title="缩小">－</button><button id="zoomIn" aria-label="放大时间轴" title="放大">＋</button><button id="playRate" class="tl-rate" aria-label="播放倍速" title="播放倍速">1×</button><button id="linePlay" class="tl-line" aria-label="从本行播放 10 秒" title="从本行播放 10 秒">10s</button><span id="tlRange">全程</span></div><div id="anchorList" aria-label="锚点列表"></div></aside>
 <aside id="lectureSlides" aria-label="PPT 照片"><div id="slideStage" hidden><img id="slideNow" alt="当前 PPT 页"><span id="slideNowLabel">第 1 页</span></div><div id="slideNav"><button id="slidePrev" aria-label="上一页" title="上一页">◀</button><span id="slidePos">0 / 0</span><button id="slideNext" aria-label="下一页" title="下一页（录音中翻页自动打点）">▶</button><button id="slideMark" title="给当前页打一个时间点">📌 打点</button></div><div id="slideList" aria-label="PPT 照片列表"></div><button id="importSlide">＋ 导入 PPT 照片</button><button id="importPptx">📄 导入 PPT 文件</button>
@@ -91,6 +92,65 @@
 <div class="quickkeys" aria-label="编程快捷输入"><button data-key="tab">Tab</button><button data-key="undo" aria-label="撤销">↶</button><button data-key="redo" aria-label="重做">↷</button><button data-insert="(" data-pair=")">( )</button><button data-insert="[" data-pair="]">[ ]</button><button data-insert="{" data-pair="}">{ }</button><button data-insert=":">:</button><button data-insert="=">=</button><button data-insert="'">'</button><button data-insert="&quot;">"</button><button data-insert=",">,</button><button data-insert=".">.</button><button data-insert="#">#</button><button data-insert="    " aria-label="四空格缩进">␣␣</button><button data-key="left" aria-label="左移">←</button><button data-key="right" aria-label="右移">→</button><button data-key="newline" aria-label="换行">↵</button></div>
 <footer class="statusbar"><span id="saveState">草稿已保存</span><span id="position">第 1 行，第 1 列</span><span id="noteCount"></span><span class="grow"></span><span id="language">Python</span><span id="encoding">UTF-8</span></footer>
 <section id="lounge" hidden><div class="loungehead"><button id="codeTab">← 返回编辑器</button></div><article class="gamecard"><div class="gameart"><img src="../studio-game.png" alt="星火远征像素游戏场景"><span class="gamebadge">离线单机 · 进度保留</span></div><div class="gameinfo"><small>伍子平 · 星火远征</small><h2>从中山大学出发</h2><p>走进体内八境，或去数学星庭走一回机关。原来的游戏存档还在。</p><button id="playGame" class="primary playcta">进入游戏</button><p class="savehint" id="gameSaveInfo">进度自动保存。游戏里按返回键可回到这里。</p></div></article><div class="backuprow"><button id="exportGame">备份存档</button><button id="importGame">导入存档</button></div></section>
+
+<section id="modelPanel" hidden aria-label="3D 建模">
+ <div class="model-stage">
+  <canvas id="modelCanvas" aria-label="3D 画布"></canvas>
+  <div class="model-empty" id="modelEmpty"><strong>从一个形体开始</strong><span>点下方「添加」放一个立方体或球体，<br>单指转视角，双指缩放。</span></div>
+  <p class="model-hint" id="modelHint">单指转视角 · 双指缩放/平移 · 点物体选中</p>
+  <div class="model-top">
+   <span class="model-selchip" id="modelSelChip">点一个物体选中，空白处拖动转视角</span>
+   <button class="model-chipbtn" id="modelUndoBtn" type="button" aria-label="撤销" title="撤销" disabled>↶</button>
+   <button class="model-chipbtn" id="modelDupBtn" type="button" aria-label="复制选中物体" title="复制" disabled>⧉</button>
+   <button class="model-chipbtn" id="modelDeleteBtn" type="button" aria-label="删除选中物体" title="删除" disabled>🗑</button>
+  </div>
+  <div class="model-modes" role="tablist" aria-label="变换模式">
+   <button type="button" data-mode="object" class="active">选择</button>
+   <button type="button" data-mode="move">移动</button>
+   <button type="button" data-mode="rotate">旋转</button>
+   <button type="button" data-mode="scale">缩放</button>
+   <button type="button" data-mode="edit">编辑</button>
+  </div>
+  <div class="model-views" aria-label="视角">
+   <button type="button" data-view="home" aria-label="默认视角">⌂</button>
+   <button type="button" data-view="top" aria-label="顶视图">顶</button>
+   <button type="button" data-view="front" aria-label="前视图">前</button>
+   <button type="button" data-view="side" aria-label="侧视图">侧</button>
+  </div>
+ </div>
+ <div class="model-dock">
+  <button class="model-dockbtn primary" id="modelAddBtn" type="button"><span class="glyph">＋</span>添加</button>
+  <button class="model-dockbtn" id="modelPropsBtn" type="button"><span class="glyph">⚙</span>属性</button>
+  <button class="model-dockbtn" id="modelExtrudeBtn" type="button"><span class="glyph">⬆</span>挤出</button>
+  <button class="model-dockbtn" id="modelSceneBtn" type="button"><span class="glyph">☰</span>场景</button>
+  <button class="model-dockbtn" id="modelExportBtn" type="button"><span class="glyph">↗</span>导出</button>
+ </div>
+ <div class="model-sheet" data-sheet="add">
+  <div class="model-sheethead"><strong>添加形体</strong><button type="button" aria-label="关闭">✕</button></div>
+  <div class="model-sheetbody"><div class="model-addgrid" id="modelAddGrid"></div><p class="model-note">添加后切到「移动 / 旋转 / 缩放」拖彩色轴；「编辑」里可以拖顶点、选面挤出。</p></div>
+ </div>
+ <div class="model-sheet" data-sheet="props">
+  <div class="model-sheethead"><strong>属性</strong><button type="button" aria-label="关闭">✕</button></div>
+  <div class="model-sheetbody"><div class="model-props" id="modelPropsBody"></div></div>
+ </div>
+ <div class="model-sheet" data-sheet="scene">
+  <div class="model-sheethead"><strong>场景物体</strong><button type="button" aria-label="关闭">✕</button></div>
+  <div class="model-sheetbody"><div id="modelSceneBody"></div></div>
+ </div>
+ <div class="model-sheet" data-sheet="export">
+  <div class="model-sheethead"><strong>导出模型</strong><button type="button" aria-label="关闭">✕</button></div>
+  <div class="model-sheetbody">
+   <div class="model-exportlist">
+    <button type="button" data-export="glb"><strong>GLB（推荐）</strong><small>带材质颜色，Blender / 网页 / 3D 查看器都能打开</small></button>
+    <button type="button" data-export="obj"><strong>OBJ</strong><small>通用网格格式，几乎所有 3D 软件都认</small></button>
+    <button type="button" data-export="stl"><strong>STL</strong><small>3D 打印常用，只有形状没有颜色</small></button>
+   </div>
+   <p class="model-note">只导出显示中的物体。镜像、阵列、细分的效果会一并导出。编辑模式的顶点改动请先切回「选择」让它保存。</p>
+   <p class="model-note" id="modelEditInfo"></p>
+  </div>
+ </div>
+</section>
+<dialog id="modelRenameDialog"><form method="dialog"><span class="eyebrow">3D 建模</span><h2>重命名物体</h2><label for="modelRenameInput">名称</label><input id="modelRenameInput" autocomplete="off" maxlength="30"><div class="dialogactions"><button value="cancel">取消</button><button value="ok" class="primary">确定</button></div></form></dialog>
 
 <section id="aiPanel" hidden aria-label="AI 助手">
 <aside class="ai-side">
@@ -120,7 +180,7 @@
   <button id="aiNewSession" type="button">新会话</button><button id="aiExport" type="button">导出会话</button>
   <button id="aiImport" type="button">导入回放</button><button id="aiShare" type="button">分享卡</button></div>
  </header>
- <div class="ai-gate" id="aiGate"><p id="aiGateText">AI 助手默认不联网。开启后，请求只发往你填写的服务，密钥仅保存在本机工作区。</p><button id="aiGateBtn" type="button">我了解，开启联网</button></div>
+ <div class="ai-gate" id="aiGate"><p id="aiGateText">AI 助手平时不联网。开启后，消息只发给你自己填的服务，密钥也只存在这台手机上。</p><button id="aiGateBtn" type="button">知道了，开启联网</button></div>
  <p class="ai-status-hint" id="aiStatusHint">打开其他应用、分享、短信草稿、剪贴板和写文件之前，需要你点「允许」。</p>
  <div class="ai-messages" id="aiMessages" role="log" aria-live="polite"></div>
  <div class="ai-queue" id="aiQueue" hidden><strong id="aiQueueLabel">插话队列</strong><ul id="aiQueueList"></ul><button id="aiFlushQueue" type="button">立即发送</button></div>
@@ -144,7 +204,7 @@
 <dialog id="slideDialog"><form method="dialog"><span class="eyebrow">PPT</span><h2 id="slideTitle">照片预览</h2><img id="slideImage" alt="PPT 照片预览"><div class="dialogactions slidemanage"><button id="slideMoveUp" type="button">← 前移</button><button id="slideMoveDown" type="button">后移 →</button><button id="slideDelete" type="button" class="danger">删除本页</button></div><div class="dialogactions"><button id="slideDemoire" type="button">处理本页摩尔纹</button><button id="slideToggleRaw" type="button" hidden>对比原图</button><button value="cancel">关闭</button><button id="slideSeek" value="seek" class="primary">跳到此页开始</button></div></form></dialog>
 <dialog id="menuDialog" class="menu"><div class="menutitle">操作</div><div class="menugrid"><button id="menuMode">回到首页</button><button id="menuNew">新建文件</button><button id="menuTemplates">笔记模板</button><button id="menuQuiz">笔记出题</button><button id="menuOpen">打开文件</button><button id="menuFolder">导入文件夹</button><button id="menuSave">保存</button><button id="exportButton">另存为…</button><button id="findButton">查找替换</button><button id="settingsButton">编辑器设置</button><button id="menuGame">进入游戏</button></div><form method="dialog"><button class="menuclose">关闭</button></form></dialog>
 <dialog id="nameDialog"><form method="dialog"><span class="eyebrow">文件</span><h2 id="nameTitle">新建文件</h2><label for="fileName">文件路径</label><input id="fileName" autocomplete="off" spellcheck="false" placeholder="例如 utils/helper.py"><p class="hint" id="nameHint">可带子文件夹；请写扩展名，例如 .py。</p><div class="dialogactions"><button value="cancel">取消</button><button id="confirmName" value="default" class="primary">创建</button></div></form></dialog>
-<dialog id="settingsDialog"><form method="dialog"><span class="eyebrow">编辑器</span><h2>设置</h2><div class="setrow"><label for="fontSize">字号</label><input id="fontSize" type="range" min="12" max="24" value="15"><output id="fontSizeValue">15</output></div><label class="check"><input id="wordWrap" type="checkbox"> 长行自动换行</label><div class="setrow"><label for="timeLimit">运行上限</label><select id="timeLimit"><option value="15">15 秒</option><option value="30">30 秒</option><option value="60">60 秒</option></select></div><p class="hint">Python 在手机本地离线运行，支持常用标准库。C/C++、Java 可编辑，暂不编译。</p><div class="dialogactions"><button class="primary">完成</button></div></form></dialog>
+<dialog id="settingsDialog"><form method="dialog"><span class="eyebrow">编辑器</span><h2>设置</h2><div class="setrow"><label for="fontSize">字号</label><input id="fontSize" type="range" min="12" max="24" value="15"><output id="fontSizeValue">15</output></div><label class="check"><input id="wordWrap" type="checkbox"> 长行自动换行</label><div class="setrow"><label for="timeLimit">运行上限</label><select id="timeLimit"><option value="15">15 秒</option><option value="30">30 秒</option><option value="60">60 秒</option></select></div><p class="hint">Python 和 C/C++ 都在手机本地运行，不联网。C++ 首次运行要加载编译器，稍等几秒。Java 目前只能编辑。</p><div class="dialogactions"><button class="primary">完成</button></div></form></dialog>
 <dialog id="templateDialog" class="template-dialog" aria-labelledby="templateTitle">
  <div class="template-head"><span class="eyebrow">笔记</span><h2 id="templateTitle">笔记模板</h2><p>选择模板后新建一篇，或插入到当前笔记。文件名冲突会自动编号。</p></div>
  <div id="templateList" class="template-list" role="radiogroup" aria-label="选择笔记模板"></div>
@@ -157,7 +217,7 @@
   <div id="quizSetup" class="quiz-setup">
    <p id="quizNoteInfo" class="quiz-noteinfo"></p>
    <div class="quiz-setrow"><label for="quizCount">题数</label><select id="quizCount"><option value="5">5 题</option><option value="10">10 题</option></select></div>
-   <div id="quizPrivacy" class="quiz-privacy">隐私：点「AI 生成」会把当前笔记正文发送到你配置的接口。只有点击按钮才会发送；取消或关闭对话框会中断这次请求。离线练习只在本机生成，不发送任何内容。</div>
+   <div id="quizPrivacy" class="quiz-privacy">点「AI 生成」才会把这篇笔记发给你配置的接口，中途取消就停。选离线练习的话，全程不出这台手机。</div>
    <p id="quizHint" class="quiz-hint"></p>
    <div class="quiz-actions"><button id="quizOffline" type="button">离线练习（不发送）</button><button id="quizAi" type="button" class="primary">AI 生成（发送笔记）</button></div>
   </div>

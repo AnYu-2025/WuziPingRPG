@@ -36,7 +36,7 @@ $unsigned=Join-Path $work 'unsigned.apk'
 $page=Join-Path $root 'studio/src/main/assets/studio/index.html'
 Copy-Item -LiteralPath $page -Destination (Join-Path $root 'studio/src/main/assets/studio/editor.page') -Force
 Copy-Item -LiteralPath $page -Destination (Join-Path $root 'studio/src/main/assets/editor.page') -Force
-Checked (Join-Path $bt 'aapt2.exe') @('link','-o',$unsigned,'--manifest',$manifest,'-I',$platform,'-A',(Join-Path $root 'app/src/main/assets'),'-A',(Join-Path $root 'studio/src/main/assets'),'-0','wav','-0','wasm','-0','zip','-0','js','-0','mjs','-0','html','-0','css','-0','page','--min-sdk-version','23','--target-sdk-version','34','--version-code',$VersionCode,'--version-name',$VersionName,$resources)
+Checked (Join-Path $bt 'aapt2.exe') @('link','-o',$unsigned,'--manifest',$manifest,'-I',$platform,'-A',(Join-Path $root 'app/src/main/assets'),'-A',(Join-Path $root 'studio/src/main/assets'),'-0','wav','-0','wasm','-0','zip','-0','js','-0','mjs','-0','html','-0','css','-0','page','-0','gz','--min-sdk-version','23','--target-sdk-version','34','--version-code',$VersionCode,'--version-name',$VersionName,$resources)
 Checked (Join-Path $JdkRoot 'bin/jar.exe') @('uf',$unsigned,'-C',$dex,'classes.dex')
 # aapt2 on Windows writes nested assets as assets/studio\style.css; Android reads
 # entry names literally, so normalize the stored names before alignment/signing.

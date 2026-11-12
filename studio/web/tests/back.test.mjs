@@ -11,7 +11,7 @@ const editor={homeOpen:false,mode:'python',dialogOpen:false,drawerOpen:false,dra
 test('modules are grouped for the hub and every module has a Chinese name',()=>{
   assert.deepEqual(GROUPS.map(g=>g.id),['study','create','more']);
   assert.deepEqual(modulesInGroup('study').map(item=>item.id),['lecture','tts','scan']);
-  assert.deepEqual(modulesInGroup('create').map(item=>item.id),['python','notepad','photo']);
+  assert.deepEqual(modulesInGroup('create').map(item=>item.id),['python','notepad','photo','model']);
   assert.deepEqual(modulesInGroup('more').map(item=>item.id),['ai','game']);
   assert.equal(HOME_ACTIONS,MODULES);
   for(const item of MODULES){
@@ -137,7 +137,7 @@ test('leaving for home keeps unsaved drafts and names files not written back',()
   assert.match(exitCopy([]).message,/草稿会留在本机/);
   const card=resumeCard({mode:'python',activePath:'main.py',dirty:1,fromSession:true});
   assert.equal(card.visible,true);
-  assert.equal(card.title,'继续写 Python');
+  assert.equal(card.title,'继续写代码');
   assert.match(card.detail,/main\.py/);
   assert.match(card.detail,/还没写回/);
 });
@@ -145,6 +145,13 @@ test('leaving for home keeps unsaved drafts and names files not written back',()
 test('a blank resume is hidden and a saved mode can be continued',()=>{
   assert.equal(resumeCard({mode:''}).visible,false);
   assert.equal(resumeCard({mode:'notepad',activePath:'笔记.txt'}).title,'继续记事本');
+  assert.equal(resumeCard({mode:'model'}).title,'继续 3D 建模');
+  assert.equal(moduleAvailability('model',{}).ok,true);
+});
+
+test('the 3D model panel is a layer that closes before leaving the mode',()=>{
+  const run=repeatBack({homeOpen:false,mode:'model',layers:['modelPanel']},3);
+  assert.deepEqual(run.trace,[BACK.LAYER,BACK.HOME,BACK.EXIT]);
 });
 
 test('mode changes protect a recording and a running program',()=>{
@@ -155,6 +162,7 @@ test('mode changes protect a recording and a running program',()=>{
   assert.equal(canLeaveMode({running:true,to:'game'}).ok,true);
   assert.equal(canLeaveMode({to:'python'}).flush,true);
   assert.equal(canLeaveMode({running:true,to:'scan'}).ok,false);
+  assert.equal(canLeaveMode({running:true,to:'model'}).ok,false);
   assert.equal(canLeaveMode({recording:true,to:'photo'}).ok,false);
 });
 
