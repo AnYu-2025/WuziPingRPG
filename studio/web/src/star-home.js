@@ -40,7 +40,32 @@ export function starPositions(n,radius=R){
 export function initStarHome(env){
   const $=id=>document.getElementById(id);
   let renderer=null,scene=null,camera=null,group=null,stars=new Map();
-  let hole=null,holeDisk=null,holeGlow=null,labels=new Map();
+  let hole=null,holeDisk=null,holeGlow=null,labels=new Map(),constellation=null;
+  const buzz=ms=>{try{if(navigator.vibrate)navigator.vibrate(ms);}catch(e){}};
+  /* 近邻星连成星座线：每颗可见星连最近的两颗，去重；收纳后重连。 */
+  function buildConstellation(){
+    if(constellation){group.remove(constellation);constellation.geometry.dispose();constellation.material.dispose();constellation=null;}
+    const ids=[...stars.keys()].filter(id=>stars.get(id).sprite.visible);
+    const pairs=new Set();
+    for(const a of ids){
+      const pa=stars.get(a).base;
+      const near=ids.filter(b=>b!==a)
+        .map(b=>({b,d:pa.distanceTo(stars.get(b).base)}))
+        .sort((x,y)=>x.d-y.d).slice(0,2);
+      for(const {b} of near)pairs.add(a<b?a+'|'+b:b+'|'+a);
+    }
+    const pos=[];
+    for(const key of pairs){
+      const [a,b]=key.split('|');
+      const pa=stars.get(a).base,pb=stars.get(b).base;
+      pos.push(pa.x,pa.y,pa.z,pb.x,pb.y,pb.z);
+    }
+    if(!pos.length)return;
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+    constellation=new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:0x8fb7ff,transparent:true,opacity:.16,depthWrite:false}));
+    group.add(constellation);
+  }
   let active=false,raf=0,dirty=true;
   let vel={x:0,y:0},tilt={x:0,y:0},tiltTarget={x:0,y:0};
   let drag=null,downInfo=null,dragStar=null,dragPlane=null,dragMoved=false;
@@ -137,6 +162,7 @@ export function initStarHome(env){
       labels.set(m.id,label);
     });
     applyStarred();
+    buildConstellation();
     dirty=true;
   }
 
@@ -149,6 +175,7 @@ export function initStarHome(env){
       if(label)label.hidden=hiddenStar;
     }
     updateHoleBadge();
+    buildConstellation();
   }
   function updateHoleBadge(){
     const badge=$('starHoleBadge');
@@ -226,7 +253,7 @@ export function initStarHome(env){
         if(pickHole(e))openHole();
         else{
           const id=pickStar(e);
-          if(id)env.open(id);
+          if(id){buzz(8);env.open(id);}
         }
       }
       dragStar=null;drag=null;downInfo=null;
@@ -252,6 +279,7 @@ export function initStarHome(env){
   }
   function finishStar(id){
     if(!prefs.starred.includes(id))prefs.starred.push(id);
+    buzz([12,40,12]);
     savePrefs();applyStarred();
     const s=stars.get(id);if(s)s.sprite.position.copy(s.base);
     const m=env.modules().find(x=>x.id===id);

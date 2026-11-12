@@ -19,7 +19,7 @@ import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {STLLoader} from 'three/examples/jsm/loaders/STLLoader.js';
 import {mergeGeometries,mergeVertices} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {SimplifyModifier} from 'three/examples/jsm/modifiers/SimplifyModifier.js';
-import {extrudeFaces,insetFaces,deleteFaces,weldVertices,extractGeometry,faceKey} from './mesh-ops.js';
+import {extrudeFaces,insetFaces,deleteFaces,weldVertices,extractGeometry,faceKey,uniqueEdges} from './mesh-ops.js';
 
 const MAX_OBJECTS=60,MAX_VERTS=24000,MAX_HISTORY=24;
 /* 导入的 mesh 允许更大面数（只渲染不逐点编辑）；可编辑上限仍是 MAX_VERTS。 */
@@ -65,6 +65,7 @@ export function modelSanitize(raw){
       scl:scl&&scl.length===3?scl:[1,1,1],
       color:/^#[0-9a-fA-F]{6}$/.test(item.color)?item.color:PALETTE[objects.length%PALETTE.length],
       metal:clamp(num(item.metal,0),0,1),rough:clamp(num(item.rough,.65),0,1),
+      flat:item.flat===true,
       visible:item.visible!==false,
       mods:{mirror:item.mods&&item.mods.mirror===true,array:clamp(Math.floor(num(item.mods&&item.mods.array,0)),0,6),subdiv:clamp(Math.floor(num(item.mods&&item.mods.subdiv,0)),0,2)},
       verts,faces
@@ -88,6 +89,7 @@ export function initModel(env){
   let orthoHalfH=3,wireframe=false;
   let meshes=new Map(),selectedId=0,mode='object',editSel=null,editDrag=null;
   let active=false,dirty=false,raf=0,sheet='',history=[],redoStack=[],editOverlay=null,mirrorEdit=false;
+  let editSub='vertex',editEdge=null;
   let raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
   let hintTimer=0,saveTimer=0;
   const host=()=>$('modelPanel');
@@ -246,7 +248,7 @@ export function initModel(env){
   function materialFor(o){
     return new THREE.MeshStandardMaterial({
       color:new THREE.Color(o.color),metalness:o.metal,roughness:o.rough,
-      flatShading:o.type==='ico'&&!o.verts,
+      flatShading:o.flat||(o.type==='ico'&&!o.verts),
       /* 双面：删面/开壳模型从内侧也能看见，不会"消失"。 */
       side:THREE.DoubleSide
     });
@@ -339,7 +341,7 @@ export function initModel(env){
     return hits[0];
   }
   function select(id,{silent=false}={}){
-    selectedId=id;editSel=null;editFaces=[];
+    selectedId=id;editSel=null;editFaces=[];editEdge=null;
     refreshSelection();refreshSceneList();syncProps();
     if(!silent)invalidate();
   }
@@ -390,11 +392,23 @@ export function initModel(env){
     for(let i=0;i<pos.count;i++){pts[i*3]=pos.getX(i);pts[i*3+1]=pos.getY(i);pts[i*3+2]=pos.getZ(i);}
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.BufferAttribute(pts,3));
-    const mat=new THREE.PointsMaterial({color:0x7fe0c3,size:.055,sizeAttenuation:true,depthTest:false,transparent:true,opacity:.95});
+    const mat=new THREE.PointsMaterial({color:0x7fe0c3,size:.055,sizeAttenuation:true,depthTest:false,transparent:true,opacity:editSub==='face'?.3:.95});
     const points=new THREE.Points(geo,mat);
     points.renderOrder=10;
     points.position.copy(g.position);points.rotation.copy(g.rotation);points.scale.copy(g.scale);
     editOverlay.add(points);
+    /* 选中边用橙色线段高亮。 */
+    if(editEdge&&editSub==='edge'&&editEdge.a<pos.count&&editEdge.b<pos.count){
+      const eg=new THREE.BufferGeometry();
+      eg.setAttribute('position',new THREE.Float32BufferAttribute([
+        pos.getX(editEdge.a),pos.getY(editEdge.a),pos.getZ(editEdge.a),
+        pos.getX(editEdge.b),pos.getY(editEdge.b),pos.getZ(editEdge.b)
+      ],3));
+      const line=new THREE.Line(eg,new THREE.LineBasicMaterial({color:0xffb454,depthTest:false,transparent:true,opacity:.95}));
+      line.renderOrder=11;
+      line.position.copy(g.position);line.rotation.copy(g.rotation);line.scale.copy(g.scale);
+      editOverlay.add(line);
+    }
     /* 选中面用半透明橙色面片高亮，比只标顶点直观。 */
     if(editFaces.length){
       const fv=[];
@@ -417,9 +431,13 @@ export function initModel(env){
   }
   function editInfoText(){
     const label=$('modelEditInfo');if(!label)return;
+    if(editSub==='edge'){
+      label.textContent=editEdge?'已选中一条边，直接拖动两端':'点边选中，再点取消；拖动移动整条边';
+      return;
+    }
     if(editSel&&editSel.vertex>=0)label.textContent='已选中顶点 #'+editSel.vertex+'，直接拖动';
     else if(editFaces.length)label.textContent='已选 '+editFaces.length+' 个面：可拖动、挤出、内插、删除';
-    else label.textContent='点顶点或面选中；再点已选面可取消';
+    else label.textContent=editSub==='face'?'点面选中（可多选）；再点已选面取消':'点顶点选中，直接拖动';
   }
   function pickVertex(hit,o){
     const g=meshOf(o.id);if(!g)return -1;
@@ -439,6 +457,29 @@ export function initModel(env){
   function pickFace(hit){
     return hit.face?{a:hit.face.a,b:hit.face.b,c:hit.face.c,normal:hit.face.normal.clone()}:null;
   }
+  /* 边拾取：在命中面的三条边里找离命中点最近的；顶点优先（避免角上误选边）。 */
+  function pickEdge(hit,o){
+    const g=meshOf(o.id);if(!g||!hit.face)return null;
+    const base=g.children[0];
+    const pos=base.geometry.getAttribute('position');
+    if(!pos)return null;
+    const local=g.worldToLocal(hit.point.clone());
+    const va=new THREE.Vector3(),vb=new THREE.Vector3(),p=new THREE.Vector3();
+    let best=null,bestD=Infinity;
+    const tri=[hit.face.a,hit.face.b,hit.face.c];
+    for(let j=0;j<3;j++){
+      const a=tri[j],b=tri[(j+1)%3];
+      if(a>=pos.count||b>=pos.count)continue;
+      va.fromBufferAttribute(pos,a);vb.fromBufferAttribute(pos,b);
+      const ab=vb.clone().sub(va);
+      const t=clamp(local.clone().sub(va).dot(ab)/(ab.lengthSq()||1),0,1);
+      p.copy(va).addScaledVector(ab,t);
+      const d=p.distanceTo(local);
+      if(d<bestD){bestD=d;best={a:Math.min(a,b),b:Math.max(a,b)};}
+    }
+    const tolerance=Math.max(.07,.07*g.scale.length()/1.7);
+    return best&&bestD<tolerance?best:null;
+  }
 
   /* ---------- 指针交互 ---------- */
   let downInfo=null;
@@ -452,14 +493,18 @@ export function initModel(env){
       if(o&&hit&&hit.object.userData.modelId===selectedId){
         const vi=pickVertex(hit,o);
         const face=pickFace(hit);
-        /* 点在已选面上 → 拖动整个选区；点在顶点上 → 拖顶点；否则先不启动拖动，抬手时做选择。 */
-        const onSelectedFace=face&&selectedFaceKeys().has(faceKey(face.a,face.b,face.c));
-        if(vi>=0||onSelectedFace){
-          editSel={vertex:vi,face};
+        let dragKind=null;
+        if(editSub==='vertex'&&vi>=0)dragKind='vertex';
+        else if(editSub==='edge'){
+          const edge=pickEdge(hit,o);
+          if(edge&&editEdge&&edge.a===editEdge.a&&edge.b===editEdge.b)dragKind='edge';
+        }else if(editSub==='face'&&face&&selectedFaceKeys().has(faceKey(face.a,face.b,face.c)))dragKind='face';
+        if(dragKind){
+          editSel=dragKind==='vertex'?{vertex:vi,face}:null;
           const plane=new THREE.Plane();
           const normal=new THREE.Vector3();camera.getWorldDirection(normal);
           plane.setFromNormalAndCoplanarPoint(normal,hit.point);
-          editDrag={plane,start:hit.point.clone(),vi,moved:false};
+          editDrag={plane,start:hit.point.clone(),vi:dragKind==='vertex'?vi:-1,kind:dragKind,moved:false};
           orbit.enabled=false;
           $('modelCanvas').setPointerCapture(e.pointerId);
           highlightEdit(o);
@@ -487,16 +532,18 @@ export function initModel(env){
     pushHistoryOnce();
     const base=g.children[0];
     const pos=base.geometry.getAttribute('position');
-    const indices=editDrag.vi>=0?[editDrag.vi]:editFaces.flatMap(f=>[f.a,f.b,f.c]);
+    const indices=editDrag.kind==='vertex'?[editDrag.vi]:editDrag.kind==='edge'&&editEdge?[editEdge.a,editEdge.b]:editFaces.flatMap(f=>[f.a,f.b,f.c]);
     const unique=[...new Set(indices)];
-    /* 镜像编辑：拖一个顶点，X 对称位置的顶点反向跟着动。 */
+    /* 镜像编辑：拖点/边时，X 对称位置的顶点反向跟着动。 */
     const mirrorPairs=[];
-    if(mirrorEdit&&editDrag.vi>=0){
-      const sx=-pos.getX(editDrag.vi),sy=pos.getY(editDrag.vi),sz=pos.getZ(editDrag.vi);
-      for(let i=0;i<pos.count;i++){
-        if(i===editDrag.vi)continue;
-        const dx=pos.getX(i)-sx,dy=pos.getY(i)-sy,dz=pos.getZ(i)-sz;
-        if(dx*dx+dy*dy+dz*dz<1e-6)mirrorPairs.push(i);
+    if(mirrorEdit&&(editDrag.kind==='vertex'||editDrag.kind==='edge')){
+      for(const src of unique){
+        const sx=-pos.getX(src),sy=pos.getY(src),sz=pos.getZ(src);
+        for(let i=0;i<pos.count;i++){
+          if(unique.includes(i))continue;
+          const dx=pos.getX(i)-sx,dy=pos.getY(i)-sy,dz=pos.getZ(i)-sz;
+          if(dx*dx+dy*dy+dz*dz<1e-6&&!mirrorPairs.includes(i))mirrorPairs.push(i);
+        }
       }
     }
     for(const i of unique){
@@ -532,17 +579,22 @@ export function initModel(env){
       if(mode==='edit'){
         if(id===selectedId){
           const o=findData(id);
-          const vi=pickVertex(hit,o),face=pickFace(hit);
-          if(vi>=0){
-            editSel={vertex:vi,face};
-          }else if(face){
-            /* 面多选：再点已选面取消，点新面加入。 */
-            const key=faceKey(face.a,face.b,face.c);
-            const at=editFaces.findIndex(f=>faceKey(f.a,f.b,f.c)===key);
-            if(at>=0)editFaces.splice(at,1);else editFaces.push(face);
-            editSel={vertex:-1,face};
-          }else{
+          if(editSub==='edge'){
+            const edge=pickEdge(hit,o);
+            editEdge=edge&&editEdge&&edge.a===editEdge.a&&edge.b===editEdge.b?null:edge;
             editSel=null;
+          }else if(editSub==='face'){
+            const face=pickFace(hit);
+            if(face){
+              /* 面多选：再点已选面取消，点新面加入。 */
+              const key=faceKey(face.a,face.b,face.c);
+              const at=editFaces.findIndex(f=>faceKey(f.a,f.b,f.c)===key);
+              if(at>=0)editFaces.splice(at,1);else editFaces.push(face);
+              editSel={vertex:-1,face};
+            }else editSel=null;
+          }else{
+            const vi=pickVertex(hit,o);
+            editSel=vi>=0?{vertex:vi,face:pickFace(hit)}:null;
           }
           highlightEdit(o);
           editInfoText();
@@ -877,6 +929,16 @@ export function initModel(env){
       range.onchange=()=>commitSoon();
       row.append(name,range,out);matGroup.append(row);
     }
+    const flatLabel=document.createElement('label');flatLabel.className='model-check';
+    const flatCheck=document.createElement('input');flatCheck.type='checkbox';flatCheck.checked=!!o.flat;
+    flatCheck.onchange=()=>{
+      mutate(next=>{next.objects.find(x=>x.id===o.id).flat=flatCheck.checked;});
+      const t=meshOf(o.id);
+      if(t)t.traverse(m=>{if(m.isMesh){m.material.flatShading=flatCheck.checked;m.material.needsUpdate=true;}});
+      invalidate();
+    };
+    flatLabel.append(flatCheck,document.createTextNode('平直着色（硬边低多边形感）'));
+    matGroup.append(flatLabel);
     box.append(matGroup);
     /* 修改器 */
     const modGroup=document.createElement('div');modGroup.className='model-propgroup';
@@ -1050,6 +1112,34 @@ export function initModel(env){
     }
   }
 
+  /* ---------- 场景工程（.tgscene：整场景 JSON，可备份/分享/恢复） ---------- */
+  function exportSceneProject(){
+    const data=env.getState();
+    if(!data.objects.length){env.notify('场景是空的，先添加一个形体。');return;}
+    const payload=JSON.stringify({app:'tiangong-model',version:1,savedAt:Date.now(),scene:modelSanitize(data)});
+    env.exportBinary('天工场景.tgscene',new TextEncoder().encode(payload),'application/json');
+  }
+  async function importSceneProject(file){
+    if(!file)return;
+    if(file.size>MAX_IMPORT_BYTES){env.notify('工程文件太大，手机上解析不动。');return;}
+    try{
+      const text=new TextDecoder().decode(await file.arrayBuffer());
+      const raw=JSON.parse(text);
+      if(!raw||raw.app!=='tiangong-model'||!raw.scene){env.notify('这不是天工场景工程文件（.tgscene）。');return;}
+      const scene=modelSanitize(raw.scene);
+      if(!scene.objects.length){env.notify('工程里没有物体。');return;}
+      pushHistory();historyPending=false;
+      env.setState(scene);
+      selectedId=0;editSel=null;editFaces=[];editEdge=null;
+      rebuildAll();
+      if(scene.camera&&camera&&orbit){camera.position.fromArray(scene.camera.pos);orbit.target.fromArray(scene.camera.target);}
+      closeSheet();commitSoon();
+      env.notify('已恢复场景（'+scene.objects.length+' 个物体），可撤销回到之前。');
+    }catch(e){
+      env.notify('工程解析失败：'+(e&&e.message||e));
+    }
+  }
+
   /* ---------- 导出 ---------- */
   function exportGroup(){
     const group=new THREE.Group();
@@ -1141,9 +1231,10 @@ export function initModel(env){
           commitSoon();
         }
         if(next!=='object'&&next!=='edit'&&!selectedId){env.notify('先点选一个物体。');return;}
-        mode=next;editSel=null;editFaces=[];
-        const info=$('modelEditInfo');if(info)info.textContent=next==='edit'?'点顶点或面选中（面可多选），选中后直接拖动；挤出/内插/删面在下方工具条':'';
+        mode=next;editSel=null;editFaces=[];editEdge=null;
+        const info=$('modelEditInfo');if(info)info.textContent=next==='edit'?'下方选点/线/面；选中后直接拖动；挤出/内插/删面在工具条':'';
         const editTools=$('modelEditTools');if(editTools)editTools.hidden=next!=='edit';
+        const subRow=$('modelSubRow');if(subRow)subRow.hidden=next!=='edit';
         refreshSelection();
       };
     }
@@ -1167,7 +1258,22 @@ export function initModel(env){
     const undoBtn=$('modelUndoBtn');if(undoBtn){undoBtn.disabled=true;undoBtn.onclick=undo;}
     const redoBtn=$('modelRedoBtn');if(redoBtn){redoBtn.disabled=true;redoBtn.onclick=redo;}
     const mirrorBtn=$('modelMirrorEditBtn');
-    if(mirrorBtn)mirrorBtn.onclick=()=>{mirrorEdit=!mirrorEdit;mirrorBtn.classList.toggle('active',mirrorEdit);env.notify(mirrorEdit?'镜像编辑开：拖顶点时 X 对称点跟着动。':'镜像编辑关。');};
+    if(mirrorBtn)mirrorBtn.onclick=()=>{mirrorEdit=!mirrorEdit;mirrorBtn.classList.toggle('active',mirrorEdit);env.notify(mirrorEdit?'镜像编辑开：拖点/边时 X 对称点跟着动。':'镜像编辑关。');};
+    for(const b of document.querySelectorAll('#modelSubRow button')){
+      b.onclick=()=>{
+        editSub=b.dataset.sub;editSel=null;editFaces=[];editEdge=null;
+        for(const x of document.querySelectorAll('#modelSubRow button'))x.classList.toggle('active',x===b);
+        const o=findData(selectedId);if(o)highlightEdit(o);
+        editInfoText();invalidate();
+      };
+    }
+    const sceneExportBtn=$('modelSceneExportBtn');if(sceneExportBtn)sceneExportBtn.onclick=exportSceneProject;
+    const sceneImportBtn=$('modelSceneImportBtn');
+    const sceneInput=$('modelSceneInput');
+    if(sceneImportBtn&&sceneInput){
+      sceneImportBtn.onclick=()=>sceneInput.click();
+      sceneInput.onchange=()=>{const f=sceneInput.files&&sceneInput.files[0];sceneInput.value='';importSceneProject(f);};
+    }
     const presetRow=$('modelPresetRow');
     if(presetRow){
       presetRow.replaceChildren();

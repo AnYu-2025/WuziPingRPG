@@ -171,6 +171,24 @@ export function simplifyMesh(verts,faces,targetFaces){
   return {verts:v,faces:f};
 }
 
+/* 从面表提取唯一边（无向，a<b）。 */
+export function uniqueEdges(faces){
+  const seen=new Set();
+  const out=[];
+  for(let i=0;i<faces.length;i+=3){
+    const tri=[faces[i],faces[i+1],faces[i+2]];
+    for(let j=0;j<3;j++){
+      const a=tri[j],b=tri[(j+1)%3];
+      const lo=Math.min(a,b),hi=Math.max(a,b);
+      const key=lo+'_'+hi;
+      if(seen.has(key))continue;
+      seen.add(key);
+      out.push([lo,hi]);
+    }
+  }
+  return out;
+}
+
 /* 从 three 几何体（索引或非索引）提取 {verts,faces}。 */
 export function extractGeometry(geometry){
   const pos=geometry.getAttribute('position');

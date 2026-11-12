@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {extrudeFaces,insetFaces,deleteFaces,weldVertices,simplifyMesh,faceKey} from '../src/mesh-ops.js';
+import {extrudeFaces,insetFaces,deleteFaces,weldVertices,simplifyMesh,faceKey,uniqueEdges} from '../src/mesh-ops.js';
 
 /* 单个朝上的三角形 */
 const TRI={verts:[0,0,0, 1,0,0, 0,0,1],faces:[0,1,2]};
@@ -115,4 +115,13 @@ test('simplify below target is a no-op',()=>{
 test('faceKey is winding-independent',()=>{
   assert.equal(faceKey(0,1,2),faceKey(2,0,1));
   assert.notEqual(faceKey(0,1,2),faceKey(0,1,3));
+});
+
+test('uniqueEdges dedupes shared edges with a<b ordering',()=>{
+  /* 两个三角形共享边 1-2：共 5 条唯一边 */
+  const edges=uniqueEdges([0,1,2, 0,2,3]);
+  assert.equal(edges.length,5);
+  for(const [a,b] of edges)assert.ok(a<b);
+  assert.ok(edges.some(([a,b])=>a===1&&b===2));
+  assert.deepEqual(uniqueEdges([]),[]);
 });

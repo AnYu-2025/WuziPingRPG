@@ -77,6 +77,12 @@ test('sanitize is idempotent',()=>{
   assert.deepEqual(twice,once);
 });
 
+test('flat shading flag is boolean and defaults false',()=>{
+  assert.equal(modelSanitize({objects:[{type:'cube'}]}).objects[0].flat,false);
+  assert.equal(modelSanitize({objects:[{type:'cube',flat:true}]}).objects[0].flat,true);
+  assert.equal(modelSanitize({objects:[{type:'cube',flat:'yes'}]}).objects[0].flat,false);
+});
+
 test('imported mesh type requires vertex data and allows larger meshes',()=>{
   /* 没有顶点的 mesh 被丢弃 */
   assert.equal(modelSanitize({objects:[{type:'mesh'}]}).objects.length,0);

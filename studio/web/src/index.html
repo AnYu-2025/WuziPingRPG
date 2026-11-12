@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.1</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.2</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -128,6 +128,11 @@
    <button type="button" data-mode="scale">缩放</button>
    <button type="button" data-mode="edit">编辑</button>
   </div>
+  <div class="model-subrow" id="modelSubRow" hidden role="tablist" aria-label="编辑子模式">
+   <button type="button" data-sub="vertex" class="active">点</button>
+   <button type="button" data-sub="edge">线</button>
+   <button type="button" data-sub="face">面</button>
+  </div>
   <div class="model-edittools" id="modelEditTools" hidden aria-label="编辑工具">
    <button type="button" id="modelExtrudeBtn">⬆ 挤出</button>
    <button type="button" id="modelInsetBtn">⬇ 内插</button>
@@ -162,7 +167,7 @@
  </div>
  <div class="model-sheet" data-sheet="scene">
   <div class="model-sheethead"><strong>场景物体</strong><button type="button" aria-label="关闭">✕</button></div>
-  <div class="model-sheetbody"><div id="modelSceneBody"></div></div>
+  <div class="model-sheetbody"><div id="modelSceneBody"></div><div class="model-propactions" style="margin-top:10px"><button type="button" id="modelSceneExportBtn">⇩ 导出工程</button><button type="button" id="modelSceneImportBtn">⇪ 导入工程</button></div><input type="file" id="modelSceneInput" accept=".tgscene,.json" hidden><p class="model-note">工程文件（.tgscene）保存整个场景，可备份或发给别人；导入会替换当前场景，可撤销。</p></div>
  </div>
  <div class="model-sheet" data-sheet="export">
   <div class="model-sheethead"><strong>导出模型</strong><button type="button" aria-label="关闭">✕</button></div>
