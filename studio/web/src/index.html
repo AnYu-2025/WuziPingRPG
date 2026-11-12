@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.8</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.9</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -38,6 +38,7 @@
    <button class="home-card" type="button" data-mode="tts" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">EN</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>英文朗读</strong><small>按句子朗读英文，可调语速</small></span></button>
    <button class="home-card" type="button" data-mode="scan" data-kind="native" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">▣</span><span class="home-tag">相机</span></span><span class="home-copy"><strong>扫描文档</strong><small>拍书页和讲义，自动裁边，导出 PDF</small></span></button>
    <button class="home-card" type="button" data-mode="focus" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🍅</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>专注番茄</strong><small>工作/休息循环，统计今日专注</small></span></button>
+   <button class="home-card" type="button" data-mode="cards" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🗂</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>记忆卡片</strong><small>间隔重复背卡，到期自动提醒</small></span></button>
   </div>
  </section>
  <section class="home-group" data-group="create" aria-label="创作">
@@ -209,6 +210,39 @@
    <label>长休<input id="focusLongMin" type="number" min="1" max="60" inputmode="numeric">分</label>
   </div>
   <p class="focus-stats" id="focusStats">今日 0 个 · 累计 0 个</p>
+  <div class="focus-chart" id="focusChart" aria-label="最近7天专注"></div>
+ </div>
+</section>
+
+<section id="cardsPanel" hidden aria-label="记忆卡片">
+ <div class="cards-wrap">
+  <div class="cards-head">
+   <strong>记忆卡片</strong>
+   <span class="cards-stats" id="cardsStats"></span>
+  </div>
+  <div class="cards-review" id="cardsReview">
+   <button class="cards-face" id="cardsFace" type="button" aria-label="翻面">
+    <span class="cards-face-text" id="cardsFaceText">点「开始复习」</span>
+    <span class="cards-face-hint" id="cardsFaceHint"></span>
+   </button>
+   <div class="cards-rate" id="cardsRate" hidden>
+    <button type="button" data-rate="0" class="r0">忘了</button>
+    <button type="button" data-rate="1" class="r1">困难</button>
+    <button type="button" data-rate="2" class="r2">良好</button>
+    <button type="button" data-rate="3" class="r3">轻松</button>
+   </div>
+   <div class="cards-actions">
+    <button id="cardsStart" class="primary" type="button">开始复习</button>
+    <button id="cardsToggleAdd" type="button">添加卡片</button>
+    <button id="cardsToggleList" type="button">卡片列表</button>
+   </div>
+  </div>
+  <div class="cards-add" id="cardsAdd" hidden>
+   <label>正面<input id="cardsFront" type="text" maxlength="500" placeholder="问题 / 单词"></label>
+   <label>背面<textarea id="cardsBack" rows="3" maxlength="1000" placeholder="答案 / 释义"></textarea></label>
+   <div class="cards-actions"><button id="cardsSave" class="primary" type="button">保存卡片</button></div>
+  </div>
+  <div class="cards-list" id="cardsList" hidden></div>
  </div>
 </section>
 

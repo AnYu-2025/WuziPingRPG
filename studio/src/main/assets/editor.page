@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.7</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.9</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -13,9 +13,10 @@
  <div id="starLabels"></div>
  <div class="star-hud">
   <span class="star-hint">拨转星空 · 点星打开 · 长按拖进黑洞收纳</span>
-  <span class="grow"></span>
-  <button id="starMotionBtn" type="button" aria-label="切换晃动">晃动</button>
-  <button id="starListBtn" type="button" aria-label="列表视图">列表</button>
+  <div class="star-hud-actions">
+   <button id="starMotionBtn" type="button" aria-label="切换晃动">晃动</button>
+   <button id="starListBtn" type="button" aria-label="列表视图">列表</button>
+  </div>
  </div>
  <button id="starHoleBtn" class="star-hole-chip" type="button"><span id="starHoleLabel">黑洞</span><span id="starHoleBadge" hidden>0</span></button>
 </div>
@@ -37,6 +38,7 @@
    <button class="home-card" type="button" data-mode="tts" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">EN</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>英文朗读</strong><small>按句子朗读英文，可调语速</small></span></button>
    <button class="home-card" type="button" data-mode="scan" data-kind="native" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">▣</span><span class="home-tag">相机</span></span><span class="home-copy"><strong>扫描文档</strong><small>拍书页和讲义，自动裁边，导出 PDF</small></span></button>
    <button class="home-card" type="button" data-mode="focus" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🍅</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>专注番茄</strong><small>工作/休息循环，统计今日专注</small></span></button>
+   <button class="home-card" type="button" data-mode="cards" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🗂</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>记忆卡片</strong><small>间隔重复背卡，到期自动提醒</small></span></button>
   </div>
  </section>
  <section class="home-group" data-group="create" aria-label="创作">
@@ -100,7 +102,7 @@
     <button class="draw-action" id="drawBack" title="返回文字">✎ 文字</button>
   </div>
 </div>
-<section class="console folded" id="consolePanel"><button class="consolehead" id="foldConsole" aria-expanded="false" aria-controls="consoleBody" title="展开或收起终端"><span class="ctitle">终端</span><span id="runState">就绪</span><span class="chev">⌃</span></button><div class="consolebody" id="consoleBody"><div class="consolebar"><button id="outputTab" class="active">输出</button><button id="inputTab">输入</button><span class="grow"></span><button id="saveOutput">存输出</button><button id="clearOutput">清空</button></div><pre id=”output” role=”log” aria-live=”polite”><span class=”dim”>写好代码点「运行」。Python、C++、JavaScript 都在本机跑，不联网。
+<section class="console folded" id="consolePanel"><button class="consolehead" id="foldConsole" aria-expanded="false" aria-controls="consoleBody" title="展开或收起终端"><span class="ctitle">终端</span><span id="runState">就绪</span><span class="chev">⌃</span></button><div class="consolebody" id="consoleBody"><div class="consolebar"><button id="outputTab" class="active">输出</button><button id="inputTab">输入</button><span class="grow"></span><button id="saveOutput">存输出</button><button id="clearOutput">清空</button></div><pre id="output" role="log" aria-live="polite"><span class="dim">写好代码点「运行」。Python、C++、JavaScript 都在本机跑，不联网。
 程序要读输入时，先在「输入」页填好，一行一条。</span></pre><textarea id="stdin" hidden aria-label="标准输入" placeholder="运行前填写，每个 input() 一行。未提供的输入返回 EOF。" spellcheck="false"></textarea></div></section>
 </main>
 <aside id="lectureTimeline" aria-label="时间轴与锚点"><canvas id="timelineCanvas" aria-label="录音波形时间轴"></canvas><div class="tl-controls"><button id="zoomOut" aria-label="缩小时间轴" title="缩小">－</button><button id="zoomIn" aria-label="放大时间轴" title="放大">＋</button><button id="playRate" class="tl-rate" aria-label="播放倍速" title="播放倍速">1×</button><button id="linePlay" class="tl-line" aria-label="从本行播放 10 秒" title="从本行播放 10 秒">10s</button><span id="tlRange">全程</span></div><div id="anchorList" aria-label="锚点列表"></div></aside>
@@ -208,6 +210,39 @@
    <label>长休<input id="focusLongMin" type="number" min="1" max="60" inputmode="numeric">分</label>
   </div>
   <p class="focus-stats" id="focusStats">今日 0 个 · 累计 0 个</p>
+  <div class="focus-chart" id="focusChart" aria-label="最近7天专注"></div>
+ </div>
+</section>
+
+<section id="cardsPanel" hidden aria-label="记忆卡片">
+ <div class="cards-wrap">
+  <div class="cards-head">
+   <strong>记忆卡片</strong>
+   <span class="cards-stats" id="cardsStats"></span>
+  </div>
+  <div class="cards-review" id="cardsReview">
+   <button class="cards-face" id="cardsFace" type="button" aria-label="翻面">
+    <span class="cards-face-text" id="cardsFaceText">点「开始复习」</span>
+    <span class="cards-face-hint" id="cardsFaceHint"></span>
+   </button>
+   <div class="cards-rate" id="cardsRate" hidden>
+    <button type="button" data-rate="0" class="r0">忘了</button>
+    <button type="button" data-rate="1" class="r1">困难</button>
+    <button type="button" data-rate="2" class="r2">良好</button>
+    <button type="button" data-rate="3" class="r3">轻松</button>
+   </div>
+   <div class="cards-actions">
+    <button id="cardsStart" class="primary" type="button">开始复习</button>
+    <button id="cardsToggleAdd" type="button">添加卡片</button>
+    <button id="cardsToggleList" type="button">卡片列表</button>
+   </div>
+  </div>
+  <div class="cards-add" id="cardsAdd" hidden>
+   <label>正面<input id="cardsFront" type="text" maxlength="500" placeholder="问题 / 单词"></label>
+   <label>背面<textarea id="cardsBack" rows="3" maxlength="1000" placeholder="答案 / 释义"></textarea></label>
+   <div class="cards-actions"><button id="cardsSave" class="primary" type="button">保存卡片</button></div>
+  </div>
+  <div class="cards-list" id="cardsList" hidden></div>
  </div>
 </section>
 

@@ -6,7 +6,7 @@
 
 export const DEFAULT_FOCUS=()=>({
   phase:'work',remaining:25*60,running:false,completed:0,cycle:0,
-  workMin:25,shortMin:5,longMin:15,today:{date:'',count:0}
+  workMin:25,shortMin:5,longMin:15,today:{date:'',count:0},history:{}
 });
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 const num=(v,f)=>Number.isFinite(+v)?+v:f;
@@ -22,14 +22,43 @@ export function focusSanitize(raw){
   const today=r.today&&typeof r.today==='object'&&typeof r.today.date==='string'
     ?{date:r.today.date.slice(0,10),count:clamp(Math.round(num(r.today.count,0)),0,999)}
     :{date:'',count:0};
+  const history={};
+  if(r.history&&typeof r.history==='object'){
+    for(const k of Object.keys(r.history).slice(0,60)){
+      if(/^\d{4}-\d{2}-\d{2}$/.test(k))history[k]=clamp(Math.round(num(r.history[k],0)),0,999);
+    }
+  }
   return {
     phase,
     remaining:clamp(Math.round(num(r.remaining,maxSec)),0,maxSec),
     running:r.running===true,
     completed:clamp(Math.round(num(r.completed,0)),0,99999),
     cycle:clamp(Math.round(num(r.cycle,0)),0,3),
-    workMin,shortMin,longMin,today
+    workMin,shortMin,longMin,today,history
   };
+}
+
+/* 完成一个工作段时累加当日历史（保留最近 30 天）。 */
+export function bumpHistory(history,dateStr){
+  const h={...(history||{})};
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(dateStr||''))return h;
+  h[dateStr]=clamp((h[dateStr]||0)+1,0,999);
+  const keys=Object.keys(h).sort();
+  while(keys.length>30)delete h[keys.shift()];
+  return h;
+}
+
+/* 最近 n 天（含今天）的 {date,count} 序列，供柱状图。 */
+export function lastNDays(history,n,dateStr){
+  const out=[];
+  const base=dateStr?new Date(dateStr+'T00:00:00'):new Date();
+  for(let i=n-1;i>=0;i--){
+    const d=new Date(base);d.setDate(d.getDate()-i);
+    const p=x=>String(x).padStart(2,'0');
+    const key=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+    out.push({date:key,count:(history&&history[key])||0});
+  }
+  return out;
 }
 
 export function phaseSeconds(s,phase){
@@ -71,7 +100,8 @@ export function focusTick(s,dateStr){
   let st={...s,remaining:0};
   if(st.phase==='work'){
     st={...st,completed:st.completed+1,cycle:(st.cycle+1)%4,
-        today:{date:dateStr||st.today.date,count:(st.today.date===(dateStr||st.today.date)?st.today.count:0)+1}};
+        today:{date:dateStr||st.today.date,count:(st.today.date===(dateStr||st.today.date)?st.today.count:0)+1},
+        history:bumpHistory(st.history,dateStr||st.today.date)};
     const next=st.cycle===0?'long':'short';
     st={...st,phase:next,remaining:phaseSeconds(st,next),running:false};
   }else{

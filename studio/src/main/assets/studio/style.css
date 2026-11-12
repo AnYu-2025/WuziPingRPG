@@ -626,7 +626,40 @@ body.notepad .mdtoggle[aria-pressed="true"]{background:#f0e6cf;border-color:#b08
 .focus-settings label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
 .focus-settings input{width:56px;height:36px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--text-strong);text-align:center;font-size:14px}
 .focus-stats{margin:0;font-size:12.5px;color:var(--muted)}
+.focus-chart{display:flex;align-items:flex-end;gap:6px;height:72px;width:100%;max-width:320px}
+.focus-chart .bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%}
+.focus-chart .bar i{width:100%;max-width:26px;border-radius:5px 5px 2px 2px;background:var(--accent);min-height:3px}
+.focus-chart .bar.zero i{background:var(--line-strong)}
+.focus-chart .bar b{font-size:10px;color:var(--muted);font-weight:600}
 body.focusview .quickkeys,body.focusview .statusbar #position{display:none}
+
+/* 记忆卡片 */
+#cardsPanel{flex:1;min-height:0;overflow-y:auto;background:var(--bg)}
+.cards-wrap{display:flex;flex-direction:column;gap:14px;padding:18px 16px calc(20px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto;width:100%}
+.cards-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.cards-head strong{font-size:17px;color:var(--text-strong)}
+.cards-stats{font-size:12px;color:var(--muted)}
+.cards-face{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:180px;width:100%;padding:22px;border-radius:16px;background:var(--surface);border:1px solid var(--line);text-align:center}
+.cards-face-text{font-size:19px;font-weight:600;color:var(--text-strong);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.cards-face-hint{font-size:12px;color:var(--muted)}
+.cards-rate{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.cards-rate button{min-height:46px;border-radius:11px;border:1px solid var(--line);font-size:13.5px;font-weight:700;background:var(--surface)}
+.cards-rate .r0{color:#c2453a;border-color:#e5b6b1}
+.cards-rate .r1{color:#b7791f;border-color:#e2cba0}
+.cards-rate .r2{color:#2f7d4f;border-color:#b4d4c0}
+.cards-rate .r3{color:#2b6cb0;border-color:#b3c9e2}
+.cards-actions{display:flex;gap:8px;flex-wrap:wrap}
+.cards-actions button{min-height:42px;padding:0 16px;border-radius:11px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:13.5px;font-weight:600}
+.cards-actions button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.cards-add{display:flex;flex-direction:column;gap:10px}
+.cards-add label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--muted)}
+.cards-add input,.cards-add textarea{border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text-strong);padding:9px 11px;font-size:14px;font-family:inherit}
+.cards-list{display:flex;flex-direction:column;gap:8px}
+.cards-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.cards-row .t{flex:1;min-width:0;font-size:13.5px;color:var(--text-strong);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cards-row .d{font-size:11px;color:var(--muted);flex:none}
+.cards-row button{flex:none;min-height:32px;padding:0 10px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);color:#c2453a;font-size:12px}
+body.cardsview .quickkeys,body.cardsview .statusbar #position{display:none}
 
 /* 鹈鹕骑车 */
 #pelicanPanel{flex:1;min-height:0;position:relative;background:#87c5eb}

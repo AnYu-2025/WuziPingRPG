@@ -29,7 +29,8 @@ import {splitLocations} from './error-loc.js';
 import {snippetsFor,snippetById} from './snippets.js';
 import {searchProject} from './project-search.js';
 import {renderMarkdown} from './markdown.js';
-import {DEFAULT_FOCUS,focusSanitize,focusToggle,focusReset,focusSkip,focusTick,focusSetMinutes,fmtTime} from './focus.js';
+import {DEFAULT_FOCUS,focusSanitize,focusToggle,focusReset,focusSkip,focusTick,focusSetMinutes,fmtTime,lastNDays} from './focus.js';
+import {deckSanitize,addCard,removeCard,reviewCard,dueCards,deckStats} from './cards.js';
 import {init as initPelican} from './pelican3d.js';
 import {pelicanSanitize} from './pelican.js';
 
@@ -70,7 +71,7 @@ const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript'
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0}});
+const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null)});
 let state=defaults(),view,restoring=false,worker=null,cppWorker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 /* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
 const micWaiters=new Map();let micSeq=0;
@@ -89,7 +90,7 @@ function active(){return state.files.find(f=>f.path===state.active)||state.files
 function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican)};}
+function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards)};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
 function mb(bytes){return (bytes/1048576).toFixed(1);}
@@ -133,6 +134,7 @@ function loadState(data){
   /* 恢复时不自动继续计时，避免后台偷跑。 */
   state.focus.running=false;
   state.pelican=pelicanSanitize(data.pelican);
+  state.cards=deckSanitize(data.cards);
   state.settings.fontSize=Math.max(12,Math.min(24,Number(state.settings.fontSize)||15));state.settings.timeLimit=[15,30,60].includes(+state.settings.timeLimit)?+state.settings.timeLimit:15;if(window.innerWidth<700)state.settings.wrap=true;
   adoptTheme(data.settings);
   state.active=files.some(f=>f.path===state.active)?state.active:files[0].path;state.opened=Array.isArray(state.opened)?state.opened.filter(p=>files.some(f=>f.path===p)):[];if(!state.opened.includes(state.active))state.opened.push(state.active);
@@ -346,6 +348,10 @@ function setWorkspaceMode(mode){
   if(mode!=='model')document.body.classList.remove('modelview');
   if(mode!=='focus')document.body.classList.remove('focusview');
   if(mode!=='pelican')document.body.classList.remove('pelicanview');
+  if(mode!=='cards')document.body.classList.remove('cardsview');
+  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['modelPanel','model'],['aiPanel','ai']]){
+    const el=$(id);if(el&&mode!==m)el.hidden=true;
+  }
 }
 on('filesToggle',()=>{closeMenu();document.body.classList.toggle('drawer');});on('backdrop',closeDrawer);on('closeExplorer',closeDrawer);on('newFile',()=>nameDialog());on('newTab',()=>nameDialog());menu('menuNew',()=>nameDialog());
 menu('findButton',()=>{openSearchPanel(view);const searchInput=document.querySelector('.cm-search input');if(searchInput)searchInput.focus();else if(view)view.focus();});menu('settingsButton',()=>{applySettings();$('settingsDialog').showModal();});on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());on('saveOutput',saveOutputToFile);$('output').addEventListener('click',event=>{const link=event.target.closest('.errlink');if(link)gotoError({path:link.dataset.path,line:+link.dataset.line,column:+link.dataset.col||1});});on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
@@ -980,6 +986,18 @@ function applyMode(mode){
     renderFocus();
     return true;
   }
+  if(mode==='cards'){
+    document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('cardsview');
+    lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
+    $('workbench').hidden=true;$('lounge').hidden=true;
+    if(aiPanel)aiPanel.hidden=true;
+    const mp=$('modelPanel');if(mp)mp.hidden=true;
+    const fp=$('focusPanel');if(fp)fp.hidden=true;
+    const cp=$('cardsPanel');if(cp)cp.hidden=false;
+    $('activePath').textContent='记忆卡片';$('dirtyFlag').textContent='';
+    cardsResetReview();renderCards();
+    return true;
+  }
   if(mode==='pelican'){
     document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('pelicanview');
     lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
@@ -1170,6 +1188,18 @@ function renderFocus(){
   if(lm&&document.activeElement!==lm)lm.value=s.longMin;
   const stats=$('focusStats');
   if(stats){const today=s.today&&s.today.date===todayStr()?s.today.count:0;stats.textContent='今日 '+today+' 个 · 累计 '+s.completed+' 个';}
+  const chart=$('focusChart');
+  if(chart){
+    const days=lastNDays(s.history||{},7,todayStr());
+    const max=Math.max(1,...days.map(d=>d.count));
+    chart.replaceChildren();
+    for(const d of days){
+      const bar=document.createElement('span');bar.className='bar'+(d.count?'':' zero');
+      const fill=document.createElement('i');fill.style.height=Math.round(d.count/max*52+3)+'px';
+      const lab=document.createElement('b');lab.textContent=d.date.slice(8);
+      bar.title=d.date+'：'+d.count+' 个';bar.append(fill,lab);chart.append(bar);
+    }
+  }
 }
 setInterval(()=>{
   if(!state.focus||!state.focus.running)return;
@@ -1184,6 +1214,57 @@ on('focusSkip',()=>{state.focus=focusSkip(state.focus);renderFocus();scheduleSav
 for(const [id,key] of [['focusWorkMin','workMin'],['focusShortMin','shortMin'],['focusLongMin','longMin']]){
   const el=$(id);if(el)el.onchange=()=>{state.focus=focusSetMinutes(state.focus,key,+el.value);renderFocus();scheduleSave();};
 }
+
+/* 记忆卡片：复习队列 + 翻面 + 四档评分 + 添加/列表。 */
+let cardsQueue=[],cardsCurrent=null,cardsShown=false;
+function cardsResetReview(){cardsQueue=[];cardsCurrent=null;cardsShown=false;}
+function renderCards(){
+  const deck=state.cards||deckSanitize(null);
+  const st=deckStats(deck,Date.now());
+  const stats=$('cardsStats');if(stats)stats.textContent='共 '+st.total+' 张 · 到期 '+st.due+' · 已学 '+st.learned;
+  const face=$('cardsFaceText'),hint=$('cardsFaceHint'),rate=$('cardsRate');
+  if(cardsCurrent){
+    face.textContent=cardsShown?cardsCurrent.back:cardsCurrent.front;
+    hint.textContent=cardsShown?'回忆一下，再给自己打分':'点卡片看背面';
+    rate.hidden=!cardsShown;
+  }else{
+    face.textContent=cardsQueue.length?'共 '+cardsQueue.length+' 张待复习，点「开始复习」':'没有到期的卡片，去添加或稍后再来';
+    hint.textContent='';rate.hidden=true;
+  }
+  const list=$('cardsList');
+  if(list&&!list.hidden){
+    list.replaceChildren();
+    for(const c of deck.cards){
+      const row=document.createElement('div');row.className='cards-row';
+      const t=document.createElement('span');t.className='t';t.textContent=c.front;
+      const d=document.createElement('span');d.className='d';d.textContent=c.due<=Date.now()?'到期':(c.interval?c.interval+'天':'新');
+      const del=document.createElement('button');del.type='button';del.textContent='删';
+      del.onclick=()=>{state.cards=removeCard(state.cards,c.id);cardsResetReview();renderCards();scheduleSave();};
+      row.append(t,d,del);list.append(row);
+    }
+    if(!deck.cards.length){const e=document.createElement('p');e.className='cards-face-hint';e.textContent='还没有卡片，点「添加卡片」开始。';list.append(e);}
+  }
+}
+on('cardsStart',()=>{cardsQueue=dueCards(state.cards,Date.now());cardsShown=false;cardsCurrent=cardsQueue.shift()||null;renderCards();});
+on('cardsFace',()=>{if(!cardsCurrent)return;cardsShown=!cardsShown;renderCards();});
+for(const b of document.querySelectorAll('#cardsRate button')){
+  b.addEventListener('click',()=>{
+    if(!cardsCurrent)return;
+    const rated=reviewCard(cardsCurrent,+b.dataset.rate,Date.now());
+    if(rated){state.cards={...deckSanitize(state.cards),cards:deckSanitize(state.cards).cards.map(c=>c.id===rated.id?rated:c)};}
+    cardsShown=false;cardsCurrent=cardsQueue.shift()||null;
+    renderCards();scheduleSave();
+  });
+}
+on('cardsToggleAdd',()=>{const a=$('cardsAdd');a.hidden=!a.hidden;const l=$('cardsList');if(l)l.hidden=true;renderCards();});
+on('cardsToggleList',()=>{const l=$('cardsList');l.hidden=!l.hidden;const a=$('cardsAdd');if(a)a.hidden=true;renderCards();});
+on('cardsSave',()=>{
+  const f=$('cardsFront').value,b=$('cardsBack').value;
+  const r=addCard(state.cards,f,b,Date.now());
+  if(!r.ok){notify('正面和背面都要填写。');return;}
+  state.cards=r.deck;$('cardsFront').value='';$('cardsBack').value='';
+  notify('已添加卡片');renderCards();scheduleSave();
+});
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
   getDrawData:()=>state.drawStrokes||[],

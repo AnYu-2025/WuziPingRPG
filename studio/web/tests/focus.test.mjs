@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {DEFAULT_FOCUS,focusSanitize,focusToggle,focusReset,focusSkip,focusTick,focusSetMinutes,phaseSeconds,fmtTime} from '../src/focus.js';
+import {DEFAULT_FOCUS,focusSanitize,focusToggle,focusReset,focusSkip,focusTick,focusSetMinutes,phaseSeconds,fmtTime,bumpHistory,lastNDays} from '../src/focus.js';
 
 test('sanitize defaults and clamps',()=>{
   const s=focusSanitize(null);
@@ -76,4 +76,36 @@ test('fmtTime pads',()=>{
 test('phaseSeconds respects settings',()=>{
   const s=focusSetMinutes(DEFAULT_FOCUS(),'shortMin',10);
   assert.equal(phaseSeconds(s,'short'),600);
+});
+
+test('bumpHistory increments and caps at 30 days',()=>{
+  let h={};
+  h=bumpHistory(h,'2026-01-01');
+  h=bumpHistory(h,'2026-01-01');
+  assert.equal(h['2026-01-01'],2);
+  for(let i=1;i<=40;i++){const d=new Date(2026,0,i);const p=x=>String(x).padStart(2,'0');h=bumpHistory(h,'2026-'+p(d.getMonth()+1)+'-'+p(d.getDate()));}
+  assert.ok(Object.keys(h).length<=30);
+  assert.deepEqual(bumpHistory(h,'bad-date'),h);
+});
+
+test('lastNDays returns n entries ending today with counts',()=>{
+  const h={'2026-01-05':3};
+  const seq=lastNDays(h,7,'2026-01-05');
+  assert.equal(seq.length,7);
+  assert.equal(seq[6].date,'2026-01-05');
+  assert.equal(seq[6].count,3);
+  assert.equal(seq[0].count,0);
+});
+
+test('completing work bumps history for the date',()=>{
+  let s={...DEFAULT_FOCUS(),remaining:1,running:true};
+  const r=focusTick(s,'2026-01-05');
+  assert.equal(r.state.history['2026-01-05'],1);
+});
+
+test('sanitize keeps valid history keys only',()=>{
+  const s=focusSanitize({history:{'2026-01-05':2,'bogus':9,'2026-01-06':-4}});
+  assert.equal(s.history['2026-01-05'],2);
+  assert.equal(s.history['2026-01-06'],0);
+  assert.equal(s.history.bogus,undefined);
 });

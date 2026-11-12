@@ -1,0 +1,1 @@
+d0f25b5b2095fb7e3a33a1dea0103311dcf3df664dc5f1b8ee315ba6183c64e8 *dist/Ember-Studio-0.3.9.apk
