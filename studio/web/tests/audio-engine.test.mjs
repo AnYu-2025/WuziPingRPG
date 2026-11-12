@@ -128,6 +128,62 @@ test('recorder chunks stream into the native sink in order', async () => {
   }
 });
 
+/* stop() 永不触发 onstop 的录音器：模拟 WebView 里录音器对停止请求失联的场景 */
+function stubSilentRecorder() {
+  const savedWindow = globalThis.window;
+  globalThis.window = globalThis;
+  const stream = { getTracks: () => [], getAudioTracks: () => [] };
+  setNavigator(async () => stream);
+  let recorder = null;
+  globalThis.MediaRecorder = class {
+    static isTypeSupported() { return true; }
+    constructor() { this.state = 'inactive'; this.mimeType = 'audio/webm'; recorder = this; }
+    start() { this.state = 'recording'; }
+    stop() { this.state = 'inactive'; }
+  };
+  globalThis.AudioContext = class {
+    constructor() { this.state = 'running'; }
+    createMediaStreamSource() { return { connect() {} }; }
+    createAnalyser() { return { fftSize: 2048, getByteTimeDomainData() {} }; }
+    close() { this.state = 'closed'; }
+  };
+  return {
+    get recorder() { return recorder; },
+    cleanup() {
+      if (savedWindow === undefined) delete globalThis.window; else globalThis.window = savedWindow;
+      restore();
+    }
+  };
+}
+
+test('stop() reports a recorder error raised after the stop request', async () => {
+  const env = stubSilentRecorder();
+  try {
+    const engine = new AudioEngine();
+    await engine.start();
+    const stopping = engine.stop();
+    env.recorder.onerror();
+    const result = await stopping;
+    assert.equal(result.interrupted, '录音器报错');
+    assert.equal(result.interrupted, engine.interrupted);
+  } finally { env.cleanup(); }
+});
+
+test('stop() reports the guard reason when the recorder never answers', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.after(() => t.mock.timers.reset());
+  const env = stubSilentRecorder();
+  try {
+    const engine = new AudioEngine();
+    await engine.start();
+    const stopping = engine.stop();
+    t.mock.timers.tick(4000);
+    const result = await stopping;
+    assert.equal(result.interrupted, '录音器没有响应停止请求');
+    assert.equal(result.interrupted, engine.interrupted);
+  } finally { env.cleanup(); }
+});
+
 test('fmt keeps mm:ss and hh:mm:ss', () => {
   assert.equal(fmt(0), '00:00');
   assert.equal(fmt(65), '01:05');

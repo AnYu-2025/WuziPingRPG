@@ -927,11 +927,16 @@ async function loadPlayback(force){
   const promise=(async()=>{
     try{
       const src=await resolveMedia(ref,persist.audio?persist.audio.mime:'');
+      /* 等待期间可能已经换课或重录。过期结果不能盖住新的录音。 */
+      if(audioRef()!==ref)return false;
       p.load(src);
       p.loadedKey=ref;
       updateTimer();
       return true;
     }catch(err){
+      /* 在途 fetch 被 release 后会 reject。那是取消，不是当前文件损坏：
+         不能清掉新录音的 loadedKey，也不能把「读取失败」报到当前这一条上。 */
+      if(audioRef()!==ref)return false;
       p.loadedKey='';
       reportError('录音读取失败：'+((err&&err.message)||err));
       return false;
@@ -943,7 +948,11 @@ async function loadPlayback(force){
 }
 async function playAudio(){
   if(!hasAudio()){notify('还没有录音。点「🎙 开始录音」先录一段。');return;}
-  if(!await loadPlayback()){notify('录音数据无法解码，可能已经损坏。');return;}
+  const ref=audioRef();
+  const ok=await loadPlayback();
+  /* 加载完成时已经换成另一条录音：别把旧请求的失败说成文件损坏，也别自动开播。 */
+  if(audioRef()!==ref)return;
+  if(!ok){notify('录音数据无法解码，可能已经损坏。');return;}
   const p=ensurePlayback();
   p.audio.play().then(()=>{setBar('playing');ensureAnim();}).catch(()=>notify('播放失败，请再试一次。'));
 }
@@ -964,7 +973,8 @@ function stopAudio(){
 }
 async function seekTo(t,play){
   if(!hasAudio())return;
-  if(!await loadPlayback())return;
+  const ref=audioRef();
+  if(!await loadPlayback()||audioRef()!==ref)return;
   const p=ensurePlayback();
   const dur=playDur();
   try{p.audio.currentTime=Math.max(0,Math.min(dur||t,t));}catch(e){/* 元数据未就绪 */}
@@ -1041,7 +1051,7 @@ function loadImage(url){
     img.src=url;
   });
 }
-/* 每页压缩成 1024px 宽的 JPEG 后立刻外置保存，工作区 JSON 里只留引用。 */
+/* 每页压缩成长边 1024px 的 JPEG 后立刻外置保存，工作区 JSON 里只留引用。 */
 async function storeSlideImage(data,label,w,h){
   const base64=data.slice(data.indexOf(',')+1);
   let ref=data;
@@ -1050,12 +1060,19 @@ async function storeSlideImage(data,label,w,h){
   }catch(err){
     reportError('图片外置失败，已内嵌保存：'+((err&&err.message)||err));
   }
-  return {id:'s'+(slideSeq++),name:String(label||('slide_'+slideSeq)).slice(0,60),ref,w,h,anchorTime:null,createdAt:Date.now()};
+  /* 尺寸键名必须与 lectureSanitize 读取的 width/height 一致，否则保存/恢复后尺寸丢失。 */
+  return {id:'s'+(slideSeq++),name:String(label||('slide_'+slideSeq)).slice(0,60),ref,width:w,height:h,anchorTime:null,createdAt:Date.now()};
+}
+/* 按最长边缩放：竖拍照片也要压进 1024px，只按宽度缩会超出工作区配额。 */
+export function slideScale(w,h,max=SLIDE_MAX_W){
+  const width=Number.isFinite(w)&&w>0?w:max;
+  const height=Number.isFinite(h)&&h>0?h:Math.round(max*0.75);
+  const scale=Math.min(1,max/Math.max(width,height));
+  return {width:Math.max(1,Math.round(width*scale)),height:Math.max(1,Math.round(height*scale))};
 }
 async function compressSlide(source,label){
   const img=await loadImage(source);
-  const scale=Math.min(1,SLIDE_MAX_W/(img.width||SLIDE_MAX_W));
-  const w=Math.max(1,Math.round((img.width||SLIDE_MAX_W)*scale)),h=Math.max(1,Math.round((img.height||SLIDE_MAX_W*0.75)*scale));
+  const {width:w,height:h}=slideScale(img.width,img.height);
   const cv=document.createElement('canvas');cv.width=w;cv.height=h;
   cv.getContext('2d').drawImage(img,0,0,w,h);
   const raw=cv.toDataURL('image/jpeg',SLIDE_QUALITY);
@@ -1238,13 +1255,20 @@ function onAnchorDialogClose(){
   renderAnchors();renderSlides();renderTimeline();
   env.scheduleSave();
 }
-function parseTime(text){
+export function parseTime(text){
   const raw=String(text||'').trim();
   if(!raw)return null;
-  if(/^\d+(\.\d+)?$/.test(raw))return Number(raw);
-  const parts=raw.split(':').map(Number);
-  if(parts.some(n=>isNaN(n)))return null;
-  return parts.reverse().reduce((sum,n,i)=>sum+n*Math.pow(60,i),0);
+  let seconds;
+  if(/^\d+(\.\d+)?$/.test(raw)){
+    seconds=Number(raw);
+  }else{
+    const parts=raw.split(':').map(Number);
+    /* '1:-2' 的加权和是 58：只拒绝负的总和会把这种负字段存成一个正时间。 */
+    if(parts.some(n=>!Number.isFinite(n)||n<0))return null;
+    seconds=parts.reverse().reduce((sum,n,i)=>sum+n*Math.pow(60,i),0);
+  }
+  /* 纯数字太长会变成 Infinity，冒号路径也可能算出负数。两种都不能存进锚点。 */
+  return Number.isFinite(seconds)&&seconds>=0?seconds:null;
 }
 
 /* ---------------- app.js 集成点 ---------------- */
@@ -1343,8 +1367,9 @@ export function lectureSanitize(data){
       id:String(s.id||('s'+(i+1))).slice(0,32),
       name:String(s.name||('slide_'+(i+1))).slice(0,60),
       ref:slideRef(s),
-      width:Math.max(1,Math.min(4096,Number(s.width)||SLIDE_MAX_W)),
-      height:Math.max(1,Math.min(4096,Number(s.height)||768)),
+      /* 旧快照的尺寸键是 w/h：兼容读取，恢复后统一按 width/height 落盘。 */
+      width:Math.max(1,Math.min(4096,Number(s.width||s.w)||SLIDE_MAX_W)),
+      height:Math.max(1,Math.min(4096,Number(s.height||s.h)||768)),
       anchorTime:typeof s.anchorTime==='number'&&isFinite(s.anchorTime)?Math.round(s.anchorTime*10)/10:null,
       createdAt:Number(s.createdAt)||Date.now()
     })):[];

@@ -7,6 +7,24 @@ import {fmt} from './audio-engine.js';
 const ZOOMS=[1,1.5,2,3,4,6,8,12,16,24,32];
 const ANCHOR_COLORS={speech:'#0f766e',silence:'#9ca3af',manual:'#b45309'};
 
+/* 缩放窗口计算：duration 为 0（未开始录音）时 playhead/duration 是 NaN/Infinity，
+   会把整个窗口污染掉；此时退回窗口中点，保证结果始终是 [0,1] 内的有限比例。 */
+export function timelineZoomWindow({playhead,duration,win,zoomIdx,dir}){
+  const next=Math.max(0,Math.min(ZOOMS.length-1,zoomIdx+dir));
+  const span=1/ZOOMS[next];
+  let center;
+  if(Number.isFinite(playhead)&&Number.isFinite(duration)&&duration>0)center=playhead/duration;
+  else{
+    const mid=(win[0]+win[1])/2;
+    center=Number.isFinite(mid)?mid:0.5;
+  }
+  let a=center-span/2,b=center+span/2;
+  if(b-a>span){a=0;b=span;}
+  if(b>1){a-=b-1;b=1;}
+  if(a<0){b-=a;a=0;}
+  return {zoomIdx:next,win:[Math.max(0,a),Math.min(1,b)]};
+}
+
 export class Timeline{
   constructor(canvas,handlers){
     this.canvas=canvas;
@@ -45,13 +63,9 @@ export class Timeline{
     this.schedule();
   }
   zoom(dir){
-    const next=Math.max(0,Math.min(ZOOMS.length-1,this.zoomIdx+dir));
-    if(next===this.zoomIdx&&dir!==0){}
-    this.zoomIdx=next;
-    const span=1/ZOOMS[this.zoomIdx];
-    const center=this.playhead!=null?this.playhead/this.duration:(this.win[0]+this.win[1])/2;
-    this.win=[center-span/2,center+span/2];
-    this.clampWindow();
+    const next=timelineZoomWindow({playhead:this.playhead,duration:this.duration,win:this.win,zoomIdx:this.zoomIdx,dir});
+    this.zoomIdx=next.zoomIdx;
+    this.win=next.win;
     this.schedule();
   }
   clampWindow(){

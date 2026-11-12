@@ -55,7 +55,7 @@
     <string name="reorder_hint">拖动排序</string>
     <string name="rename_generate">生成</string>
     <string name="crop_title">框选书页</string>
-    <string name="crop_hint">拖动四角对齐边缘 · 双指放大 · 双击复位</string>
+    <string name="crop_hint">拖四角或边的中点 · 拖动时看放大镜 · 双指放大 · 双击复位</string>
     <string name="retake">重拍</string>
     <string name="confirm_page">使用此页</string>
     <string name="auto_select">智能选中</string>

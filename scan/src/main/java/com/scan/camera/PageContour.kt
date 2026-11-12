@@ -3,59 +3,99 @@ package com.scan.camera
 import java.util.Arrays
 import kotlin.math.abs
 import kotlin.math.hypot
+import kotlin.math.max
+import kotlin.math.min
 
-/** 可在 JVM 直接验证的轮廓检测，共用于实时预览和照片智能裁边。 */
+/**
+ * 可在 JVM 直接验证的书页四角检测，实时预览和拍后裁边共用。
+ *
+ * 先用整图 Otsu 抠出页面（亮纸 / 暗纸都试），不行再减掉缓慢光照后重试，
+ * 最后才沿梯度找四条边。角点取凸包上的四个极值，不再对几十个点做四重循环。
+ * 找不到可信页面时返回 null，由调用方决定退回整帧还是居中框。
+ */
 object PageContour {
-    // 工作缓冲（仅分析线程访问，按帧复用）
     private var mask: ByteArray? = null
     private var comp: IntArray? = null
     private var queue: IntArray? = null
     private var wsW = 0
     private var wsH = 0
 
-    /**
-     * 检测书页四角，返回归一化四边形（顺序：左上、右上、右下、左下）。
-     * 找不到可信的页面区域时返回 null。
-     */
     @Synchronized fun detectQuad(gray: IntArray, w: Int, h: Int): FloatArray? {
-        if (w < 64 || h < 64 || gray.size != w*h || gray.any { it !in 0..255 }) return null
+        if (w < 64 || h < 64 || gray.size != w * h || gray.any { it !in 0..255 }) return null
         ensureWorkspace(w, h)
+        val primary = segment(gray, w, h, relaxed = false)
+        // 已经是大半张纸就不必再跑光照校正，避免角点被第二次分割带偏。
+        if (primary != null && quadArea(primary) >= 0.48f) return primary
+        val recovered = usableRecovery(
+            segment(flattenIllumination(gray, w, h), w, h, relaxed = true) ?: edgeQuad(gray, w, h)
+        )
+        if (primary == null) return recovered
+        if (recovered != null && quadArea(recovered) > quadArea(primary) * 1.22f) return recovered
+        return primary
+    }
+
+    /** 贴着画面四边的“页面”多半是把整幅图抠出来了，不能拿来替换或误报。 */
+    private fun usableRecovery(quad: FloatArray?): FloatArray? {
+        if (quad == null) return null
+        var touching = 0
+        for (i in 0 until 4) {
+            val x = quad[2 * i]
+            val y = quad[2 * i + 1]
+            if (x < 0.03f || x > 0.97f || y < 0.03f || y > 0.97f) touching++
+        }
+        return if (touching >= 3) null else quad
+    }
+
+    private fun segment(gray: IntArray, w: Int, h: Int, relaxed: Boolean): FloatArray? {
+        val n = w * h
+        val hist = IntArray(256)
+        for (i in 0 until n) hist[gray[i]]++
+        val threshold = otsu(hist, n)
+        val preferred = pageLooksBright(gray, w, h, threshold)
+        return maskQuad(gray, w, h, threshold, preferred, relaxed)
+            ?: maskQuad(gray, w, h, threshold, !preferred, relaxed)
+    }
+
+    private fun pageLooksBright(gray: IntArray, w: Int, h: Int, threshold: Int): Boolean {
+        val sx = intArrayOf(w / 2, w * 2 / 5, w * 3 / 5, w / 2, w / 2)
+        val sy = intArrayOf(h / 2, h / 2, h / 2, h * 2 / 5, h * 3 / 5)
+        var votes = 0
+        for (i in sx.indices) if (gray[sy[i] * w + sx[i]] >= threshold) votes++
+        return votes >= 3
+    }
+
+    private fun maskQuad(
+        gray: IntArray, w: Int, h: Int, threshold: Int, pageBright: Boolean, relaxed: Boolean
+    ): FloatArray? {
         val m = mask!!
         val c = comp!!
         val q = queue!!
         val n = w * h
-
-        val hist = IntArray(256)
-        for (i in 0 until n) hist[gray[i]]++
-        val t = otsu(hist, n)
-
-        // 画面中心附近 5 点投票：页面在阈值的亮侧还是暗侧
-        var votes = 0
-        val sx = intArrayOf(w / 2, w * 2 / 5, w * 3 / 5, w / 2, w / 2)
-        val sy = intArrayOf(h / 2, h / 2, h / 2, h * 2 / 5, h * 3 / 5)
-        for (i in sx.indices) if (gray[sy[i] * w + sx[i]] >= t) votes++
-        val pageBright = votes >= 3
         var pageArea = 0
         for (i in 0 until n) {
-            val page = if (pageBright) gray[i] >= t else gray[i] < t
+            val page = if (pageBright) gray[i] >= threshold else gray[i] < threshold
             m[i] = if (page) 1 else 0
             if (page) pageArea++
         }
         val frac = pageArea.toFloat() / n
-        if (frac < 0.15f || frac > 0.95f) return null
+        val minFrac = if (relaxed) 0.12f else 0.15f
+        val maxFrac = if (relaxed) 0.985f else 0.97f
+        if (frac < minFrac || frac > maxFrac) return null
 
         majorityFilter(m, w, h)
 
-        // 边界洪泛：与边框连通的 0 像素 = 背景(2)；页面内部的文字孔洞保持非背景
         var head = 0
         var tail = 0
         for (x in 0 until w) {
             if (m[x].toInt() == 0) { m[x] = 2; q[tail++] = x }
-            if (m[(h - 1) * w + x].toInt() == 0) { m[(h - 1) * w + x] = 2; q[tail++] = (h - 1) * w + x }
+            val bottom = (h - 1) * w + x
+            if (m[bottom].toInt() == 0) { m[bottom] = 2; q[tail++] = bottom }
         }
         for (y in 0 until h) {
-            if (m[y * w].toInt() == 0) { m[y * w] = 2; q[tail++] = y * w }
-            if (m[y * w + w - 1].toInt() == 0) { m[y * w + w - 1] = 2; q[tail++] = y * w + w - 1 }
+            val left = y * w
+            val right = y * w + w - 1
+            if (m[left].toInt() == 0) { m[left] = 2; q[tail++] = left }
+            if (m[right].toInt() == 0) { m[right] = 2; q[tail++] = right }
         }
         while (head < tail) {
             val i = q[head++]
@@ -67,7 +107,6 @@ object PageContour {
             if (y < h - 1 && m[i + w].toInt() == 0) { m[i + w] = 2; q[tail++] = i + w }
         }
 
-        // 最大非背景连通域 = 页面（含文字孔洞）
         Arrays.fill(c, 0)
         var bestId = 0
         var bestArea = 0
@@ -94,18 +133,19 @@ object PageContour {
             }
             if (area > bestArea) { bestArea = area; bestId = compId; bestOnes = ones }
         }
-        if (bestArea < n * 0.2f) return null
-        // 二次校验 1：页面组件必须包含画面中心（用户总是把中心对准页面）
-        if (c[(h / 2) * w + w / 2] != bestId) return null
-        // 二次校验 2：组件内反极性孔洞占比过高（>40%）说明极性可能判反（把桌面当了页面）
+        val minArea = if (relaxed) 0.16f else 0.2f
+        if (bestArea < n * minArea) return null
+        // 孔洞太多通常是把桌面当成了页面
         if (bestOnes * 5 < bestArea * 3) return null
 
-        // 提取该组件每行左右极值点
         val px = FloatArray(2 * h)
         val py = FloatArray(2 * h)
         var pc = 0
         var minY = h
         var maxY = -1
+        var sumX = 0.0
+        var sumY = 0.0
+        var count = 0
         for (y in 0 until h) {
             var minx = -1
             var maxx = -1
@@ -114,6 +154,9 @@ object PageContour {
                 if (m[row + x].toInt() != 2 && c[row + x] == bestId) {
                     if (minx < 0) minx = x
                     maxx = x
+                    sumX += x
+                    sumY += y
+                    count++
                 }
             }
             if (minx >= 0) {
@@ -123,57 +166,137 @@ object PageContour {
                 if (y > maxY) maxY = y
             }
         }
-        if (pc < 8 || maxY - minY < h * 0.25f) return null
+        if (pc < 8 || count == 0 || maxY - minY < h * 0.22f) return null
+        val cx = (sumX / count / w).toFloat()
+        val cy = (sumY / count / h).toFloat()
+        val band = if (relaxed) 0.08f else 0.12f
+        // 不再要求正中心像素落在页面上，但页面重心仍要在画面中部，避免抠到角落反光
+        if (cx !in band..(1f - band) || cy !in band..(1f - band)) return null
 
-        // 凸包（Andrew 单调链）
         val hx = FloatArray(2 * pc)
         val hy = FloatArray(2 * pc)
         val hullN = convexHull(px, py, pc, hx, hy)
-        if (hullN < 4) return null
+        return cornersOf(hx, hy, hullN, w, h)
+    }
 
-        // 简化到 ≤ 48 点（均匀抽样，保持环序）
-        val stride = (hullN + 47) / 48
-        val sn = (hullN + stride - 1) / stride
-        val sx2 = FloatArray(sn)
-        val sy2 = FloatArray(sn)
-        var k2 = 0
-        var i2 = 0
-        while (i2 < hullN) {
-            sx2[k2] = hx[i2]
-            sy2[k2] = hy[i2]
-            k2++
-            i2 += stride
+    /** 大窗口减光照，把同一张纸上的阴影拉平，桌面和纸的差别还留着。 */
+    private fun flattenIllumination(gray: IntArray, w: Int, h: Int): IntArray {
+        val radius = (min(w, h) / 5).coerceIn(8, 48)
+        val stride = w + 1
+        val integral = LongArray(stride * (h + 1))
+        for (y in 1..h) {
+            var row = 0L
+            for (x in 1..w) {
+                row += gray[(y - 1) * w + (x - 1)]
+                integral[y * stride + x] = integral[(y - 1) * stride + x] + row
+            }
         }
+        fun sum(x0: Int, y0: Int, x1: Int, y1: Int): Long {
+            return integral[y1 * stride + x1] - integral[y0 * stride + x1] -
+                integral[y1 * stride + x0] + integral[y0 * stride + x0]
+        }
+        val out = IntArray(gray.size)
+        for (y in 0 until h) {
+            val y0 = (y - radius).coerceAtLeast(0)
+            val y1 = (y + radius + 1).coerceAtMost(h)
+            for (x in 0 until w) {
+                val x0 = (x - radius).coerceAtLeast(0)
+                val x1 = (x + radius + 1).coerceAtMost(w)
+                val area = (x1 - x0) * (y1 - y0)
+                val mean = sum(x0, y0, x1, y1).toFloat() / area
+                out[y * w + x] = (gray[y * w + x] - mean + 128f).toInt().coerceIn(0, 255)
+            }
+        }
+        return out
+    }
 
-        // 最大面积内接四边形
-        val qi = maxAreaQuad(sx2, sy2, k2) ?: return null
-        val cx4 = FloatArray(4)
-        val cy4 = FloatArray(4)
-        for (j in 0 until 4) {
-            cx4[j] = sx2[qi[j]]
-            cy4[j] = sy2[qi[j]]
+    /** 区域分割失败时，用强梯度的凸包四角兜底。均匀画面没有边，返回 null。 */
+    private fun edgeQuad(gray: IntArray, w: Int, h: Int): FloatArray? {
+        val mags = IntArray(w * h)
+        var maxMag = 0
+        for (y in 1 until h - 1) {
+            for (x in 1 until w - 1) {
+                val i = y * w + x
+                val mag = abs(gray[i + 1] - gray[i - 1]) + abs(gray[i + w] - gray[i - w])
+                mags[i] = mag
+                if (mag > maxMag) maxMag = mag
+            }
         }
+        if (maxMag < 36) return null
+        val thresh = (maxMag * 0.45f).toInt().coerceAtLeast(28)
+        var strong = 0
+        for (mag in mags) if (mag >= thresh) strong++
+        if (strong < 48) return null
+        val stride = (strong / 1200).coerceAtLeast(1)
+        val xs = ArrayList<Float>(strong / stride + 1)
+        val ys = ArrayList<Float>(strong / stride + 1)
+        var seen = 0
+        for (y in 1 until h - 1) {
+            val row = y * w
+            for (x in 1 until w - 1) {
+                if (mags[row + x] >= thresh) {
+                    seen++
+                    if (seen % stride == 0) {
+                        xs.add(x.toFloat())
+                        ys.add(y.toFloat())
+                    }
+                }
+            }
+        }
+        if (xs.size < 48) return null
+        val px = FloatArray(xs.size) { xs[it] }
+        val py = FloatArray(ys.size) { ys[it] }
+        val hx = FloatArray(px.size * 2)
+        val hy = FloatArray(py.size * 2)
+        val hullN = convexHull(px, py, px.size, hx, hy)
+        val quad = cornersOf(hx, hy, hullN, w, h) ?: return null
+        if (quadArea(quad) > 0.94f) return null
+        return if (edgesSupported(px, py, px.size, quad, w, h)) quad else null
+    }
 
-        // 环序 → 左上/右上/右下/左下：起点取 min(x+y)，方向按有符号面积
-        var sa = 0f
-        for (j in 0 until 4) {
-            val jj = (j + 1) % 4
-            sa += cx4[j] * cy4[jj] - cx4[jj] * cy4[j]
+    private fun edgesSupported(xs: FloatArray, ys: FloatArray, n: Int, quad: FloatArray, w: Int, h: Int): Boolean {
+        val tol = max(3.5f, min(w, h) * 0.025f)
+        val counts = IntArray(4)
+        val ax = FloatArray(4) { quad[it * 2] * w }
+        val ay = FloatArray(4) { quad[it * 2 + 1] * h }
+        for (i in 0 until n) {
+            var best = 0
+            var bestD = Float.MAX_VALUE
+            for (edge in 0 until 4) {
+                val j = (edge + 1) % 4
+                val d = distPointSeg(xs[i], ys[i], ax[edge], ay[edge], ax[j], ay[j])
+                if (d < bestD) { bestD = d; best = edge }
+            }
+            if (bestD <= tol) counts[best]++
         }
-        var tl = 0
-        var bestSum = Float.MAX_VALUE
-        for (j in 0 until 4) {
-            val s = cx4[j] + cy4[j]
-            if (s < bestSum) { bestSum = s; tl = j }
+        return counts.all { it >= 5 }
+    }
+
+    private fun cornersOf(hx: FloatArray, hy: FloatArray, k: Int, w: Int, h: Int): FloatArray? {
+        if (k < 4) return null
+        var tl = 0; var tr = 0; var br = 0; var bl = 0
+        var tlScore = Float.POSITIVE_INFINITY
+        var trScore = Float.NEGATIVE_INFINITY
+        var brScore = Float.NEGATIVE_INFINITY
+        var blScore = Float.POSITIVE_INFINITY
+        for (i in 0 until k) {
+            val x = hx[i]
+            val y = hy[i]
+            val sum = x + y
+            val diff = x - y
+            if (sum < tlScore) { tlScore = sum; tl = i }
+            if (diff > trScore) { trScore = diff; tr = i }
+            if (sum > brScore) { brScore = sum; br = i }
+            if (diff < blScore) { blScore = diff; bl = i }
         }
-        val order = if (sa > 0) intArrayOf(0, 1, 2, 3) else intArrayOf(0, 3, 2, 1)
-        val quad = FloatArray(8)
-        for (j in 0 until 4) {
-            val src = (tl + order[j]) % 4
-            quad[2 * j] = cx4[src] / w
-            quad[2 * j + 1] = cy4[src] / h
-        }
-        return if (plausible(quad)) quad else null
+        if (setOf(tl, tr, br, bl).size < 4) return null
+        val quad = floatArrayOf(
+            hx[tl] / w, hy[tl] / h,
+            hx[tr] / w, hy[tr] / h,
+            hx[br] / w, hy[br] / h,
+            hx[bl] / w, hy[bl] / h
+        )
+        return if (plausible(quad) && ScanRules.validQuad(quad)) quad else null
     }
 
     private fun ensureWorkspace(w: Int, h: Int) {
@@ -186,7 +309,6 @@ object PageContour {
         queue = IntArray(n)
     }
 
-    /** 3x3 多数滤波：去零星噪点、平滑边界，比开运算温和 */
     private fun majorityFilter(m: ByteArray, w: Int, h: Int) {
         val src = m.copyOf()
         for (y in 0 until h) {
@@ -240,49 +362,13 @@ object PageContour {
     private fun cross(ox: Float, oy: Float, ax: Float, ay: Float, bx: Float, by: Float): Float =
         (ax - ox) * (by - oy) - (ay - oy) * (bx - ox)
 
-    /** 凸多边形最大面积内接四边形，返回 4 个顶点在环序中的下标 */
-    private fun maxAreaQuad(hx: FloatArray, hy: FloatArray, k: Int): IntArray? {
-        if (k < 4) return null
-        var best = 0f
-        var bi = 0; var bj = 0; var bk = 0; var bl = 0
-        for (a in 0 until k - 3) {
-            for (b in a + 1 until k - 2) {
-                for (cc in b + 1 until k - 1) {
-                    val abBC = tri(hx[a], hy[a], hx[b], hy[b], hx[cc], hy[cc])
-                    for (d in cc + 1 until k) {
-                        val area = abBC + tri(hx[a], hy[a], hx[cc], hy[cc], hx[d], hy[d])
-                        if (area > best) {
-                            best = area
-                            bi = a; bj = b; bk = cc; bl = d
-                        }
-                    }
-                }
-            }
-        }
-        return if (best <= 0f) null else intArrayOf(bi, bj, bk, bl)
-    }
-
-    private fun tri(ax: Float, ay: Float, bx: Float, by: Float, cx: Float, cy: Float): Float =
-        abs((bx - ax) * (cy - ay) - (by - ay) * (cx - ax)) / 2f
-
-    /** 面积占比与边长的粗校验，剔除明显不是页面的框 */
     private fun plausible(q: FloatArray): Boolean {
-        fun edge(i: Int, j: Int): Float {
-            val dx = q[2 * i] - q[2 * j]
-            val dy = q[2 * i + 1] - q[2 * j + 1]
-            return hypot(dx, dy)
-        }
-        var area = 0f
-        for (i in 0 until 4) {
-            val j = (i + 1) % 4
-            area += q[2 * i] * q[2 * j + 1] - q[2 * j] * q[2 * i + 1]
-        }
-        val ratio = abs(area) / 2f
-        if (ratio < 0.15f) return false
-        // 页面几乎充满画面时边缘不在画面内，跟踪无意义，交回静态引导框
-        if (ratio > 0.93f) return false
+        fun edge(i: Int, j: Int): Float = hypot(q[2 * i] - q[2 * j], q[2 * i + 1] - q[2 * j + 1])
+        val ratio = quadArea(q)
+        if (ratio < 0.15f || ratio > 0.97f) return false
         return edge(0, 1) > 0.2f && edge(1, 2) > 0.2f && edge(2, 3) > 0.2f && edge(3, 0) > 0.2f
     }
+
     internal fun otsu(hist: IntArray, total: Int): Int {
         var sum = 0L
         for (i in 0..255) sum += i.toLong() * hist[i]

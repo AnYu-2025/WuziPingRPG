@@ -103,17 +103,7 @@ fun main() {
         val key = ExportRules.ocrKey("page",1,100,2400,1800,"GRAY",50,50)
         verify(key != ExportRules.ocrKey("page",1,100,3200,2400,"GRAY",50,50), "OCR 分辨率切换使缓存失效")
         verify(key != ExportRules.ocrKey("page",1,101,2400,1800,"GRAY",50,50), "文件内容尺寸变化使缓存失效")
-        val w = 320; val h = 400
-        val rectangle = IntArray(w*h) { i -> if (i%w in 55..265 && i/w in 45..355) 235 else 25 }
-        val detected = PageContour.detectQuad(rectangle,w,h)
-        verify(detected != null && ScanRules.validQuad(detected), "深色桌面亮纸页可检测有效四角")
-        verify(detected != null && kotlin.math.abs(detected[0]-55f/w)<.04f && kotlin.math.abs(detected[1]-45f/h)<.04f,
-            "检测角点与真实页边误差小于画面 4%")
-        val inverted = IntArray(w*h) { 255-rectangle[it] }
-        verify(PageContour.detectQuad(inverted,w,h) != null, "浅色背景深色页面自动识别极性")
-        verify(PageContour.detectQuad(IntArray(w*h){220},w,h) == null, "均匀低对比画面不误报页面")
-        val hist = IntArray(256).apply { this[25]=1000; this[235]=1000 }
-        verify(PageContour.otsu(hist,2000) in 26..235, "Otsu 阈值将等于暗峰的背景留在背景侧")
+        runQuadChecks(::verify)
         println("$checks regression checks passed")
     } finally {
         check(root.canonicalFile.parentFile == tempParent && root.name.startsWith("scan-camera-regression-"))
