@@ -10,9 +10,9 @@ const editor={homeOpen:false,mode:'python',dialogOpen:false,drawerOpen:false,dra
 
 test('modules are grouped for the hub and every module has a Chinese name',()=>{
   assert.deepEqual(GROUPS.map(g=>g.id),['study','create','more']);
-  assert.deepEqual(modulesInGroup('study').map(item=>item.id),['lecture','tts','scan']);
+  assert.deepEqual(modulesInGroup('study').map(item=>item.id),['lecture','tts','scan','focus']);
   assert.deepEqual(modulesInGroup('create').map(item=>item.id),['python','notepad','photo','model']);
-  assert.deepEqual(modulesInGroup('more').map(item=>item.id),['ai','game']);
+  assert.deepEqual(modulesInGroup('more').map(item=>item.id),['ai','game','pelican']);
   assert.equal(HOME_ACTIONS,MODULES);
   for(const item of MODULES){
     assert.ok(item.title.length>=2,item.id);

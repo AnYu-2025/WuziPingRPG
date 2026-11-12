@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.6</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.7</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -36,6 +36,7 @@
    <button class="home-card" type="button" data-mode="lecture" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🎙</span><span class="home-tag">录音</span></span><span class="home-copy"><strong>上课</strong><small>录音、笔记、PPT 同一条时间轴</small></span></button>
    <button class="home-card" type="button" data-mode="tts" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">EN</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>英文朗读</strong><small>按句子朗读英文，可调语速</small></span></button>
    <button class="home-card" type="button" data-mode="scan" data-kind="native" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">▣</span><span class="home-tag">相机</span></span><span class="home-copy"><strong>扫描文档</strong><small>拍书页和讲义，自动裁边，导出 PDF</small></span></button>
+   <button class="home-card" type="button" data-mode="focus" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🍅</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>专注番茄</strong><small>工作/休息循环，统计今日专注</small></span></button>
   </div>
  </section>
  <section class="home-group" data-group="create" aria-label="创作">
@@ -52,6 +53,7 @@
   <div class="home-grid">
    <button class="home-card" type="button" data-mode="ai" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✧</span><span class="home-tag">联网</span></span><span class="home-copy"><strong>AI 助手</strong><small>对话和手机工具，敏感操作要你点允许</small></span></button>
    <button class="home-card" type="button" data-mode="game" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✦</span><span class="home-tag">游戏</span></span><span class="home-copy"><strong>星火远征</strong><small>原来的游戏存档还在</small></span></button>
+   <button class="home-card" type="button" data-mode="pelican" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🚲</span><span class="home-tag">3D</span></span><span class="home-copy"><strong>鹈鹕骑车</strong><small>3D 休闲：点按跳跃躲障碍</small></span></button>
   </div>
  </section>
  <p class="home-foot">草稿会自动存好。想把改动写回手机上的原文件，打开文件点「保存」就行。</p>
@@ -62,7 +64,7 @@
  <p class="star-hole-note">收进来的星星只是隐藏，随时放回或打开，不影响任何草稿。</p>
 </div>
 </section>
-<header class="appbar"><button id="homeButton" class="homeback" type="button" aria-label="回到首页" title="回到首页"><span class="homeback-chev" aria-hidden="true">‹</span><span class="homeback-label">首页</span></button><button id="filesToggle" class="icon" aria-label="文件列表" title="文件列表">☰</button><div class="doc"><strong id="activePath">main.py</strong><small id="dirtyFlag">本地草稿</small></div><button id="drawToggle" class="icon drawtoggle" aria-label="画画" title="画画" aria-pressed="false" hidden>🖌️</button><button id="saveButton" class="icon saveicon" aria-label="保存" title="保存">保存</button><button id="runButton" class="primary">▶ 运行</button><button id="stopButton" class="danger" hidden>■ 停止</button><button id="moreButton" class="icon" aria-label="更多操作" title="更多操作">⋯</button></header>
+<header class="appbar"><button id="homeButton" class="homeback" type="button" aria-label="回到首页" title="回到首页"><span class="homeback-chev" aria-hidden="true">‹</span><span class="homeback-label">首页</span></button><button id="filesToggle" class="icon" aria-label="文件列表" title="文件列表">☰</button><div class="doc"><strong id="activePath">main.py</strong><small id="dirtyFlag">本地草稿</small></div><button id="drawToggle" class="icon drawtoggle" aria-label="画画" title="画画" aria-pressed="false" hidden>🖌️</button><button id="mdToggle" class="icon mdtoggle" aria-label="Markdown 预览" title="Markdown 预览" aria-pressed="false" hidden>👁</button><button id="saveButton" class="icon saveicon" aria-label="保存" title="保存">保存</button><button id="runButton" class="primary">▶ 运行</button><button id="stopButton" class="danger" hidden>■ 停止</button><button id="moreButton" class="icon" aria-label="更多操作" title="更多操作">⋯</button></header>
 <section id="lectureBar" aria-label="上课录音控制" data-state="idle"><span class="recdot" aria-hidden="true"></span><button id="recordBtn" data-role="rec"><span id="recordLabel">🎙 开始录音</span></button><button id="pauseBtn" class="recalt" hidden>⏸ 暂停</button><button id="stopBtn" class="recstop" hidden>⏹ 停止</button><button id="newRecBtn" class="recalt" hidden>🎙 新录音</button><strong id="recordTimer">00:00</strong><label class="rec-translate" id="translateToggle"><input type="checkbox" id="translateCheck"><span class="reccheck"></span><span class="reclabel">翻译</span></label><span class="grow"></span><button id="anchorBtn" class="recanchor" hidden>📌<span class="anchorbtntext"> 标记锚点</span></button></section>
 <section id="ttsBar" aria-label="英文朗读控制" data-state="idle">
 <div class="tts-main"><span class="tts-mark" aria-hidden="true">EN</span><div class="tts-summary"><strong>英文朗读</strong><small id="ttsMeta" aria-live="off">在编辑器里输入或打开英文文本</small></div><button id="ttsPlay" class="tts-play" aria-label="开始英语朗读"><span id="ttsPlayText">朗读</span></button><button id="ttsStop" class="tts-stop" aria-label="停止英语朗读" title="停止">■</button></div>
@@ -72,6 +74,7 @@
 <section id="workbench">
 <div id="backdrop" hidden></div><aside id="explorer" aria-label="工作区文件"><div class="sheethead"><strong>文件</strong><button id="closeExplorer" class="icon" aria-label="关闭文件列表">✕</button></div><div class="fileactions"><button id="openFile">打开文件</button><button id="openFolder">导入文件夹</button></div><div id="fileList"></div><div class="explorerfoot">编辑自动保存草稿<br>“保存”写回手机原文件</div><div class="sheetfoot"><button id="newFile" class="newfile">＋ 新建文件</button></div></aside>
 <main class="workspace"><div id="editor" aria-label="代码编辑器"><div id="noteEmpty" aria-hidden="true">从这里开始写点什么…</div></div>
+<div id="mdPreview" class="md-preview" hidden aria-label="Markdown 预览"></div>
 <div id="drawLayer" hidden>
   <canvas id="drawCanvas" aria-label="画画画布"></canvas>
   <p id="drawHint">画画模式 · 手指涂写，双指捏合或滚轮缩放</p>
@@ -189,6 +192,34 @@
 </section>
 <dialog id="modelRenameDialog"><form method="dialog"><span class="eyebrow">3D 建模</span><h2>重命名物体</h2><label for="modelRenameInput">名称</label><input id="modelRenameInput" autocomplete="off" maxlength="30"><div class="dialogactions"><button value="cancel">取消</button><button value="ok" class="primary">确定</button></div></form></dialog>
 
+<section id="focusPanel" hidden aria-label="专注番茄">
+ <div class="focus-wrap">
+  <p class="focus-phase" id="focusPhase">专注</p>
+  <div class="focus-time" id="focusTime">25:00</div>
+  <div class="focus-dots" id="focusDots" aria-label="本轮进度"></div>
+  <div class="focus-actions">
+   <button id="focusStart" class="primary" type="button">开始</button>
+   <button id="focusReset" type="button">重置</button>
+   <button id="focusSkip" type="button">跳过</button>
+  </div>
+  <div class="focus-settings">
+   <label>专注<input id="focusWorkMin" type="number" min="1" max="90" inputmode="numeric">分</label>
+   <label>短休<input id="focusShortMin" type="number" min="1" max="30" inputmode="numeric">分</label>
+   <label>长休<input id="focusLongMin" type="number" min="1" max="60" inputmode="numeric">分</label>
+  </div>
+  <p class="focus-stats" id="focusStats">今日 0 个 · 累计 0 个</p>
+ </div>
+</section>
+
+<section id="pelicanPanel" hidden aria-label="鹈鹕骑车">
+ <div class="pelican-stage" id="pelicanStage">
+  <canvas id="pelicanCanvas"></canvas>
+  <div class="pelican-hud"><span>得分 <b id="pelicanScore">0</b></span><span>最佳 <b id="pelicanBest">0</b></span></div>
+  <p class="pelican-msg" id="pelicanMsg">点按屏幕开始 · 跳跃躲障碍</p>
+  <button id="pelicanJumpBtn" class="pelican-jump" type="button">跳</button>
+ </div>
+</section>
+
 <section id="aiPanel" hidden aria-label="AI 助手">
 <aside class="ai-side">
  <div class="ai-section"><h3 id="aiSettingsTitle">连接与外观</h3>
@@ -280,4 +311,4 @@
  </div>
 </dialog>
 <input id="browserFiles" type="file" multiple hidden><input id="browserFolder" type="file" multiple webkitdirectory hidden><input id="slideInput" type="file" accept="image/*" multiple hidden><input id="pptxInput" type="file" accept=".pptx,.ppt,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint" hidden>
-<script src="sky-ripple.js"></script><script src="boot.js"></script><script type="module" src="app.js"></script></body></html>
+<script src="sky-ripple.js"></script><script src="boot.js"></script><script src="app.js"></script></body></html>

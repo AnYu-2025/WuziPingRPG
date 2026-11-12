@@ -17,15 +17,21 @@ import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAf
 import {initTTS,ttsExtensions,ttsSerialize,ttsSanitize,ttsAfterRestore,ttsModeEnter,ttsModeLeave,ttsHideBar,ttsShowBar,ttsDocumentChanged,ttsStatusText,ttsReceive,ttsDebug} from './tts.js';
 import {initDraw,ensureDrawUI,enterDrawMode,exitDrawMode,isDrawMode,getDrawStrokes,loadDrawStrokes,getDrawView,loadDrawView} from './draw.js';
 import {initAI,aiSerialize,aiSanitize,aiRestore,aiModeEnter,aiModeLeave,aiHidePanel,aiEnterPanel,aiStatusText,aiReceive,aiDebug} from './ai.js';
-import {BACK,resolveBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS,moduleById,isNativeModule,moduleAvailability} from './back.js';
+import {BACK,resolveBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS,HOME_ACTIONS as MODULES,moduleById,isNativeModule,moduleAvailability} from './back.js';
 import {NOTE_TEMPLATES,templateById,templateFileName,sanitizeTemplateState,insertTemplate,noteTemplateAction,notepadTarget,isNotepadNotePath,shouldRememberCodePath} from './note-templates.js';
 import {createQuizRequester,quizAIAvailability,normalizeQuizCount,gradeQuiz,retryWrongQuiz,quizToMarkdown,quizFileName,QUIZ_TYPE_LABELS,QUIZ_NOTE_LIMIT} from './quiz.js';
 import {modelSanitize} from './model-data.js';
+import {init as initModel} from './model3d.js';
 import {readStoredTheme,sanitizeTheme,writeStoredTheme,themeFromSettings,applyTheme,themeColor} from './theme.js';
 import {starSanitize} from './star-data.js';
+import {init as initStar} from './star-home.js';
 import {splitLocations} from './error-loc.js';
 import {snippetsFor,snippetById} from './snippets.js';
 import {searchProject} from './project-search.js';
+import {renderMarkdown} from './markdown.js';
+import {DEFAULT_FOCUS,focusSanitize,focusToggle,focusReset,focusSkip,focusTick,focusSetMinutes,fmtTime} from './focus.js';
+import {init as initPelican} from './pelican3d.js';
+import {pelicanSanitize} from './pelican.js';
 
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
 /* 原生工作区快照的硬上限（EditorActivity 里是同一个数）。
@@ -64,7 +70,7 @@ const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript'
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true}});
+const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0}});
 let state=defaults(),view,restoring=false,worker=null,cppWorker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 /* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
 const micWaiters=new Map();let micSeq=0;
@@ -83,7 +89,7 @@ function active(){return state.files.find(f=>f.path===state.active)||state.files
 function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id))};}
+function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican)};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
 function mb(bytes){return (bytes/1048576).toFixed(1);}
@@ -123,6 +129,10 @@ function loadState(data){
   state.drawView=(data&&data.drawView&&typeof data.drawView==='object')?data.drawView:null;
   state.model=modelSanitize(data.model);
   state.star=starSanitize(data.star,MODULES.map(m=>m.id));
+  state.focus=focusSanitize(data.focus);
+  /* 恢复时不自动继续计时，避免后台偷跑。 */
+  state.focus.running=false;
+  state.pelican=pelicanSanitize(data.pelican);
   state.settings.fontSize=Math.max(12,Math.min(24,Number(state.settings.fontSize)||15));state.settings.timeLimit=[15,30,60].includes(+state.settings.timeLimit)?+state.settings.timeLimit:15;if(window.innerWidth<700)state.settings.wrap=true;
   adoptTheme(data.settings);
   state.active=files.some(f=>f.path===state.active)?state.active:files[0].path;state.opened=Array.isArray(state.opened)?state.opened.filter(p=>files.some(f=>f.path===p)):[];if(!state.opened.includes(state.active))state.opened.push(state.active);
@@ -142,7 +152,7 @@ function createEditor(){
    editConfig.of(EditorState.readOnly.of(!!worker)),
    EditorView.contentAttributes.of({autocapitalize:'off',autocorrect:'off',spellcheck:'false',enterkeyhint:'enter',inputmode:'text'}),
    EditorView.updateListener.of(update=>{
-     if(update.docChanged&&!restoring){const f=active();f.text=update.state.doc.toString();scheduleSave();refreshBadges();ttsDocumentChanged('edited');}
+     if(update.docChanged&&!restoring){const f=active();f.text=update.state.doc.toString();scheduleSave();refreshBadges();ttsDocumentChanged('edited');updateMdPreview();}
      if(update.selectionSet||update.docChanged)position();
    })
  ]};
@@ -326,16 +336,34 @@ function showCode(){closeMenu();$('workbench').hidden=false;$('lounge').hidden=t
 function setWorkspaceMode(mode){
   workspaceMode=selectedMode=mode;
   const drawToggle=$('drawToggle');if(drawToggle)drawToggle.hidden=mode!=='notepad';
+  const mdToggle=$('mdToggle');if(mdToggle)mdToggle.hidden=mode!=='notepad';
+  if(mode!=='notepad')setMdPreview(false);
   if(mode!=='notepad')document.body.classList.remove('notepad');
   if(mode!=='lecture')document.body.classList.remove('lecture');
   if(mode!=='tts')document.body.classList.remove('tts');
   if(mode!=='ai')document.body.classList.remove('aiview');
   if(mode!=='game')document.body.classList.remove('gameview');
   if(mode!=='model')document.body.classList.remove('modelview');
+  if(mode!=='focus')document.body.classList.remove('focusview');
+  if(mode!=='pelican')document.body.classList.remove('pelicanview');
 }
 on('filesToggle',()=>{closeMenu();document.body.classList.toggle('drawer');});on('backdrop',closeDrawer);on('closeExplorer',closeDrawer);on('newFile',()=>nameDialog());on('newTab',()=>nameDialog());menu('menuNew',()=>nameDialog());
 menu('findButton',()=>{openSearchPanel(view);const searchInput=document.querySelector('.cm-search input');if(searchInput)searchInput.focus();else if(view)view.focus();});menu('settingsButton',()=>{applySettings();$('settingsDialog').showModal();});on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());on('saveOutput',saveOutputToFile);$('output').addEventListener('click',event=>{const link=event.target.closest('.errlink');if(link)gotoError({path:link.dataset.path,line:+link.dataset.line,column:+link.dataset.col||1});});on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
 on('codeTab',()=>{if(workspaceMode==='game'){flush();openLanding(true);return;}showCode();});on('gameTab',showGame);menu('menuGame',showGame);menu('menuMode',()=>{flush();openLanding(true);});on('playGame',()=>{flush();if(native)send('play');else notify('此预览仅展示编辑器，安装 APK 后可直接进入原生游戏。');});on('exportGame',()=>native?send('exportGame'):notify('游戏存档备份在 Android APK 中使用。'));on('importGame',()=>native?send('importGame'):notify('安装 APK 后可导入游戏备份。'));on('drawToggle',()=>{if(workspaceMode!=='notepad')return;if(isDrawMode()){exitDrawMode();}else{enterDrawMode();}});
+/* Markdown 预览：记事本里把当前笔记渲染成排版视图，纯展示不可编辑。 */
+let mdOn=false;
+function updateMdPreview(){
+  const box=$('mdPreview');if(!box||!mdOn)return;
+  box.innerHTML=renderMarkdown(view?view.state.doc.toString():'');
+}
+function setMdPreview(on){
+  mdOn=!!on&&workspaceMode==='notepad';
+  const box=$('mdPreview'),btn=$('mdToggle');
+  if(box)box.hidden=!mdOn;
+  if(btn)btn.setAttribute('aria-pressed',mdOn?'true':'false');
+  if(mdOn)updateMdPreview();
+}
+on('mdToggle',()=>{if(workspaceMode!=='notepad')return;if(isDrawMode())exitDrawMode();setMdPreview(!mdOn);});
 $('menuDialog').addEventListener('click',event=>{if(event.target===$('menuDialog'))$('menuDialog').close();});
 /* 菜单关掉以后焦点别丢在 body 上：没有别的对话框接着开、也没有谁自己接过焦点，
    就还给齿轮按钮。老 WebView 的 focus(options) 可能不接受参数，兜一层。 */
@@ -825,15 +853,16 @@ function refreshHomeTitle(){const t=$('homeTitle');if(t)t.textContent=greet()+'�
 function refreshAvailability(){for(const card of homeCards){const a=moduleAvailability(card.dataset.mode,moduleCaps);card.dataset.unavailable=a.ok?'0':'1';if(!a.ok)card.title=a.message;else card.removeAttribute('title');}}
 function setHomeEnabled(on){for(const card of homeCards)card.disabled=!on;const resume=$('resumeCard');if(resume)resume.disabled=!on;}
 function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(landingStatus)landingStatus.textContent='草稿已就绪';setHomeEnabled(true);refreshAvailability();refreshHomeTitle();refreshResume();
-  /* 星穹在首页可见时懒加载启动；WebGL/旧WebView 不可用则保持卡片。 */
-  if(!starActive&&landingOpen&&!landing.hidden){ensureStar().then(api=>{if(!landingOpen||landing.hidden)return;starActive=api.enter();if(starActive){document.body.classList.add('starhome');setStarView(state.star&&state.star.view==='list');}}).catch(()=>{});}
+  /* 星穹在首页可见时启动；WebGL 不可用则保持卡片。 */
+  if(!starActive&&landingOpen&&!landing.hidden){starActive=starApi.enter();if(starActive){document.body.classList.add('starhome');setStarView(state.star&&state.star.view==='list');}}
 }
-function hideLanding(){if(!landingOpen||!landing)return;if(starActive&&starApi)starApi.leave();if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model'&&modelApi)modelApi.enter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},280);}
+function hideLanding(){if(!landingOpen||!landing)return;if(starActive&&starApi)starApi.leave();if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model'&&modelApi)modelApi.enter();if(workspaceMode==='pelican'&&pelicanApi)pelicanApi.enter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},280);}
 function openLanding(reopen=false){
   if(!landing)return;
   if(reopen&&workspaceMode==='tts')ttsHideBar();
   if(reopen&&workspaceMode==='ai'){setAISettings(false);aiHidePanel();}
   if(reopen&&workspaceMode==='model'&&modelApi)modelApi.leave();
+  if(reopen&&workspaceMode==='pelican'&&pelicanApi)pelicanApi.leave();
   closeDrawer();closeMenu();
   if(view){try{closeSearchPanel(view);}catch(e){}}
   clearTimeout(landingTimer);
@@ -931,12 +960,36 @@ function applyMode(mode){
   if(mode==='tts'&&!ttsTarget)return false;
   if(workspaceMode==='tts'&&mode!=='tts')ttsModeLeave();
   if(workspaceMode==='model'&&mode!=='model'&&modelApi)modelApi.leave();
+  if(workspaceMode==='pelican'&&mode!=='pelican'&&pelicanApi)pelicanApi.leave();
   const leavingAI=workspaceMode==='ai'&&mode!=='ai';
   setWorkspaceMode(mode);  const noteEmpty=$('noteEmpty');
   if(noteEmpty)noteEmpty.textContent=mode==='lecture'?'点上方「🎙 开始录音」，边听边记；每一行都会自动带上时间戳。':'从这里开始写点什么…';
   const drawToggle=$('drawToggle');
   if(leavingAI)aiModeLeave();
   const aiPanel=$('aiPanel');
+  if(mode==='focus'){
+    document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('focusview');
+    lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
+    $('workbench').hidden=true;$('lounge').hidden=true;
+    if(aiPanel)aiPanel.hidden=true;
+    const mp=$('modelPanel');if(mp)mp.hidden=true;
+    const fp=$('focusPanel');if(fp)fp.hidden=false;
+    $('activePath').textContent='专注番茄';$('dirtyFlag').textContent='';
+    renderFocus();
+    return true;
+  }
+  if(mode==='pelican'){
+    document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('pelicanview');
+    lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
+    $('workbench').hidden=true;$('lounge').hidden=true;
+    if(aiPanel)aiPanel.hidden=true;
+    const mp=$('modelPanel');if(mp)mp.hidden=true;
+    const fp=$('focusPanel');if(fp)fp.hidden=true;
+    const pp=$('pelicanPanel');if(pp)pp.hidden=false;
+    $('activePath').textContent='鹈鹕骑车';$('dirtyFlag').textContent='';
+    if(!pelicanApi.enter()){notify('鹈鹕骑车需要 WebGL 支持，当前设备暂不可用。');openLanding(true);}
+    return true;
+  }
   if(mode==='model'){
     document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('modelview');
     lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
@@ -944,8 +997,8 @@ function applyMode(mode){
     if(aiPanel)aiPanel.hidden=true;
     const panel=$('modelPanel');if(panel)panel.hidden=false;
     $('activePath').textContent='3D 建模';$('dirtyFlag').textContent='场景自动保存';
-    /* 3D 渲染层懒加载：旧 WebView 加载失败时退回首页，不影响其它功能。 */
-    ensureModel().then(api=>{if(workspaceMode==='model')api.enter();}).catch(()=>{notify('3D 需要较新的系统 WebView，当前设备暂不支持；其它功能不受影响。');openLanding(true);});
+    /* 3D 渲染层 enter 时才建 WebGL；不可用则提示降级。 */
+    if(!modelApi.enter()){notify('3D 需要 WebGL 支持，当前设备暂不可用；其它功能不受影响。');openLanding(true);}
     return true;
   }
   if(mode==='ai'){
@@ -958,6 +1011,8 @@ function applyMode(mode){
   }
   if(aiPanel)aiPanel.hidden=true;
   const modelPanelEl=$('modelPanel');if(modelPanelEl)modelPanelEl.hidden=true;
+  const focusPanelEl=$('focusPanel');if(focusPanelEl)focusPanelEl.hidden=true;
+  const pelicanPanelEl=$('pelicanPanel');if(pelicanPanelEl)pelicanPanelEl.hidden=true;
   document.body.classList.remove('aiview');$('workbench').hidden=false;
   if(mode==='game'){document.body.classList.remove('notepad');document.body.classList.remove('lecture');document.body.classList.remove('tts');lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();showGame();return true;}
   showCode();
@@ -1057,44 +1112,35 @@ initTTS({
   activePath:()=>state.active
 });
 function bytesToBase64(bytes){let binary='';const chunk=0x8000;for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk));return btoa(binary);}
-/* 3D 与星穹的渲染层（three.js）懒加载：主 bundle 不含 three，
- * 旧 WebView 解析不了 three 时主界面/编码照常，仅 3D/星穹降级。 */
-let modelApi=null,modelLoad=null;
-function ensureModel(){
-  if(modelApi)return Promise.resolve(modelApi);
-  if(!modelLoad)modelLoad=import('./model3d.js').then(m=>{
-    modelApi=m.init({
-      notify,native,
-      send:(type,payload)=>send(type,payload),
-      getState:()=>state.model,
-      setState:value=>{state.model=modelSanitize(value);},
-      scheduleSave,
-      exportBinary:(name,bytes,mime)=>{
-        const id='model-'+Date.now()+'-'+Math.floor(Math.random()*1e6);
-        if(native){pendingSaves.set(id,{path:name,text:'',binary:true});send('exportBinary',{id,path:name,data:bytesToBase64(bytes),mime});}
-        else{const blob=new Blob([bytes],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('已导出 '+name);}
-      }
-    });
-    return modelApi;
-  }).catch(e=>{modelLoad=null;throw e;});
-  return modelLoad;
-}
-let starApi=null,starLoad=null;
-function ensureStar(){
-  if(starApi)return Promise.resolve(starApi);
-  if(!starLoad)starLoad=import('./star-home.js').then(m=>{
-    starApi=m.init({
-      notify,
-      modules:()=>MODULES,
-      open:id=>enterHomeMode(id),
-      getPrefs:()=>state.star||{starred:[],motion:true},
-      setPrefs:p=>{state.star=starSanitize(p,MODULES.map(m=>m.id));scheduleSave();},
-      showList:()=>setStarView(true)
-    });
-    return starApi;
-  }).catch(e=>{starLoad=null;throw e;});
-  return starLoad;
-}
+/* 3D 与星穹渲染层静态初始化（IIFE 单文件打包，原生壳内联普通 script）。
+ * 设备 WebView 为现代 Chrome，three 可正常解析；初始化不依赖 WebGL，
+ * 仅 enter() 时才创建渲染器，WebGL 不可用则降级。 */
+const modelApi=initModel({
+  notify,native,
+  send:(type,payload)=>send(type,payload),
+  getState:()=>state.model,
+  setState:value=>{state.model=modelSanitize(value);},
+  scheduleSave,
+  exportBinary:(name,bytes,mime)=>{
+    const id='model-'+Date.now()+'-'+Math.floor(Math.random()*1e6);
+    if(native){pendingSaves.set(id,{path:name,text:'',binary:true});send('exportBinary',{id,path:name,data:bytesToBase64(bytes),mime});}
+    else{const blob=new Blob([bytes],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('已导出 '+name);}
+  }
+});
+const starApi=initStar({
+  notify,
+  modules:()=>MODULES,
+  open:id=>enterHomeMode(id),
+  getPrefs:()=>state.star||{starred:[],motion:true},
+  setPrefs:p=>{state.star=starSanitize(p,MODULES.map(m=>m.id));scheduleSave();},
+  showList:()=>setStarView(true)
+});
+const pelicanApi=initPelican({
+  notify,
+  getBest:()=>(state.pelican&&state.pelican.best)||0,
+  setBest:b=>{state.pelican={best:b};scheduleSave();},
+  onOver:(score,best)=>{notify('鹈鹕撞上了！得分 '+score+'，最佳 '+best+'。');}
+});
 /* 星穹首页：WebGL 可用时把功能做成恒星；不可用保留卡片列表。 */
 let starActive=false;
 function setStarView(list){
@@ -1104,6 +1150,36 @@ function setStarView(list){
   if(state.star){state.star.view=list?'list':'sky';scheduleSave();}
 }
 on('homeSkyBtn',()=>setStarView(false));
+
+/* ---------------- 专注番茄 ---------------- */
+function todayStr(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+function renderFocus(){
+  const s=state.focus||DEFAULT_FOCUS();
+  const phase=$('focusPhase');if(phase)phase.textContent=s.phase==='work'?'专注':s.phase==='short'?'短休息':'长休息';
+  const time=$('focusTime');if(time)time.textContent=fmtTime(s.remaining);
+  const dots=$('focusDots');
+  if(dots){dots.replaceChildren();for(let i=0;i<4;i++){const d=document.createElement('i');if(i<s.cycle)d.className='on';dots.append(d);}}
+  const start=$('focusStart');if(start)start.textContent=s.running?'暂停':'开始';
+  const wm=$('focusWorkMin'),sm=$('focusShortMin'),lm=$('focusLongMin');
+  if(wm&&document.activeElement!==wm)wm.value=s.workMin;
+  if(sm&&document.activeElement!==sm)sm.value=s.shortMin;
+  if(lm&&document.activeElement!==lm)lm.value=s.longMin;
+  const stats=$('focusStats');
+  if(stats){const today=s.today&&s.today.date===todayStr()?s.today.count:0;stats.textContent='今日 '+today+' 个 · 累计 '+s.completed+' 个';}
+}
+setInterval(()=>{
+  if(!state.focus||!state.focus.running)return;
+  const r=focusTick(state.focus,todayStr());
+  state.focus=r.state;
+  if(r.finished){notify(state.focus.phase==='work'?'休息结束，开始新一轮专注。':'一个专注段完成，休息一下。');scheduleSave();}
+  if(workspaceMode==='focus')renderFocus();
+},1000);
+on('focusStart',()=>{state.focus=focusToggle(state.focus);renderFocus();scheduleSave();});
+on('focusReset',()=>{state.focus=focusReset(state.focus);renderFocus();scheduleSave();});
+on('focusSkip',()=>{state.focus=focusSkip(state.focus);renderFocus();scheduleSave();});
+for(const [id,key] of [['focusWorkMin','workMin'],['focusShortMin','shortMin'],['focusLongMin','longMin']]){
+  const el=$(id);if(el)el.onchange=()=>{state.focus=focusSetMinutes(state.focus,key,+el.value);renderFocus();scheduleSave();};
+}
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
   getDrawData:()=>state.drawStrokes||[],

@@ -33,12 +33,14 @@ export const MODULES=[
   {id:'lecture',group:'study',kind:'web',title:'上课',resume:'继续上课',detail:'录音、笔记、PPT 同一条时间轴',icon:'🎙',tag:'录音'},
   {id:'tts',group:'study',kind:'web',title:'英文朗读',resume:'继续英文朗读',detail:'按句子朗读英文，可调语速',icon:'EN',tag:'离线'},
   {id:'scan',group:'study',kind:'native',title:'扫描文档',resume:'继续扫描文档',detail:'拍书页和讲义，自动裁边，导出 PDF',icon:'▣',tag:'相机',minSdk:29},
+  {id:'focus',group:'study',kind:'web',title:'专注番茄',resume:'继续专注',detail:'工作/休息循环，统计今日专注',icon:'🍅',tag:'离线'},
   {id:'python',group:'create',kind:'web',title:'写代码',resume:'继续写代码',detail:'Python、C++、网页，离线运行',icon:'</>',tag:'离线'},
   {id:'notepad',group:'create',kind:'web',title:'记事本',resume:'继续记事本',detail:'写字、手绘，草稿自动留在本机',icon:'✎',tag:'草稿'},
   {id:'photo',group:'create',kind:'native',title:'修图',resume:'继续修图',detail:'浮生图梦：调色、裁剪、拼图、水印',icon:'◐',tag:'照片'},
   {id:'model',group:'create',kind:'web',title:'3D 建模',resume:'继续 3D 建模',detail:'手机上捏模型，触屏转视角',icon:'◈',tag:'离线'},
   {id:'ai',group:'more',kind:'web',title:'AI 助手',resume:'继续 AI 助手',detail:'对话和手机工具，敏感操作要你点允许',icon:'✧',tag:'联网'},
-  {id:'game',group:'more',kind:'web',title:'星火远征',resume:'继续星火远征',detail:'原来的游戏存档还在',icon:'✦',tag:'游戏'}
+  {id:'game',group:'more',kind:'web',title:'星火远征',resume:'继续星火远征',detail:'原来的游戏存档还在',icon:'✦',tag:'游戏'},
+  {id:'pelican',group:'more',kind:'web',title:'鹈鹕骑车',resume:'继续鹈鹕骑车',detail:'3D 休闲：点按跳跃躲障碍',icon:'🚲',tag:'3D'}
 ];
 /* 旧名字保留给已有调用方。 */
 export const HOME_ACTIONS=MODULES;

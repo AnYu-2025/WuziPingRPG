@@ -2,7 +2,7 @@
  * 主 bundle 用它读写草稿；three 渲染层在 model3d.js 里复用同一份逻辑，
  * 保证旧设备主界面不加载 three 也能正常保存/恢复场景。 */
 const MAX_OBJECTS=60,MAX_VERTS=24000,MAX_MESH_VERTS=60000;
-const PRIMS={cube:1,sphere:1,cylinder:1,cone:1,torus:1,plane:1,ico:1,capsule:1};
+const PRIMS={cube:1,sphere:1,cylinder:1,cone:1,torus:1,plane:1,ico:1,capsule:1,torusKnot:1,tetra:1,octa:1};
 const PALETTE=['#4f8f7b','#c2703e','#5b7fc7','#b04a5a','#8a6fc0','#c7a24b','#657a86','#d8d2c4'];
 const num=(v,fallback=0)=>Number.isFinite(+v)?+v:fallback;
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));

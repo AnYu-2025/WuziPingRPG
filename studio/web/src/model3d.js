@@ -35,7 +35,10 @@ const PRIMS={
   torus:{name:'圆环',glyph:'◎',make:()=>new THREE.TorusGeometry(.5,.2,14,28)},
   plane:{name:'平面',glyph:'▭',make:()=>new THREE.PlaneGeometry(1.6,1.6,4,4)},
   ico:{name:'二十面体',glyph:'⬡',make:()=>new THREE.IcosahedronGeometry(.65,0)},
-  capsule:{name:'胶囊',glyph:'⬮',make:()=>new THREE.CapsuleGeometry(.35,.6,6,16)}
+  capsule:{name:'胶囊',glyph:'⬮',make:()=>new THREE.CapsuleGeometry(.35,.6,6,16)},
+  torusKnot:{name:'环结',glyph:'∞',make:()=>new THREE.TorusKnotGeometry(.45,.14,64,10)},
+  tetra:{name:'四面体',glyph:'▲',make:()=>new THREE.TetrahedronGeometry(.7,0)},
+  octa:{name:'八面体',glyph:'◆',make:()=>new THREE.OctahedronGeometry(.65,0)}
 };
 /* 数据清洗与默认场景在 model-data.js（主 bundle 不加载 three 也能读写草稿）。 */
 const num=(v,fallback=0)=>Number.isFinite(+v)?+v:fallback;
@@ -1381,8 +1384,8 @@ export function initModel(env,api){
 
   /* ---------- 生命周期 ---------- */
   function enter(){
-    if(!host())return;
-    if(!ensureRenderer())return;
+    if(!host())return false;
+    if(!ensureRenderer())return false;
     active=true;
     rebuildAll();
     const cam=env.getState().camera;
@@ -1391,6 +1394,7 @@ export function initModel(env,api){
     cancelAnimationFrame(raf);
     loop();
     const hint=$('modelHint');if(hint){hint.classList.remove('faded');fadeHint();}
+    return true;
   }
   function leave(){
     active=false;
@@ -1542,7 +1546,7 @@ export function initModel(env,api){
 /* 懒加载入口：app.js 通过动态 import 调用，three 只在进入 3D 时才加载。
  * 旧 WebView 解析不了 three 时，主界面不受影响，仅 3D 不可用。 */
 export function init(env){
-  const api={enter:()=>{},leave:()=>{},status:()=>'',panelOpen:()=>false,closePanel:()=>{},debug:()=>({})};
+  const api={enter:()=>false,leave:()=>{},status:()=>'',panelOpen:()=>false,closePanel:()=>{},debug:()=>({})};
   initModel(env,api);
   return {
     serialize:()=>modelSanitize(env.getState()),

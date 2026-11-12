@@ -393,6 +393,23 @@ body.notepad .drawtoggle{color:#8b7355;border:1px solid #e5ddd0;background:#fff8
 body.notepad .drawtoggle:active{background:#f0e6cf}
 body.drawing #drawToggle{background:#f0e6cf;border-color:#b08d57;color:#8b7355}
 body.drawing #editor{visibility:hidden}
+/* Markdown 预览：记事本里覆盖编辑器，纯展示 */
+body.notepad .mdtoggle{color:#8b7355;border:1px solid #e5ddd0;background:#fff8ee}
+body.notepad .mdtoggle[aria-pressed="true"]{background:#f0e6cf;border-color:#b08d57}
+.md-preview{position:absolute;inset:0;z-index:4;overflow-y:auto;padding:18px 20px calc(20px + env(safe-area-inset-bottom));background:var(--surface);color:var(--text);font:15px/1.75 var(--ui-font);-webkit-overflow-scrolling:touch}
+.md-preview h1,.md-preview h2,.md-preview h3,.md-preview h4,.md-preview h5,.md-preview h6{margin:1.1em 0 .5em;line-height:1.3;color:var(--text-strong)}
+.md-preview h1{font-size:1.6em;border-bottom:1px solid var(--line);padding-bottom:.3em}
+.md-preview h2{font-size:1.35em}
+.md-preview h3{font-size:1.15em}
+.md-preview p{margin:.6em 0}
+.md-preview ul,.md-preview ol{margin:.6em 0;padding-left:1.6em}
+.md-preview li{margin:.25em 0}
+.md-preview code{font:13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+.md-preview pre{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px;overflow-x:auto;margin:.8em 0}
+.md-preview pre code{background:none;border:0;padding:0;font-size:13px;line-height:1.6}
+.md-preview blockquote{margin:.8em 0;padding:.4em 1em;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0;color:var(--muted)}
+.md-preview hr{border:0;border-top:1px solid var(--line);margin:1.2em 0}
+.md-preview a{color:var(--accent-strong)}
 
 @media(max-width:359px){
   .brandsub{display:none}
@@ -580,10 +597,37 @@ body.drawing #editor{visibility:hidden}
 #landing .meteor-field i:nth-child(6) { left:140%; --meteor-color:#dbb1ff; animation-duration:4.8s; animation-delay:-2.7s; }
 #landing .meteor-field i:nth-child(7) { left:105%; --meteor-color:#ffd58f; animation-duration:5.7s; animation-delay:-.5s; }
 #landing .meteor-field i:nth-child(8) { left:180%; --meteor-color:#9bbaff; animation-duration:6.3s; animation-delay:-1.7s; }
-@keyframes meteor-cross { 0% { opacity:0; transform:translate3d(0,0,0) rotate(-37deg); } 5% { opacity:.9; } 80% { opacity:.8; } 100% { opacity:0; transform:translate3d(-130vw,105vh,0) rotate(-37deg); } }
+@keyframes meteor-cross { 0% { opacity:0; transform:translate3d(0,0,0) rotate(-37deg); } 5% { opacity:.9; } 70% { opacity:.8; } 80% { opacity:0; transform:translate3d(-130vw,105vh,0) rotate(-37deg); } 100% { opacity:0; transform:translate3d(-130vw,105vh,0) rotate(-37deg); } }
 @media(prefers-reduced-motion:reduce) { #landing .meteor-field i { animation:none; } }
 
 #skyRipple { position:absolute; inset:0; width:100%; height:100%; z-index:1; opacity:0; pointer-events:none; filter:blur(2px) brightness(.78); transition:opacity .4s; }
 #skyRipple.ready { opacity:1; }
 #landing .meteor-field { z-index:2; }
 #landing .home-top,#landing .home-scroll { z-index:3; }
+
+/* 专注番茄 */
+#focusPanel{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:var(--bg);overflow-y:auto}
+.focus-wrap{display:flex;flex-direction:column;align-items:center;gap:18px;padding:28px 20px calc(28px + env(safe-area-inset-bottom));width:100%;max-width:420px}
+.focus-phase{margin:0;font-size:15px;font-weight:700;letter-spacing:.1em;color:var(--accent-strong)}
+.focus-time{font:700 72px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--text-strong);font-variant-numeric:tabular-nums}
+.focus-dots{display:flex;gap:8px}
+.focus-dots i{width:12px;height:12px;border-radius:50%;background:var(--line-strong)}
+.focus-dots i.on{background:var(--accent)}
+.focus-actions{display:flex;gap:10px}
+.focus-actions button{min-height:46px;padding:0 22px;border-radius:12px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:15px;font-weight:600}
+.focus-actions button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.focus-settings{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.focus-settings label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+.focus-settings input{width:56px;height:36px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--text-strong);text-align:center;font-size:14px}
+.focus-stats{margin:0;font-size:12.5px;color:var(--muted)}
+body.focusview .quickkeys,body.focusview .statusbar #position{display:none}
+
+/* 鹈鹕骑车 */
+#pelicanPanel{flex:1;min-height:0;position:relative;background:#87c5eb}
+.pelican-stage{position:absolute;inset:0}
+#pelicanCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.pelican-hud{position:absolute;top:calc(10px + env(safe-area-inset-top));left:12px;right:12px;display:flex;justify-content:space-between;color:#0b3550;font-size:14px;font-weight:700;text-shadow:0 1px 0 rgba(255,255,255,.4);pointer-events:none}
+.pelican-msg{position:absolute;left:0;right:0;top:40%;text-align:center;color:#0b3550;font-size:17px;font-weight:700;text-shadow:0 1px 0 rgba(255,255,255,.5);pointer-events:none;padding:0 16px}
+.pelican-jump{position:absolute;right:16px;bottom:calc(18px + env(safe-area-inset-bottom));width:74px;height:74px;border-radius:50%;background:rgba(255,255,255,.85);border:2px solid #0b3550;color:#0b3550;font-size:22px;font-weight:800;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+.pelican-jump:active{transform:scale(.94)}
+body.pelicanview .quickkeys,body.pelicanview .statusbar{display:none}
