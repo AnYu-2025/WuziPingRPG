@@ -83,6 +83,25 @@ test('flat shading flag is boolean and defaults false',()=>{
   assert.equal(modelSanitize({objects:[{type:'cube',flat:'yes'}]}).objects[0].flat,false);
 });
 
+test('light objects are accepted with bounded light params',()=>{
+  const s=modelSanitize({objects:[{type:'light',lightKind:'spot',lightIntensity:99,lightColor:'zzz',lightDistance:0,lightAngle:200}]});
+  assert.equal(s.objects.length,1);
+  const o=s.objects[0];
+  assert.equal(o.type,'light');
+  assert.equal(o.lightKind,'spot');
+  assert.equal(o.lightIntensity,10);
+  assert.equal(o.lightColor,'#ffffff');
+  assert.equal(o.lightDistance,1);
+  assert.equal(o.lightAngle,80);
+});
+
+test('light defaults to point and unknown lightKind falls back',()=>{
+  const o=modelSanitize({objects:[{type:'light'}]}).objects[0];
+  assert.equal(o.lightKind,'point');
+  assert.equal(o.lightIntensity,1);
+  assert.equal(modelSanitize({objects:[{type:'light',lightKind:'laser'}]}).objects[0].lightKind,'point');
+});
+
 test('imported mesh type requires vertex data and allows larger meshes',()=>{
   /* 没有顶点的 mesh 被丢弃 */
   assert.equal(modelSanitize({objects:[{type:'mesh'}]}).objects.length,0);

@@ -87,6 +87,9 @@
 .model-sliderrow{display:flex;align-items:center;gap:8px}
 .model-sliderrow input[type="range"]{flex:1;min-width:0}
 .model-sliderrow output{flex:none;width:42px;text-align:right;font-size:12px;color:var(--muted)}
+.model-slidername{font-size:12px;color:var(--muted);flex:none;width:40px}
+.model-kindbtn{height:36px;min-height:36px;padding:0 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--text);font-size:12.5px;font-weight:600}
+.model-kindbtn.active{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .model-propactions{display:flex;gap:8px}
 .model-propactions button{flex:1;height:42px;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--text-strong)}
 .model-propactions button.danger{background:var(--danger-soft);border-color:var(--line);color:var(--danger)}

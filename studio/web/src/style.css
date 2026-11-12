@@ -146,6 +146,8 @@ body.gameview .quickkeys,body.gameview .statusbar{display:none}
 .consolebar button.active{background:var(--accent-soft);color:var(--accent-strong);font-weight:600}
 #output{flex:1;min-height:0;margin:0;padding:8px 14px 14px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:12.5px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#334155;background:var(--surface);overscroll-behavior:contain}
 #output .error{color:var(--danger)}
+#output .errlink{text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;cursor:pointer;border-radius:3px}
+#output .errlink:active{background:var(--accent-soft)}
 .dim{color:var(--faint)}
 #stdin{flex:1;min-height:0;resize:none;border:0;outline:0;padding:8px 14px 14px;background:var(--surface);color:var(--text);font:13px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 

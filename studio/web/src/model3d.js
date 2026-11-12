@@ -24,7 +24,7 @@ import {extrudeFaces,insetFaces,deleteFaces,weldVertices,extractGeometry,faceKey
 const MAX_OBJECTS=60,MAX_VERTS=24000,MAX_HISTORY=24;
 /* 导入的 mesh 允许更大面数（只渲染不逐点编辑）；可编辑上限仍是 MAX_VERTS。 */
 const MAX_MESH_VERTS=60000,IMPORT_TARGET_FACES=16000;
-const typeName=t=>t==='mesh'?'导入模型':(PRIMS[t]?PRIMS[t].name:t);
+const typeName=t=>t==='mesh'?'导入模型':t==='light'?'灯光':(PRIMS[t]?PRIMS[t].name:t);
 const PALETTE=['#4f8f7b','#c2703e','#5b7fc7','#b04a5a','#8a6fc0','#c7a24b','#657a86','#d8d2c4'];
 const PRIMS={
   cube:{name:'立方体',glyph:'▢',make:()=>new THREE.BoxGeometry(1,1,1)},
@@ -44,7 +44,7 @@ export function modelSanitize(raw){
   const r=raw&&typeof raw==='object'?raw:DEFAULT_SCENE();
   const objects=[];
   for(const item of Array.isArray(r.objects)?r.objects.slice(0,MAX_OBJECTS):[]){
-    if(!item||typeof item!=='object'||(!PRIMS[item.type]&&item.type!=='mesh'))continue;
+    if(!item||typeof item!=='object'||(!PRIMS[item.type]&&item.type!=='mesh'&&item.type!=='light'))continue;
     /* mesh（导入模型）必须自带顶点数据，否则丢弃。 */
     if(item.type==='mesh'&&(!Array.isArray(item.verts)||item.verts.length<9))continue;
     const id=Math.max(1,Math.floor(num(item.id,objects.length+1)));
@@ -67,6 +67,12 @@ export function modelSanitize(raw){
       metal:clamp(num(item.metal,0),0,1),rough:clamp(num(item.rough,.65),0,1),
       flat:item.flat===true,
       visible:item.visible!==false,
+      /* 灯光专属：类型（point/spot）、强度、颜色、距离、聚光角度 */
+      lightKind:item.lightKind==='spot'?'spot':'point',
+      lightIntensity:clamp(num(item.lightIntensity,1),0,10),
+      lightColor:/^#[0-9a-fA-F]{6}$/.test(item.lightColor)?item.lightColor:'#ffffff',
+      lightDistance:clamp(num(item.lightDistance,12),1,50),
+      lightAngle:clamp(num(item.lightAngle,35),5,80),
       mods:{mirror:item.mods&&item.mods.mirror===true,array:clamp(Math.floor(num(item.mods&&item.mods.array,0)),0,6),subdiv:clamp(Math.floor(num(item.mods&&item.mods.subdiv,0)),0,2)},
       verts,faces
     });
@@ -98,7 +104,7 @@ export function initModel(env){
   function ensureRenderer(){
     if(renderer)return true;
     const canvas=$('modelCanvas');if(!canvas)return false;
-    try{renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});}
+    try{renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,preserveDrawingBuffer:true});}
     catch(e){env.notify('这台设备暂时开不了 3D 画布（WebGL 不可用）。');return false;}
     renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     renderer.setClearColor(0x101820);
@@ -258,6 +264,35 @@ export function initModel(env){
     if(old){disposeMesh(old);scene.remove(old);meshes.delete(o.id);}
     const group=new THREE.Group();
     group.userData.modelId=o.id;
+    if(o.type==='light'){
+      /* 灯光：一个小发光手柄（可点选、可见）+ 真实光源。手柄不参与导出。 */
+      const handle=new THREE.Mesh(
+        new THREE.SphereGeometry(.13,16,12),
+        new THREE.MeshBasicMaterial({color:new THREE.Color(o.lightColor),depthTest:false,transparent:true,opacity:.95})
+      );
+      handle.renderOrder=12;handle.userData.modelId=o.id;handle.userData.isHandle=true;
+      group.add(handle);
+      const ring=new THREE.Mesh(
+        new THREE.SphereGeometry(.19,16,12),
+        new THREE.MeshBasicMaterial({color:new THREE.Color(o.lightColor),wireframe:true,depthTest:false,transparent:true,opacity:.5})
+      );
+      ring.renderOrder=12;ring.userData.modelId=o.id;ring.userData.isHandle=true;
+      group.add(ring);
+      const light=o.lightKind==='spot'
+        ? new THREE.SpotLight(new THREE.Color(o.lightColor),o.lightIntensity*4,o.lightDistance,THREE.MathUtils.degToRad(o.lightAngle),.35,1.4)
+        : new THREE.PointLight(new THREE.Color(o.lightColor),o.lightIntensity*4,o.lightDistance,1.6);
+      light.userData.isLight=true;
+      /* 聚光要有照射目标：挂在手柄下方一点。 */
+      const target=new THREE.Object3D();target.position.set(0,-2,0);target.userData.isLight=true;
+      group.add(light);group.add(target);
+      if(o.lightKind==='spot')light.target=target;
+      group.position.fromArray(o.pos);
+      group.rotation.set(o.rot[0],o.rot[1],o.rot[2]);
+      group.visible=o.visible;
+      scene.add(group);
+      meshes.set(o.id,group);
+      return group;
+    }
     const geo=buildGeometry(o);
     const mat=materialFor(o);
     const base=new THREE.Mesh(geo,mat);
@@ -342,6 +377,8 @@ export function initModel(env){
   }
   function select(id,{silent=false}={}){
     selectedId=id;editSel=null;editFaces=[];editEdge=null;
+    /* 灯光没有网格：若正处编辑模式，自动退回物体模式。 */
+    if(mode==='edit'&&id){const cur=findData(id);if(cur&&cur.type==='light'){mode='object';const sub=$('modelSubRow');if(sub)sub.hidden=true;const et=$('modelEditTools');if(et)et.hidden=true;}}
     refreshSelection();refreshSceneList();syncProps();
     if(!silent)invalidate();
   }
@@ -746,7 +783,14 @@ export function initModel(env){
     pushHistory();historyPending=false;
     const id=data.nextId;
     const count=data.objects.filter(o=>o.type===type).length;
-    const o={id,type,name:PRIMS[type].name+(count?' '+(count+1):''),pos:[0,type==='plane'?0:.5,0],rot:[0,0,0],scl:[1,1,1],color:PALETTE[data.objects.length%PALETTE.length],metal:0,rough:.65,visible:true,mods:{mirror:false,array:0,subdiv:0},verts:null};
+    if(type==='light'){
+      const o={id,type:'light',name:'灯光'+(count?' '+(count+1):''),pos:[0,2.2,0],rot:[0,0,0],scl:[1,1,1],color:'#ffffff',metal:0,rough:.65,flat:false,visible:true,mods:{mirror:false,array:0,subdiv:0},verts:null,faces:null,lightKind:'point',lightIntensity:1,lightColor:'#fff2d8',lightDistance:12,lightAngle:35};
+      env.setState({...data,nextId:id+1,objects:[...data.objects,o]});
+      rebuildMesh(o);select(id);closeSheet();commitSoon();updateEmpty();
+      env.notify('已加点光源，拖到物体旁边照亮它；属性里可换聚光灯、调强度颜色。');
+      return;
+    }
+    const o={id,type,name:PRIMS[type].name+(count?' '+(count+1):''),pos:[0,type==='plane'?0:.5,0],rot:[0,0,0],scl:[1,1,1],color:PALETTE[data.objects.length%PALETTE.length],metal:0,rough:.65,flat:false,visible:true,mods:{mirror:false,array:0,subdiv:0},verts:null};
     env.setState({...data,nextId:id+1,objects:[...data.objects,o]});
     rebuildMesh(o);
     select(id);
@@ -885,6 +929,52 @@ export function initModel(env){
       wrap.append(xyz);
       return wrap;
     };
+    const lightOf=()=>{const g=meshOf(o.id);let l=null;if(g)g.traverse(c=>{if(c.isLight&&!l)l=c;});return l;};
+    const handleMats=()=>{const g=meshOf(o.id);const out=[];if(g)g.traverse(c=>{if(c.isMesh&&c.material&&c.userData.isHandle)out.push(c.material);});return out;};
+    const buildActions=()=>{
+      const frag=document.createDocumentFragment();
+      const align=document.createElement('div');align.className='model-propactions';
+      const floor=document.createElement('button');floor.type='button';floor.id='modelFloorBtn';floor.textContent='⬇ 落地';floor.onclick=dropToFloor;
+      const resetT=document.createElement('button');resetT.type='button';resetT.id='modelResetTBtn';resetT.textContent='↺ 重置变换';resetT.onclick=resetTransform;
+      align.append(floor,resetT);frag.append(align);
+      const actions=document.createElement('div');actions.className='model-propactions';
+      const dup=document.createElement('button');dup.type='button';dup.textContent='复制';dup.onclick=duplicateSelected;
+      const del=document.createElement('button');del.type='button';del.className='danger';del.textContent='删除';del.onclick=deleteSelected;
+      actions.append(dup,del);frag.append(actions);
+      return frag;
+    };
+    const lightControls=()=>{
+      const frag=document.createDocumentFragment();
+      const grp=document.createElement('div');grp.className='model-propgroup';
+      const label=document.createElement('label');label.textContent='灯光';grp.append(label);
+      const kindRow=document.createElement('div');kindRow.className='model-colorrow';
+      for(const [k,kn] of [['point','点光源'],['spot','聚光灯']]){
+        const b=document.createElement('button');b.type='button';b.textContent=kn;
+        b.className='model-kindbtn'+(o.lightKind===k?' active':'');
+        b.onclick=()=>{mutate(next=>{next.objects.find(x=>x.id===o.id).lightKind=k;});rebuildMesh(findData(o.id));refreshSelection();syncProps();invalidate();};
+        kindRow.append(b);
+      }
+      grp.append(kindRow);
+      const cRow=document.createElement('div');cRow.className='model-sliderrow';
+      const cName=document.createElement('span');cName.textContent='颜色';cName.className='model-slidername';
+      const cp=document.createElement('input');cp.type='color';cp.value=o.lightColor;cp.setAttribute('aria-label','灯光颜色');
+      cp.oninput=()=>{const c=cp.value;mutate(next=>{next.objects.find(x=>x.id===o.id).lightColor=c;},{history:false});const l=lightOf();if(l)l.color.set(c);for(const m of handleMats())m.color.set(c);invalidate();};
+      cp.onchange=()=>commitSoon();
+      cRow.append(cName,cp);grp.append(cRow);
+      const sliders=[['lightIntensity','强度',0,10,.1,v=>(+v).toFixed(1)],['lightDistance','距离',1,50,1,v=>String(Math.round(v))],['lightAngle','角度',5,80,1,v=>Math.round(v)+'°']];
+      for(const [key,name,min,max,step,fmtv] of sliders){
+        if(key==='lightAngle'&&o.lightKind!=='spot')continue;
+        const row=document.createElement('div');row.className='model-sliderrow';
+        const nm=document.createElement('span');nm.textContent=name;nm.className='model-slidername';
+        const range=document.createElement('input');range.type='range';range.min=String(min);range.max=String(max);range.step=String(step);range.value=String(o[key]);
+        const out=document.createElement('output');out.textContent=fmtv(o[key]);
+        range.oninput=()=>{const v=+range.value;out.textContent=fmtv(v);mutate(next=>{next.objects.find(x=>x.id===o.id)[key]=v;},{history:false});const l=lightOf();if(l){if(key==='lightIntensity')l.intensity=v*4;else if(key==='lightDistance')l.distance=v;else if(key==='lightAngle'&&l.isSpotLight)l.angle=THREE.MathUtils.degToRad(v);}invalidate();};
+        range.onchange=()=>commitSoon();
+        row.append(nm,range,out);grp.append(row);
+      }
+      frag.append(grp);
+      return frag;
+    };
     box.replaceChildren();
     box.append(group('位置','pos',live.pos));
     /* 微调按钮：手指点一下走 0.1，比拖轴更稳 */
@@ -903,6 +993,12 @@ export function initModel(env){
     }
     box.append(nudge);
     box.append(group('旋转（度）','rot',live.rot.map(deg),true));
+    /* 灯光：只有位置/朝向 + 灯光参数，没有缩放、材质、修改器。 */
+    if(o.type==='light'){
+      box.append(lightControls());
+      box.append(buildActions());
+      return;
+    }
     box.append(group('缩放','scl',live.scl));
     /* 颜色 */
     const colorGroup=document.createElement('div');colorGroup.className='model-propgroup';
@@ -957,14 +1053,7 @@ export function initModel(env){
     }
     box.append(modGroup);
     /* 操作 */
-    const align=document.createElement('div');align.className='model-propactions';
-    const floor=document.createElement('button');floor.type='button';floor.id='modelFloorBtn';floor.textContent='⬇ 落地';floor.onclick=dropToFloor;
-    const resetT=document.createElement('button');resetT.type='button';resetT.id='modelResetTBtn';resetT.textContent='↺ 重置变换';resetT.onclick=resetTransform;
-    align.append(floor,resetT);box.append(align);
-    const actions=document.createElement('div');actions.className='model-propactions';
-    const dup=document.createElement('button');dup.type='button';dup.textContent='复制';dup.onclick=duplicateSelected;
-    const del=document.createElement('button');del.type='button';del.className='danger';del.textContent='删除';del.onclick=deleteSelected;
-    actions.append(dup,del);box.append(actions);
+    box.append(buildActions());
   }
   function refreshSceneList(){
     const box=$('modelSceneBody');if(!box)return;
@@ -1145,6 +1234,8 @@ export function initModel(env){
     const group=new THREE.Group();
     for(const o of env.getState().objects){
       if(!o.visible)continue;
+      /* 灯光是场景照明，不是几何体，导出模型时跳过。 */
+      if(o.type==='light')continue;
       const g=meshOf(o.id);if(!g)continue;
       const clone=g.clone(true);
       clone.traverse(c=>{if(c.isMesh)c.material=c.material.clone();});
@@ -1153,6 +1244,7 @@ export function initModel(env){
     return group;
   }
   async function doExport(kind){
+    if(kind==='png'){exportSnapshot();return;}
     const data=env.getState();
     if(!data.objects.length){env.notify('场景是空的，先添加一个形体。');return;}
     const group=exportGroup();
@@ -1172,6 +1264,37 @@ export function initModel(env){
       }
       closeSheet();
     }catch(e){env.notify('导出失败：'+(e&&e.message||e));}
+  }
+  /* 当前视角截图：临时藏掉编辑点云、坐标轴手柄、网格，渲染一帧后读像素。 */
+  function exportSnapshot(){
+    if(!renderer||!active){env.notify('画面还没准备好，稍等再试。');return;}
+    const hadOverlay=editOverlay?editOverlay.visible:true;
+    const hadGizmo=gizmo?gizmo.visible:true;
+    const hadGrid=grid?grid.visible:true;
+    /* 灯光手柄球只是编辑器里的定位标记，截图作品时藏起来。 */
+    const handles=[];
+    for(const [,g] of meshes)g.traverse(c=>{if(c.isMesh&&c.userData.isHandle)handles.push(c);});
+    try{
+      if(editOverlay)editOverlay.visible=false;
+      if(gizmo)gizmo.visible=false;
+      if(grid)grid.visible=false;
+      for(const h of handles)h.visible=false;
+      renderer.render(scene,camera);
+      const url=renderer.domElement.toDataURL('image/png');
+      const bin=atob(url.split(',')[1]||'');
+      const bytes=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+      env.exportBinary('天工截图.png',bytes,'image/png');
+      closeSheet();
+    }catch(e){
+      env.notify('截图失败：'+(e&&e.message||e));
+    }finally{
+      if(editOverlay)editOverlay.visible=hadOverlay;
+      if(gizmo)gizmo.visible=hadGizmo;
+      if(grid)grid.visible=hadGrid;
+      for(const h of handles)h.visible=true;
+      invalidate();
+    }
   }
 
   /* ---------- 保存 ---------- */
@@ -1220,11 +1343,18 @@ export function initModel(env){
         b.onclick=()=>addObject(type);
         addGrid.append(b);
       }
+      const light=document.createElement('button');light.type='button';
+      const lg=document.createElement('span');lg.className='glyph';lg.textContent='☀';
+      const ln=document.createElement('span');ln.textContent='灯光';
+      light.append(lg,ln);
+      light.onclick=()=>addObject('light');
+      addGrid.append(light);
     }
     for(const b of document.querySelectorAll('.model-modes button')){
       b.onclick=()=>{
         const next=b.dataset.mode;
         if(next==='edit'&&!selectedId){env.notify('先点选一个物体，再进编辑模式。');return;}
+        if(next==='edit'){const cur=findData(selectedId);if(cur&&cur.type==='light'){env.notify('灯光没有网格，不能进点/线/面编辑；切「移动」可以摆位置。');return;}}
         if(mode==='edit'&&next!=='edit'){
           const o=findData(selectedId);
           if(o){const g=meshOf(o.id);if(g)storeVerts(o,g.children[0].geometry);}

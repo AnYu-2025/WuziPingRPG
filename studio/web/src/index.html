@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.2</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.3</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -176,8 +176,9 @@
     <button type="button" data-export="glb"><strong>GLB（推荐）</strong><small>带材质颜色，Blender / 网页 / 3D 查看器都能打开</small></button>
     <button type="button" data-export="obj"><strong>OBJ</strong><small>通用网格格式，几乎所有 3D 软件都认</small></button>
     <button type="button" data-export="stl"><strong>STL</strong><small>3D 打印常用，只有形状没有颜色</small></button>
+    <button type="button" data-export="png"><strong>PNG 截图</strong><small>把当前视角存成图片，方便分享作品</small></button>
    </div>
-   <p class="model-note">只导出显示中的物体。镜像、阵列、细分的效果会一并导出。编辑改动会实时保存，直接导出即可。</p>
+   <p class="model-note">只导出显示中的物体。镜像、阵列、细分的效果会一并导出；灯光只照明，不进模型文件。编辑改动会实时保存，直接导出即可。</p>
    <p class="model-note" id="modelEditInfo"></p>
   </div>
  </div>

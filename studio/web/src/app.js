@@ -23,6 +23,7 @@ import {createQuizRequester,quizAIAvailability,normalizeQuizCount,gradeQuiz,retr
 import {initModel,modelSerialize,modelSanitize,modelModeEnter,modelModeLeave,modelStatusText,modelPanelOpen,modelClosePanel,modelDebug} from './model3d.js';
 import {readStoredTheme,sanitizeTheme,writeStoredTheme,themeFromSettings,applyTheme,themeColor} from './theme.js';
 import {initStarHome,starHomeEnter,starHomeLeave,starHomeAvailable,starSanitize} from './star-home.js';
+import {splitLocations} from './error-loc.js';
 
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
 /* 原生工作区快照的硬上限（EditorActivity 里是同一个数）。
@@ -211,7 +212,35 @@ bindThemeGroup('themeAppearance','appearance');
 bindThemeGroup('themeAccent','accent');
 function applySettings(){$('fontSize').value=state.settings.fontSize;$('fontSizeValue').textContent=state.settings.fontSize;$('wordWrap').checked=!!state.settings.wrap;$('timeLimit').value=state.settings.timeLimit;syncTheme();if(view){view.dom.style.fontSize=state.settings.fontSize+'px';view.dispatch({effects:[wrapConfig.reconfigure(state.settings.wrap?EditorView.lineWrapping:[])]});}}
 for(const id of ['fontSize','wordWrap','timeLimit'])$(id).oninput=()=>{state.settings.fontSize=+$('fontSize').value;state.settings.wrap=$('wordWrap').checked;state.settings.timeLimit=+$('timeLimit').value;applySettings();scheduleSave();};
-function append(text,error=false){if($('output').textContent.length>=70000)return;const span=document.createElement('span');if(error)span.className='error';span.textContent=String(text).slice(0,70000-$('output').textContent.length);$('output').append(span);$('output').scrollTop=$('output').scrollHeight;}
+/* 报错行渲染成可点击链接：splitLocations 标出带「文件:行:列」的行。 */
+function append(text,error=false){
+ const out=$('output');
+ if(out.textContent.length>=70000)return;
+ const str=String(text).slice(0,70000-out.textContent.length);
+ const frag=document.createDocumentFragment();
+ for(const part of splitLocations(str)){
+  const span=document.createElement('span');
+  if(error)span.className='error';
+  if(error&&part.loc){span.classList.add('errlink');span.dataset.path=part.loc.path;span.dataset.line=String(part.loc.line);span.dataset.col=String(part.loc.column||1);span.title='跳到 '+part.loc.path+':'+part.loc.line;}
+  span.textContent=part.text;
+  frag.append(span);
+ }
+ out.append(frag);out.scrollTop=out.scrollHeight;
+}
+/* 点击报错行：切到对应文件并把光标移到出错行列。 */
+function gotoError(loc){
+ if(!loc||worker)return;
+ const f=state.files.find(x=>x.path===loc.path);
+ if(!f){notify('找不到 '+loc.path+'，可能已重命名或删除。');return;}
+ switchFile(loc.path);
+ outputTab(false);
+ if(!view)return;
+ const doc=view.state.doc;
+ const line=doc.line(Math.min(Math.max(1,loc.line),doc.lines));
+ const pos=Math.min(line.from+Math.max(0,(loc.column||1)-1),line.to);
+ view.dispatch({selection:{anchor:pos},scrollIntoView:true});
+ view.focus();
+}
 function setConsole(open){$('consolePanel').classList.toggle('folded',!open);$('foldConsole').setAttribute('aria-expanded',String(open));}
 function outputTab(input=false){$('output').hidden=input;$('stdin').hidden=!input;$('inputTab').classList.toggle('active',input);$('outputTab').classList.toggle('active',!input);setConsole(true);}
 function setRunning(running){$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode','menuTemplates','menuQuiz']){const el=$(id);if(el)el.disabled=running;}if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
@@ -288,7 +317,7 @@ function setWorkspaceMode(mode){
   if(mode!=='model')document.body.classList.remove('modelview');
 }
 on('filesToggle',()=>{closeMenu();document.body.classList.toggle('drawer');});on('backdrop',closeDrawer);on('closeExplorer',closeDrawer);on('newFile',()=>nameDialog());on('newTab',()=>nameDialog());menu('menuNew',()=>nameDialog());
-menu('findButton',()=>{openSearchPanel(view);const searchInput=document.querySelector('.cm-search input');if(searchInput)searchInput.focus();else if(view)view.focus();});menu('settingsButton',()=>{applySettings();$('settingsDialog').showModal();});on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
+menu('findButton',()=>{openSearchPanel(view);const searchInput=document.querySelector('.cm-search input');if(searchInput)searchInput.focus();else if(view)view.focus();});menu('settingsButton',()=>{applySettings();$('settingsDialog').showModal();});on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());$('output').addEventListener('click',event=>{const link=event.target.closest('.errlink');if(link)gotoError({path:link.dataset.path,line:+link.dataset.line,column:+link.dataset.col||1});});on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
 on('codeTab',()=>{if(workspaceMode==='game'){flush();openLanding(true);return;}showCode();});on('gameTab',showGame);menu('menuGame',showGame);menu('menuMode',()=>{flush();openLanding(true);});on('playGame',()=>{flush();if(native)send('play');else notify('此预览仅展示编辑器，安装 APK 后可直接进入原生游戏。');});on('exportGame',()=>native?send('exportGame'):notify('游戏存档备份在 Android APK 中使用。'));on('importGame',()=>native?send('importGame'):notify('安装 APK 后可导入游戏备份。'));on('drawToggle',()=>{if(workspaceMode!=='notepad')return;if(isDrawMode()){exitDrawMode();}else{enterDrawMode();}});
 $('menuDialog').addEventListener('click',event=>{if(event.target===$('menuDialog'))$('menuDialog').close();});
 /* 菜单关掉以后焦点别丢在 body 上：没有别的对话框接着开、也没有谁自己接过焦点，
