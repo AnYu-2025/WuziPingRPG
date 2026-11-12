@@ -1,1 +1,1 @@
-5441ec16e2d7663e413731b6faaf59c168b3f1231fba0de94dbe8fe4e24fdfe3  Ember-Studio-0.3.0.apk
+2cbe7e4d8fc0e8b5435570594070d2a90e570d0a800d60ceb7b8f0406038b9fe  Ember-Studio-0.3.0.apk

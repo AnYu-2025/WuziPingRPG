@@ -56,8 +56,13 @@ export function modelSanitize(raw){
   }
   const seen=new Set();
   for(const o of objects){while(seen.has(o.id))o.id++;seen.add(o.id);}
-  const nextId=Math.max(1,Math.floor(num(r.nextId,1)),...objects.map(o=>o.id+1));
-  const cam=r.camera&&typeof r.camera==='object'&&Array.isArray(r.camera.pos)&&Array.isArray(r.camera.target)?{pos:r.camera.pos.slice(0,3).map(v=>num(v)),target:r.camera.target.slice(0,3).map(v=>num(v))}:null;
+  /* 不用 Math.max(...arr)：对象多时展开会超出调用栈参数上限，循环取最大值。 */
+  let nextId=Math.max(1,Math.floor(num(r.nextId,1)));
+  for(const o of objects)nextId=Math.max(nextId,o.id+1);
+  const vec3=v=>Array.isArray(v)&&v.length===3&&v.every(x=>Number.isFinite(+x))?v.map(x=>clamp(+x,-1000,1000)):null;
+  const camPos=r.camera&&typeof r.camera==='object'?vec3(r.camera.pos):null;
+  const camTarget=r.camera&&typeof r.camera==='object'?vec3(r.camera.target):null;
+  const cam=camPos&&camTarget?{pos:camPos,target:camTarget}:null;
   return {version:1,nextId,objects,camera:cam};
 }
 
@@ -141,7 +146,11 @@ export function initModel(env){
     const idx=base.getIndex();
     const count=o.verts.length/3;
     base.dispose();
-    if(idx&&idx.array.length&&Math.max(...idx.array)<count)return Array.from(idx.array);
+    if(idx&&idx.array.length){
+      let maxIdx=0;
+      for(let i=0;i<idx.array.length;i++)if(idx.array[i]>maxIdx)maxIdx=idx.array[i];
+      if(maxIdx<count)return Array.from(idx.array);
+    }
     return null;
   }
   function materialFor(o){
@@ -370,6 +379,8 @@ export function initModel(env){
     if(editDrag){
       const moved=editDrag.moved;
       editDrag=null;orbit.enabled=true;
+      /* 一次拖动只记一条撤销历史；松手后重置，下一次拖动重新记录。 */
+      historyPending=false;
       if(moved){commitSoon();downInfo=null;return;}
     }
     if(!downInfo)return;
