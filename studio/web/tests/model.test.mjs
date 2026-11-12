@@ -76,3 +76,21 @@ test('sanitize is idempotent',()=>{
   const twice=modelSanitize(once);
   assert.deepEqual(twice,once);
 });
+
+test('imported mesh type requires vertex data and allows larger meshes',()=>{
+  /* 没有顶点的 mesh 被丢弃 */
+  assert.equal(modelSanitize({objects:[{type:'mesh'}]}).objects.length,0);
+  /* 带顶点面表的 mesh 保留 */
+  const verts=[0,0,0,1,0,0,0,0,1];
+  const ok=modelSanitize({objects:[{type:'mesh',verts,faces:[0,1,2]}]});
+  assert.equal(ok.objects.length,1);
+  assert.equal(ok.objects[0].type,'mesh');
+  assert.deepEqual(ok.objects[0].faces,[0,1,2]);
+  /* 超过普通编辑上限但在 mesh 上限内的顶点数被接受 */
+  const big=new Array(30000*3).fill(0);
+  const bigMesh=modelSanitize({objects:[{type:'mesh',verts:big}]});
+  assert.equal(bigMesh.objects.length,1);
+  /* 超过 mesh 上限则丢弃顶点数据，mesh 无顶点被整体丢弃 */
+  const huge=new Array(70000*3).fill(0);
+  assert.equal(modelSanitize({objects:[{type:'mesh',verts:huge}]}).objects.length,0);
+});

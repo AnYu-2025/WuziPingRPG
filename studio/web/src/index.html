@@ -111,23 +111,32 @@
    <button type="button" data-mode="scale">缩放</button>
    <button type="button" data-mode="edit">编辑</button>
   </div>
-  <div class="model-views" aria-label="视角">
+  <div class="model-edittools" id="modelEditTools" hidden aria-label="编辑工具">
+   <button type="button" id="modelExtrudeBtn">⬆ 挤出</button>
+   <button type="button" id="modelInsetBtn">⬇ 内插</button>
+   <button type="button" id="modelDelFaceBtn" class="danger">✕ 删面</button>
+   <button type="button" id="modelWeldBtn">⚭ 焊接</button>
+  </div>
+  <div class="model-views" aria-label="视角与显示">
    <button type="button" data-view="home" aria-label="默认视角">⌂</button>
    <button type="button" data-view="top" aria-label="顶视图">顶</button>
    <button type="button" data-view="front" aria-label="前视图">前</button>
    <button type="button" data-view="side" aria-label="侧视图">侧</button>
+   <button type="button" id="modelProjBtn" aria-label="切换正交/透视">透视</button>
+   <button type="button" id="modelWireBtn" aria-label="线框显示">线框</button>
+   <button type="button" id="modelSnapBtn" aria-label="网格吸附">吸附</button>
   </div>
  </div>
  <div class="model-dock">
   <button class="model-dockbtn primary" id="modelAddBtn" type="button"><span class="glyph">＋</span>添加</button>
   <button class="model-dockbtn" id="modelPropsBtn" type="button"><span class="glyph">⚙</span>属性</button>
-  <button class="model-dockbtn" id="modelExtrudeBtn" type="button"><span class="glyph">⬆</span>挤出</button>
+  <button class="model-dockbtn" id="modelImportBtn" type="button"><span class="glyph">⇪</span>导入</button>
   <button class="model-dockbtn" id="modelSceneBtn" type="button"><span class="glyph">☰</span>场景</button>
   <button class="model-dockbtn" id="modelExportBtn" type="button"><span class="glyph">↗</span>导出</button>
  </div>
  <div class="model-sheet" data-sheet="add">
   <div class="model-sheethead"><strong>添加形体</strong><button type="button" aria-label="关闭">✕</button></div>
-  <div class="model-sheetbody"><div class="model-addgrid" id="modelAddGrid"></div><p class="model-note">添加后切到「移动 / 旋转 / 缩放」拖彩色轴；「编辑」里可以拖顶点、选面挤出。</p></div>
+  <div class="model-sheetbody"><div class="model-addgrid" id="modelAddGrid"></div><button type="button" class="model-importrow" id="modelImportBtn2">⇪ 导入模型文件（OBJ / GLB / STL）</button><input type="file" id="modelImportInput" accept=".obj,.glb,.gltf,.stl" hidden><p class="model-note">添加后切到「移动 / 旋转 / 缩放」拖彩色轴；「编辑」里可以拖顶点、多选面挤出/内插/删面。导入的模型会自动缩放到合适大小。</p></div>
  </div>
  <div class="model-sheet" data-sheet="props">
   <div class="model-sheethead"><strong>属性</strong><button type="button" aria-label="关闭">✕</button></div>
@@ -145,7 +154,7 @@
     <button type="button" data-export="obj"><strong>OBJ</strong><small>通用网格格式，几乎所有 3D 软件都认</small></button>
     <button type="button" data-export="stl"><strong>STL</strong><small>3D 打印常用，只有形状没有颜色</small></button>
    </div>
-   <p class="model-note">只导出显示中的物体。镜像、阵列、细分的效果会一并导出。编辑模式的顶点改动请先切回「选择」让它保存。</p>
+   <p class="model-note">只导出显示中的物体。镜像、阵列、细分的效果会一并导出。编辑改动会实时保存，直接导出即可。</p>
    <p class="model-note" id="modelEditInfo"></p>
   </div>
  </div>

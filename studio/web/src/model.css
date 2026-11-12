@@ -25,6 +25,20 @@
 .model-views button{width:38px;min-width:38px;height:38px;min-height:38px;padding:0;border-radius:10px;color:#9fb4ad;font-size:12.5px;font-weight:600}
 .model-views button:active{background:rgba(15,118,110,.55);color:#f2fbf8}
 
+/* 编辑工具条：进入编辑模式后出现在模式分段上方 */
+.model-edittools{position:absolute;left:10px;bottom:60px;display:flex;gap:4px;padding:4px;border-radius:14px;background:rgba(16,24,32,.78);backdrop-filter:blur(8px)}
+.model-edittools button{min-height:38px;padding:0 12px;border-radius:10px;color:#cfe0da;font-size:12.5px;font-weight:600}
+.model-edittools button:active{background:#0f766e;color:#f2fbf8}
+.model-edittools button.danger{color:#ffb4ab}
+.model-edittools button.danger:active{background:#7a2c24;color:#ffe4e0}
+
+/* 视图按钮的开关态 */
+.model-views button.active{background:#0f766e;color:#f2fbf8}
+
+/* 添加面板里的导入入口 */
+.model-importrow{width:100%;margin-top:8px;height:46px;min-height:46px;border-radius:12px;background:var(--accent-soft);border:1px dashed var(--accent);color:var(--accent-strong);font-size:13px;font-weight:600}
+.model-importrow:active{background:var(--accent);color:var(--on-accent)}
+
 /* 底部工具坞 */
 .model-dock{flex:none;display:flex;align-items:stretch;gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:#0c1218;border-top:1px solid rgba(207,224,218,.08)}
 .model-dockbtn{flex:1;min-width:0;height:52px;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:12px;background:#18232c;color:#cfe0da;font-size:11px;font-weight:600}
