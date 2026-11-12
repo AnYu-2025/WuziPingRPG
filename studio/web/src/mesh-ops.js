@@ -241,3 +241,50 @@ export function flipNormals(verts,faces){
   for(let i=0;i<f.length;i+=3){const t=f[i+1];f[i+1]=f[i+2];f[i+2]=t;}
   return {verts:verts.slice(),faces:f};
 }
+
+/* 把局部点按 缩放→旋转(XYZ 欧拉)→（不含平移）变换，与 three 的 T*R*S 一致。
+ * 用于合并/原点居中时把局部偏移换算到世界。 */
+export function transformPoint(p,rot,scl){
+  const [sx,sy,sz]=scl||[1,1,1];
+  let x=p[0]*sx,y=p[1]*sy,z=p[2]*sz;
+  const [rx,ry,rz]=rot||[0,0,0];
+  const c1=Math.cos(rx),s1=Math.sin(rx),c2=Math.cos(ry),s2=Math.sin(ry),c3=Math.cos(rz),s3=Math.sin(rz);
+  /* three.js makeRotationFromEuler('XYZ') */
+  const nx=c2*c3*x + (-c2*s3)*y + s2*z;
+  const ny=(c1*s3+s1*s2*c3)*x + (c1*c3-s1*s2*s3)*y + (-s1*c2)*z;
+  const nz=(s1*s3-c1*s2*c3)*x + (s1*c3+c1*s2*s3)*y + (c1*c2)*z;
+  return [nx,ny,nz];
+}
+
+/* 合并多个物体为一个网格：先把每块顶点烘焙到世界坐标（缩放→旋转→平移），
+ * 再拼接顶点/面（面索引加偏移）。parts=[{verts,faces,pos,rot,scl}]。
+ * 返回 {verts,faces}；空输入返回空网格。 */
+export function mergeObjects(parts){
+  const verts=[],faces=[];
+  for(const part of parts||[]){
+    if(!part||!Array.isArray(part.verts)||!Array.isArray(part.faces))continue;
+    const offset=verts.length/3;
+    const pos=part.pos||[0,0,0];
+    for(let i=0;i<part.verts.length;i+=3){
+      const w=transformPoint([part.verts[i],part.verts[i+1],part.verts[i+2]],part.rot,part.scl);
+      verts.push(w[0]+pos[0],w[1]+pos[1],w[2]+pos[2]);
+    }
+    for(const idx of part.faces)faces.push(idx+offset);
+  }
+  return {verts,faces};
+}
+
+/* 原点居中：把顶点平移到包围盒中心为原点，返回新顶点与中心偏移。
+ * 调用方把 center 换算到世界后加到物体 pos，即可保持世界位置不变。 */
+export function recenterOrigin(verts,faces){
+  if(!verts.length)return {verts:[],faces:(faces||[]).slice(),center:[0,0,0]};
+  let minx=Infinity,miny=Infinity,minz=Infinity,maxx=-Infinity,maxy=-Infinity,maxz=-Infinity;
+  for(let i=0;i<verts.length;i+=3){
+    minx=Math.min(minx,verts[i]);maxx=Math.max(maxx,verts[i]);
+    miny=Math.min(miny,verts[i+1]);maxy=Math.max(maxy,verts[i+1]);
+    minz=Math.min(minz,verts[i+2]);maxz=Math.max(maxz,verts[i+2]);
+  }
+  const center=[(minx+maxx)/2,(miny+maxy)/2,(minz+maxz)/2];
+  const v=verts.map((x,i)=>x-center[i%3]);
+  return {verts:v,faces:(faces||[]).slice(),center};
+}

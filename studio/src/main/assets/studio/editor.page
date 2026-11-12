@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.4</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.5</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -97,7 +97,7 @@
     <button class="draw-action" id="drawBack" title="返回文字">✎ 文字</button>
   </div>
 </div>
-<section class="console folded" id="consolePanel"><button class="consolehead" id="foldConsole" aria-expanded="false" aria-controls="consoleBody" title="展开或收起终端"><span class="ctitle">终端</span><span id="runState">就绪</span><span class="chev">⌃</span></button><div class="consolebody" id="consoleBody"><div class="consolebar"><button id="outputTab" class="active">输出</button><button id="inputTab">输入</button><span class="grow"></span><button id="clearOutput">清空</button></div><pre id=”output” role=”log” aria-live=”polite”><span class=”dim”>写好代码点「运行」。Python、C++、JavaScript 都在本机跑，不联网。
+<section class="console folded" id="consolePanel"><button class="consolehead" id="foldConsole" aria-expanded="false" aria-controls="consoleBody" title="展开或收起终端"><span class="ctitle">终端</span><span id="runState">就绪</span><span class="chev">⌃</span></button><div class="consolebody" id="consoleBody"><div class="consolebar"><button id="outputTab" class="active">输出</button><button id="inputTab">输入</button><span class="grow"></span><button id="saveOutput">存输出</button><button id="clearOutput">清空</button></div><pre id=”output” role=”log” aria-live=”polite”><span class=”dim”>写好代码点「运行」。Python、C++、JavaScript 都在本机跑，不联网。
 程序要读输入时，先在「输入」页填好，一行一条。</span></pre><textarea id="stdin" hidden aria-label="标准输入" placeholder="运行前填写，每个 input() 一行。未提供的输入返回 EOF。" spellcheck="false"></textarea></div></section>
 </main>
 <aside id="lectureTimeline" aria-label="时间轴与锚点"><canvas id="timelineCanvas" aria-label="录音波形时间轴"></canvas><div class="tl-controls"><button id="zoomOut" aria-label="缩小时间轴" title="缩小">－</button><button id="zoomIn" aria-label="放大时间轴" title="放大">＋</button><button id="playRate" class="tl-rate" aria-label="播放倍速" title="播放倍速">1×</button><button id="linePlay" class="tl-line" aria-label="从本行播放 10 秒" title="从本行播放 10 秒">10s</button><span id="tlRange">全程</span></div><div id="anchorList" aria-label="锚点列表"></div></aside>
@@ -141,6 +141,7 @@
    <button type="button" id="modelMirrorEditBtn">⇋ 镜像</button>
    <button type="button" id="modelSeparateBtn">⊞ 分离</button>
    <button type="button" id="modelFlipBtn">⇄ 翻转</button>
+   <button type="button" id="modelRecenterBtn">◎ 居中</button>
   </div>
   <div class="model-views" aria-label="视角与显示">
    <button type="button" data-view="home" aria-label="默认视角">⌂</button>
@@ -170,7 +171,7 @@
  </div>
  <div class="model-sheet" data-sheet="scene">
   <div class="model-sheethead"><strong>场景物体</strong><button type="button" aria-label="关闭">✕</button></div>
-  <div class="model-sheetbody"><div id="modelSceneBody"></div><div class="model-propactions" style="margin-top:10px"><button type="button" id="modelSceneExportBtn">⇩ 导出工程</button><button type="button" id="modelSceneImportBtn">⇪ 导入工程</button></div><input type="file" id="modelSceneInput" accept=".tgscene,.json" hidden><p class="model-note">工程文件（.tgscene）保存整个场景，可备份或发给别人；导入会替换当前场景，可撤销。</p></div>
+  <div class="model-sheetbody"><div id="modelSceneBody"></div><div class="model-propactions" style="margin-top:10px"><button type="button" id="modelMergeBtn">⊕ 合并为一个</button><button type="button" id="modelSceneExportBtn">⇩ 导出工程</button><button type="button" id="modelSceneImportBtn">⇪ 导入工程</button></div><input type="file" id="modelSceneInput" accept=".tgscene,.json" hidden><p class="model-note">「合并为一个」把所有物体烘成单一网格（修改器会先固化）；工程文件（.tgscene）保存整个场景，可备份或发给别人，导入会替换当前场景，可撤销。</p></div>
  </div>
  <div class="model-sheet" data-sheet="export">
   <div class="model-sheethead"><strong>导出模型</strong><button type="button" aria-label="关闭">✕</button></div>
@@ -238,7 +239,7 @@
 <div id="toast" role="status" hidden></div>
 <dialog id="anchorDialog"><form method="dialog"><span class="eyebrow">锚点</span><h2>编辑锚点</h2><label for="anchorLabel">标签</label><input id="anchorLabel" autocomplete="off" maxlength="40" placeholder="例如：讲到第 3 页"><label for="anchorTime">时间（秒，可写 1:23）</label><input id="anchorTime" inputmode="decimal" autocomplete="off" placeholder="0.0"><p class="hint" id="anchorSlide">未关联 PPT 照片。</p><div class="dialogactions"><button id="anchorDelete" value="delete">删除</button><button value="cancel">取消</button><button id="anchorSave" value="save" class="primary">保存</button></div></form></dialog>
 <dialog id="slideDialog"><form method="dialog"><span class="eyebrow">PPT</span><h2 id="slideTitle">照片预览</h2><img id="slideImage" alt="PPT 照片预览"><div class="dialogactions slidemanage"><button id="slideMoveUp" type="button">← 前移</button><button id="slideMoveDown" type="button">后移 →</button><button id="slideDelete" type="button" class="danger">删除本页</button></div><div class="dialogactions"><button id="slideDemoire" type="button">处理本页摩尔纹</button><button id="slideToggleRaw" type="button" hidden>对比原图</button><button value="cancel">关闭</button><button id="slideSeek" value="seek" class="primary">跳到此页开始</button></div></form></dialog>
-<dialog id="menuDialog" class="menu"><div class="menutitle">操作</div><div class="menugrid"><button id="menuMode">回到首页</button><button id="menuNew">新建文件</button><button id="menuTemplates">笔记模板</button><button id="menuSnippets">代码片段</button><button id="menuQuiz">笔记出题</button><button id="menuOpen">打开文件</button><button id="menuFolder">导入文件夹</button><button id="menuSave">保存</button><button id="exportButton">另存为…</button><button id="findButton">查找替换</button><button id="settingsButton">设置</button><button id="menuGame">进入游戏</button></div><form method="dialog"><button class="menuclose">关闭</button></form></dialog>
+<dialog id="menuDialog" class="menu"><div class="menutitle">操作</div><div class="menugrid"><button id="menuMode">回到首页</button><button id="menuNew">新建文件</button><button id="menuTemplates">笔记模板</button><button id="menuSnippets">代码片段</button><button id="menuQuiz">笔记出题</button><button id="menuOpen">打开文件</button><button id="menuFolder">导入文件夹</button><button id="menuSave">保存</button><button id="exportButton">另存为…</button><button id="findButton">查找替换</button><button id="menuSearch">全项目搜索</button><button id="settingsButton">设置</button><button id="menuGame">进入游戏</button></div><form method="dialog"><button class="menuclose">关闭</button></form></dialog>
 <dialog id="nameDialog"><form method="dialog"><span class="eyebrow">文件</span><h2 id="nameTitle">新建文件</h2><label for="fileName">文件路径</label><input id="fileName" autocomplete="off" spellcheck="false" placeholder="例如 utils/helper.py"><p class="hint" id="nameHint">可带子文件夹；请写扩展名，例如 .py。</p><div class="dialogactions"><button value="cancel">取消</button><button id="confirmName" value="default" class="primary">创建</button></div></form></dialog>
 <dialog id="settingsDialog"><form method="dialog"><span class="eyebrow">工作台</span><h2>设置</h2><fieldset class="theme-field"><legend>外观</legend><div class="theme-choices" id="themeAppearance" role="group" aria-label="外观"><button type="button" data-value="system">跟随系统</button><button type="button" data-value="light">浅色</button><button type="button" data-value="dark">深色</button></div></fieldset><fieldset class="theme-field"><legend>主题色</legend><div class="theme-choices" id="themeAccent" role="group" aria-label="主题色"><button type="button" data-value="teal"><i class="theme-swatch" aria-hidden="true"></i>青绿</button><button type="button" data-value="amber"><i class="theme-swatch" aria-hidden="true"></i>琥珀</button><button type="button" data-value="ink"><i class="theme-swatch" aria-hidden="true"></i>墨蓝</button><button type="button" data-value="rose"><i class="theme-swatch" aria-hidden="true"></i>胭脂</button></div></fieldset><div class="setrow"><label for="fontSize">字号</label><input id="fontSize" type="range" min="12" max="24" value="15"><output id="fontSizeValue">15</output></div><label class="check"><input id="wordWrap" type="checkbox"> 长行自动换行</label><div class="setrow"><label for="timeLimit">运行上限</label><select id="timeLimit"><option value="15">15 秒</option><option value="30">30 秒</option><option value="60">60 秒</option></select></div><p class="hint">外观和主题色保存在这台设备上，重新打开仍然生效，并会写入工作区草稿。Python 和 C/C++ 都在手机本地运行，不联网；C++ 首次运行要加载编译器，稍等几秒。Java 目前只能编辑。</p><div class="dialogactions"><button class="primary">完成</button></div></form></dialog>
 <dialog id="templateDialog" class="template-dialog" aria-labelledby="templateTitle">
@@ -251,6 +252,13 @@
  <div class="template-head"><span class="eyebrow">代码</span><h2 id="snippetTitle">代码片段</h2><p id="snippetLead">按当前文件语言列出常用模板，点一下插到光标处。</p></div>
  <div id="snippetList" class="snippet-list" aria-label="代码片段列表"></div>
  <div class="dialogactions template-actions"><button id="snippetClose" type="button" class="primary">关闭</button></div>
+</dialog>
+<dialog id="searchDialog" class="template-dialog" aria-labelledby="searchTitle">
+ <div class="template-head"><span class="eyebrow">搜索</span><h2 id="searchTitle">全项目搜索</h2></div>
+ <div class="search-bar"><input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="在所有文件里查找…" aria-label="搜索关键词"><label class="search-case"><input id="searchCase" type="checkbox">区分大小写</label></div>
+ <p id="searchMeta" class="hint"></p>
+ <div id="searchResults" class="search-results" aria-label="搜索结果"></div>
+ <div class="dialogactions template-actions"><button id="searchClose" type="button" class="primary">关闭</button></div>
 </dialog>
 <dialog id="quizDialog" class="quiz-dialog" aria-labelledby="quizTitle">
  <header class="quiz-head"><div><span class="eyebrow">笔记</span><h2 id="quizTitle">生成练习题</h2></div><button id="quizClose" class="quiz-close" type="button" aria-label="关闭">✕</button></header>

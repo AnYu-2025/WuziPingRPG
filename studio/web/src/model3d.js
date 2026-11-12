@@ -19,7 +19,7 @@ import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {STLLoader} from 'three/examples/jsm/loaders/STLLoader.js';
 import {mergeGeometries,mergeVertices} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {SimplifyModifier} from 'three/examples/jsm/modifiers/SimplifyModifier.js';
-import {extrudeFaces,insetFaces,deleteFaces,weldVertices,extractGeometry,faceKey,uniqueEdges,separateComponents,flipNormals} from './mesh-ops.js';
+import {extrudeFaces,insetFaces,deleteFaces,weldVertices,extractGeometry,faceKey,uniqueEdges,separateComponents,flipNormals,mergeObjects,recenterOrigin,transformPoint} from './mesh-ops.js';
 
 const MAX_OBJECTS=60,MAX_VERTS=24000,MAX_HISTORY=24;
 /* 导入的 mesh 允许更大面数（只渲染不逐点编辑）；可编辑上限仍是 MAX_VERTS。 */
@@ -945,6 +945,55 @@ export function initModel(env){
     closeSheet();commitSoon();
     env.notify('已分离成 '+parts.length+' 个独立物体，可分别移动编辑。');
   }
+  /* 合并所有物体为一个：把每个非灯光物体的网格烘焙到世界坐标后拼成单一网格。
+     修改器（镜像/阵列/细分）会先烘进几何，合并后不可再单独调。 */
+  function mergeAll(){
+    const data=env.getState();
+    const solids=data.objects.filter(o=>o.type!=='light');
+    if(solids.length<2){env.notify('至少需要两个物体才能合并。');return;}
+    const parts=[];
+    for(const o of solids){
+      const g=meshOf(o.id);if(!g)continue;
+      const ex=extractGeometry(g.children[0].geometry);
+      if(!ex||!ex.faces.length)continue;
+      parts.push({verts:ex.verts,faces:ex.faces,pos:o.pos,rot:o.rot,scl:o.scl});
+    }
+    if(parts.length<2){env.notify('没有足够可合并的网格。');return;}
+    const merged=mergeObjects(parts);
+    if(merged.verts.length/3>MAX_MESH_VERTS){env.notify('合并后顶点超过 '+MAX_MESH_VERTS+'，手机上带不动，没有执行。');return;}
+    pushHistory();historyPending=false;
+    const id=data.nextId;
+    const first=solids[0];
+    const obj={id,type:'mesh',name:'合并物体',pos:[0,0,0],rot:[0,0,0],scl:[1,1,1],color:first.color,metal:first.metal,rough:first.rough,flat:first.flat,visible:true,mods:{mirror:false,array:0,subdiv:0},verts:merged.verts,faces:merged.faces,lightKind:'point',lightIntensity:1,lightColor:'#ffffff',lightDistance:12,lightAngle:35};
+    const lights=data.objects.filter(o=>o.type==='light');
+    env.setState({...data,nextId:id+1,objects:[obj,...lights]});
+    rebuildAll();
+    select(id);
+    closeSheet();commitSoon();
+    env.notify('已把 '+parts.length+' 个物体合并为一个，可整体编辑。');
+  }
+  /* 原点居中：把几何原点移到包围盒中心，同时补偿 pos 保持世界位置不变。 */
+  function recenterSelected(){
+    const o=findData(selectedId);
+    if(!o){env.notify('先点选一个物体。');return;}
+    if(o.type==='light'){env.notify('灯光没有网格，不需要原点居中。');return;}
+    const g=meshOf(o.id);if(!g)return;
+    const ex=extractGeometry(g.children[0].geometry);
+    if(!ex||!ex.verts.length){env.notify('这个物体没有网格。');return;}
+    const r=recenterOrigin(ex.verts,ex.faces);
+    if(r.center.every(c=>Math.abs(c)<1e-6)){env.notify('原点已经在中心了。');return;}
+    pushHistory();historyPending=false;
+    /* 局部中心偏移经 缩放→旋转 换算到世界，加到 pos 上，世界位置不变。 */
+    const world=transformPoint(r.center,o.rot,o.scl);
+    const newPos=[o.pos[0]+world[0],o.pos[1]+world[1],o.pos[2]+world[2]];
+    mutate(next=>{
+      const t=next.objects.find(x=>x.id===o.id);
+      t.verts=r.verts;t.faces=r.faces;t.pos=newPos;
+    },{history:false});
+    rebuildMesh(findData(o.id));
+    refreshSelection();syncProps();commitSoon();
+    env.notify('原点已移到物体中心，旋转/缩放会绕中心进行。');
+  }
   function applyTransformToData(){
     const o=findData(selectedId);if(!o)return;
     const g=meshOf(o.id);if(!g)return;
@@ -1490,6 +1539,8 @@ export function initModel(env){
     const weldBtn=$('modelWeldBtn');if(weldBtn)weldBtn.onclick=weldSelected;
     const separateBtn=$('modelSeparateBtn');if(separateBtn)separateBtn.onclick=separateSelected;
     const flipBtn=$('modelFlipBtn');if(flipBtn)flipBtn.onclick=flipSelectedNormals;
+    const recenterBtn=$('modelRecenterBtn');if(recenterBtn)recenterBtn.onclick=recenterSelected;
+    const mergeBtn=$('modelMergeBtn');if(mergeBtn)mergeBtn.onclick=mergeAll;
     const focusBtn=$('modelFocusBtn');if(focusBtn)focusBtn.onclick=focusSelected;
     const projBtn=$('modelProjBtn');if(projBtn)projBtn.onclick=toggleProjection;
     const wireBtn=$('modelWireBtn');if(wireBtn)wireBtn.onclick=toggleWireframe;

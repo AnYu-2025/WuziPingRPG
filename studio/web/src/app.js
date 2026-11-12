@@ -25,6 +25,7 @@ import {readStoredTheme,sanitizeTheme,writeStoredTheme,themeFromSettings,applyTh
 import {initStarHome,starHomeEnter,starHomeLeave,starHomeAvailable,starSanitize} from './star-home.js';
 import {splitLocations} from './error-loc.js';
 import {snippetsFor,snippetById} from './snippets.js';
+import {searchProject} from './project-search.js';
 
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
 /* 原生工作区快照的硬上限（EditorActivity 里是同一个数）。
@@ -242,6 +243,21 @@ function gotoError(loc){
  view.dispatch({selection:{anchor:pos},scrollIntoView:true});
  view.focus();
 }
+/* 把当前终端输出存成工作区 txt 文件并打开，方便留存运行结果。 */
+function saveOutputToFile(){
+ const text=$('output').textContent;
+ if(!text.trim()){notify('终端还没有输出可保存。');return;}
+ if(state.files.length>=160){notify('工作区已满 160 个文件，先删掉一些再存。');return;}
+ const now=new Date(),p=n=>String(n).padStart(2,'0');
+ const stamp=now.getFullYear()+p(now.getMonth()+1)+p(now.getDate())+'-'+p(now.getHours())+p(now.getMinutes())+p(now.getSeconds());
+ let path='输出-'+stamp+'.txt',seq=2;
+ while(state.files.some(f=>f.path===path))path='输出-'+stamp+'-'+(seq++)+'.txt';
+ state.files.push(makeFile(path,text));
+ if(!state.opened.includes(path))state.opened.push(path);
+ changed();
+ switchFile(path);
+ notify('输出已存为 '+path);
+}
 function setConsole(open){$('consolePanel').classList.toggle('folded',!open);$('foldConsole').setAttribute('aria-expanded',String(open));}
 function outputTab(input=false){$('output').hidden=input;$('stdin').hidden=!input;$('inputTab').classList.toggle('active',input);$('outputTab').classList.toggle('active',!input);setConsole(true);}
 function setRunning(running){$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode','menuTemplates','menuQuiz']){const el=$(id);if(el)el.disabled=running;}if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
@@ -318,7 +334,7 @@ function setWorkspaceMode(mode){
   if(mode!=='model')document.body.classList.remove('modelview');
 }
 on('filesToggle',()=>{closeMenu();document.body.classList.toggle('drawer');});on('backdrop',closeDrawer);on('closeExplorer',closeDrawer);on('newFile',()=>nameDialog());on('newTab',()=>nameDialog());menu('menuNew',()=>nameDialog());
-menu('findButton',()=>{openSearchPanel(view);const searchInput=document.querySelector('.cm-search input');if(searchInput)searchInput.focus();else if(view)view.focus();});menu('settingsButton',()=>{applySettings();$('settingsDialog').showModal();});on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());$('output').addEventListener('click',event=>{const link=event.target.closest('.errlink');if(link)gotoError({path:link.dataset.path,line:+link.dataset.line,column:+link.dataset.col||1});});on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
+menu('findButton',()=>{openSearchPanel(view);const searchInput=document.querySelector('.cm-search input');if(searchInput)searchInput.focus();else if(view)view.focus();});menu('settingsButton',()=>{applySettings();$('settingsDialog').showModal();});on('saveButton',()=>saveFile());menu('menuSave',()=>saveFile());menu('exportButton',()=>saveFile(true));on('runButton',run);on('stopButton',()=>{append('\n[已手动停止]\n');stop();});on('outputTab',()=>outputTab(false));on('inputTab',()=>outputTab(true));on('clearOutput',()=>$('output').replaceChildren());on('saveOutput',saveOutputToFile);$('output').addEventListener('click',event=>{const link=event.target.closest('.errlink');if(link)gotoError({path:link.dataset.path,line:+link.dataset.line,column:+link.dataset.col||1});});on('foldConsole',()=>setConsole($('consolePanel').classList.contains('folded')));on('openFile',()=>{flush();closeDrawer();native?send('open'):$('browserFiles').click();});on('openFolder',()=>{flush();closeDrawer();native?send('folder'):$('browserFolder').click();});menu('menuOpen',()=>{flush();native?send('open'):$('browserFiles').click();});menu('menuFolder',()=>{flush();native?send('folder'):$('browserFolder').click();});on('moreButton',()=>$('menuDialog').showModal());$('browserFiles').onchange=browserImport;$('browserFolder').onchange=browserImport;$('stdin').oninput=scheduleSave;
 on('codeTab',()=>{if(workspaceMode==='game'){flush();openLanding(true);return;}showCode();});on('gameTab',showGame);menu('menuGame',showGame);menu('menuMode',()=>{flush();openLanding(true);});on('playGame',()=>{flush();if(native)send('play');else notify('此预览仅展示编辑器，安装 APK 后可直接进入原生游戏。');});on('exportGame',()=>native?send('exportGame'):notify('游戏存档备份在 Android APK 中使用。'));on('importGame',()=>native?send('importGame'):notify('安装 APK 后可导入游戏备份。'));on('drawToggle',()=>{if(workspaceMode!=='notepad')return;if(isDrawMode()){exitDrawMode();}else{enterDrawMode();}});
 $('menuDialog').addEventListener('click',event=>{if(event.target===$('menuDialog'))$('menuDialog').close();});
 /* 菜单关掉以后焦点别丢在 body 上：没有别的对话框接着开、也没有谁自己接过焦点，
@@ -472,6 +488,46 @@ function insertSnippet(id){
 on('snippetClose',()=>{const dlg=$('snippetDialog');if(dlg&&dlg.open)dlg.close();});
 $('snippetDialog').addEventListener('click',event=>{if(event.target===$('snippetDialog'))$('snippetDialog').close();});
 menu('menuSnippets',openSnippetDialog);
+
+/* ---------------- 全项目搜索 ---------------- */
+function runProjectSearch(){
+  const input=$('searchInput'),list=$('searchResults'),meta=$('searchMeta');
+  if(!input||!list)return;
+  const q=input.value;
+  const caseSensitive=$('searchCase')&&$('searchCase').checked;
+  const {results,total,truncated}=searchProject(state.files,q,{caseSensitive,maxResults:200,maxPerFile:20});
+  list.replaceChildren();
+  if(!q.trim()){
+    if(meta)meta.textContent='输入关键词，在所有工作区文件里查找。';
+    return;
+  }
+  if(meta)meta.textContent=total?('找到 '+total+' 处'+(truncated?'（仅显示前 '+results.length+' 处）':'')):'没有匹配。';
+  for(const r of results){
+    const row=document.createElement('button');
+    row.type='button';row.className='search-row';
+    const loc=document.createElement('span');loc.className='search-loc';loc.textContent=r.path+':'+r.line;
+    const txt=document.createElement('span');txt.className='search-text';txt.textContent=r.text.trim()||'（空行）';
+    row.append(loc,txt);
+    row.onclick=()=>{
+      const dlg=$('searchDialog');if(dlg&&dlg.open)dlg.close();
+      gotoError({path:r.path,line:r.line,column:r.column});
+    };
+    list.append(row);
+  }
+}
+function openSearchDialog(){
+  closeMenu();
+  const dlg=$('searchDialog');if(!dlg)return;
+  dlg.showModal();
+  const input=$('searchInput');
+  if(input){input.value='';setTimeout(()=>input.focus(),50);}
+  runProjectSearch();
+}
+on('searchClose',()=>{const dlg=$('searchDialog');if(dlg&&dlg.open)dlg.close();});
+$('searchDialog').addEventListener('click',event=>{if(event.target===$('searchDialog'))$('searchDialog').close();});
+$('searchInput').addEventListener('input',runProjectSearch);
+$('searchCase').addEventListener('change',runProjectSearch);
+menu('menuSearch',openSearchDialog);
 
 /* ---------------- 笔记生成试题 ---------------- */
 function setQuizStage(stage){

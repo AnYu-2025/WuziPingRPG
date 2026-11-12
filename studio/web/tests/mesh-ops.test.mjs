@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {extrudeFaces,insetFaces,deleteFaces,weldVertices,simplifyMesh,faceKey,uniqueEdges,separateComponents,flipNormals} from '../src/mesh-ops.js';
+import {extrudeFaces,insetFaces,deleteFaces,weldVertices,simplifyMesh,faceKey,uniqueEdges,separateComponents,flipNormals,mergeObjects,recenterOrigin,transformPoint} from '../src/mesh-ops.js';
 
 /* 单个朝上的三角形 */
 const TRI={verts:[0,0,0, 1,0,0, 0,0,1],faces:[0,1,2]};
@@ -167,4 +167,53 @@ test('flipNormals reverses winding without moving vertices',()=>{
   assert.deepEqual(twice.faces,TRI.faces);
   /* 输入不被修改 */
   assert.deepEqual(TRI.faces,[0,1,2]);
+});
+
+test('transformPoint applies scale then rotation (no translation)',()=>{
+  /* 无旋转：只缩放 */
+  assert.deepEqual(transformPoint([1,2,3],[0,0,0],[2,2,2]),[2,4,6]);
+  /* 绕 Z 转 90°：(1,0,0)→(0,1,0) */
+  const r=transformPoint([1,0,0],[0,0,Math.PI/2],[1,1,1]);
+  assert.ok(Math.abs(r[0])<1e-9&&Math.abs(r[1]-1)<1e-9&&Math.abs(r[2])<1e-9);
+  /* 绕 X 转 90°：(0,1,0)→(0,0,1) */
+  const rx=transformPoint([0,1,0],[Math.PI/2,0,0],[1,1,1]);
+  assert.ok(Math.abs(rx[1])<1e-9&&Math.abs(rx[2]-1)<1e-9);
+});
+
+test('mergeObjects bakes transforms and offsets indices',()=>{
+  const a={verts:[0,0,0, 1,0,0, 0,0,1],faces:[0,1,2],pos:[0,0,0],rot:[0,0,0],scl:[1,1,1]};
+  const b={verts:[0,0,0, 1,0,0, 0,0,1],faces:[0,1,2],pos:[5,0,0],rot:[0,0,0],scl:[1,1,1]};
+  const m=mergeObjects([a,b]);
+  assert.equal(m.verts.length/3,6);
+  assert.equal(m.faces.length,6);
+  assert.ok(validIndices(m.verts,m.faces));
+  /* 第二块顶点应平移 +5 */
+  assert.equal(m.verts[3*3],5);
+  /* 第二块面索引应偏移 +3 */
+  assert.deepEqual(m.faces.slice(3),[3,4,5]);
+});
+
+test('mergeObjects handles empty and skips invalid parts',()=>{
+  assert.deepEqual(mergeObjects([]),{verts:[],faces:[]});
+  assert.deepEqual(mergeObjects([null,{verts:[0,0,0]}]),{verts:[],faces:[]});
+});
+
+test('recenterOrigin centers bbox and returns offset',()=>{
+  /* 三角形 x:0..1 y:0 z:0..1 → 中心 (0.5,0,0.5) */
+  const r=recenterOrigin(TRI.verts,TRI.faces);
+  assert.deepEqual(r.center,[0.5,0,0.5]);
+  assert.equal(r.verts.length,9);
+  /* 新顶点 bbox 中心应为 0 */
+  let minx=Infinity,maxx=-Infinity;
+  for(let i=0;i<r.verts.length;i+=3){minx=Math.min(minx,r.verts[i]);maxx=Math.max(maxx,r.verts[i]);}
+  assert.ok(Math.abs((minx+maxx)/2)<1e-9);
+  assert.deepEqual(r.faces,TRI.faces);
+  /* 输入不被修改 */
+  assert.equal(TRI.verts[0],0);
+});
+
+test('recenterOrigin on empty returns zero center',()=>{
+  const r=recenterOrigin([],[]);
+  assert.deepEqual(r.center,[0,0,0]);
+  assert.deepEqual(r.verts,[]);
 });
