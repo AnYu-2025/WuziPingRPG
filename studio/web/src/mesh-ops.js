@@ -199,3 +199,45 @@ export function extractGeometry(geometry){
   const faces=idx?Array.from(idx.array):[...Array(pos.count).keys()];
   return {verts,faces};
 }
+
+/* 按连通分量把网格拆成多个独立部件（共享顶点的三角形算同一块）。
+ * 返回 [{verts,faces}]，每块顶点已压缩重映射；孤立顶点丢弃。
+ * 空网格返回 []。 */
+export function separateComponents(verts,faces){
+  const n=verts.length/3;
+  if(!n||!faces.length)return [];
+  /* 并查集：把每个三角形的三个顶点并到一起。 */
+  const parent=new Array(n);
+  for(let i=0;i<n;i++)parent[i]=i;
+  const find=i=>{while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i];}return i;};
+  const union=(a,b)=>{const ra=find(a),rb=find(b);if(ra!==rb)parent[ra]=rb;};
+  for(let i=0;i<faces.length;i+=3)union(faces[i],faces[i+1]),union(faces[i],faces[i+2]);
+  /* 按根分组三角形。 */
+  const groups=new Map();
+  for(let i=0;i<faces.length;i+=3){
+    const root=find(faces[i]);
+    if(!groups.has(root))groups.set(root,[]);
+    groups.get(root).push(faces[i],faces[i+1],faces[i+2]);
+  }
+  const out=[];
+  for(const gf of groups.values()){
+    const used=new Set(gf);
+    const remap=new Map();
+    const v=[];
+    for(let i=0;i<n;i++){
+      if(!used.has(i))continue;
+      remap.set(i,v.length/3);
+      v.push(verts[i*3],verts[i*3+1],verts[i*3+2]);
+    }
+    out.push({verts:v,faces:gf.map(i=>remap.get(i))});
+  }
+  return out;
+}
+
+/* 翻转法线：交换每个三角形后两个顶点，绕序反向 → 法线朝里/朝外翻转。
+ * 顶点不变。用于导入模型法线朝内、或想翻面时。 */
+export function flipNormals(verts,faces){
+  const f=faces.slice();
+  for(let i=0;i<f.length;i+=3){const t=f[i+1];f[i+1]=f[i+2];f[i+2]=t;}
+  return {verts:verts.slice(),faces:f};
+}

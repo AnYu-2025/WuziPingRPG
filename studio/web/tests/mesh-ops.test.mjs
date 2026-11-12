@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {extrudeFaces,insetFaces,deleteFaces,weldVertices,simplifyMesh,faceKey,uniqueEdges} from '../src/mesh-ops.js';
+import {extrudeFaces,insetFaces,deleteFaces,weldVertices,simplifyMesh,faceKey,uniqueEdges,separateComponents,flipNormals} from '../src/mesh-ops.js';
 
 /* 单个朝上的三角形 */
 const TRI={verts:[0,0,0, 1,0,0, 0,0,1],faces:[0,1,2]};
@@ -124,4 +124,47 @@ test('uniqueEdges dedupes shared edges with a<b ordering',()=>{
   for(const [a,b] of edges)assert.ok(a<b);
   assert.ok(edges.some(([a,b])=>a===1&&b===2));
   assert.deepEqual(uniqueEdges([]),[]);
+});
+
+test('separateComponents splits disconnected islands',()=>{
+  /* 两个不相连的三角形：顶点 0,1,2 与 3,4,5 */
+  const verts=[0,0,0, 1,0,0, 0,0,1, 5,0,5, 6,0,5, 5,0,6];
+  const faces=[0,1,2, 3,4,5];
+  const parts=separateComponents(verts,faces);
+  assert.equal(parts.length,2);
+  for(const p of parts){
+    assert.equal(p.verts.length/3,3);
+    assert.equal(p.faces.length,3);
+    assert.ok(validIndices(p.verts,p.faces));
+  }
+  /* 第一块坐标应还原为原始三角形 */
+  assert.deepEqual(parts[0].verts,[0,0,0, 1,0,0, 0,0,1]);
+});
+
+test('separateComponents keeps connected mesh as one part',()=>{
+  const parts=separateComponents(QUAD.verts,QUAD.faces);
+  assert.equal(parts.length,1);
+  assert.equal(parts[0].verts.length/3,4);
+  assert.equal(triCount(parts[0].faces),2);
+});
+
+test('separateComponents drops orphan vertices and handles empty',()=>{
+  /* 顶点 3 不被任何面引用 */
+  const verts=[0,0,0, 1,0,0, 0,0,1, 9,9,9];
+  const parts=separateComponents(verts,[0,1,2]);
+  assert.equal(parts.length,1);
+  assert.equal(parts[0].verts.length/3,3);
+  assert.deepEqual(separateComponents([],[]),[]);
+  assert.deepEqual(separateComponents([0,0,0],[]),[]);
+});
+
+test('flipNormals reverses winding without moving vertices',()=>{
+  const r=flipNormals(TRI.verts,TRI.faces);
+  assert.deepEqual(r.verts,TRI.verts);
+  assert.deepEqual(r.faces,[0,2,1]);
+  /* 翻转两次回到原样 */
+  const twice=flipNormals(r.verts,r.faces);
+  assert.deepEqual(twice.faces,TRI.faces);
+  /* 输入不被修改 */
+  assert.deepEqual(TRI.faces,[0,1,2]);
 });

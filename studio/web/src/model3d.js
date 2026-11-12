@@ -19,7 +19,7 @@ import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {STLLoader} from 'three/examples/jsm/loaders/STLLoader.js';
 import {mergeGeometries,mergeVertices} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {SimplifyModifier} from 'three/examples/jsm/modifiers/SimplifyModifier.js';
-import {extrudeFaces,insetFaces,deleteFaces,weldVertices,extractGeometry,faceKey,uniqueEdges} from './mesh-ops.js';
+import {extrudeFaces,insetFaces,deleteFaces,weldVertices,extractGeometry,faceKey,uniqueEdges,separateComponents,flipNormals} from './mesh-ops.js';
 
 const MAX_OBJECTS=60,MAX_VERTS=24000,MAX_HISTORY=24;
 /* 导入的 mesh 允许更大面数（只渲染不逐点编辑）；可编辑上限仍是 MAX_VERTS。 */
@@ -185,6 +185,35 @@ export function initModel(env){
     gizmo.scaleSnap=on?.1:null;
     const btn=$('modelSnapBtn');if(btn)btn.classList.toggle('active',on);
     env.notify(on?'已开吸附：移动按 0.25 格、旋转按 15°、缩放按 0.1。':'已关吸附，自由拖动。');
+  }
+  /* 聚焦选中：把相机和轨道目标移到物体中心，距离按包围盒大小自适应。 */
+  function focusSelected(){
+    const o=findData(selectedId);
+    if(!o){env.notify('先点选一个物体，再聚焦。');return;}
+    const g=meshOf(o.id);if(!g)return;
+    const box=new THREE.Box3().setFromObject(g);
+    if(box.isEmpty()){env.notify('这个物体没有可见几何。');return;}
+    const center=box.getCenter(new THREE.Vector3());
+    const size=box.getSize(new THREE.Vector3());
+    const radius=Math.max(size.x,size.y,size.z,0.2)/2;
+    /* 保持当前观察方向，只改距离与目标。 */
+    const dir=camera.position.clone().sub(orbit.target);
+    if(dir.lengthSq()<1e-6)dir.set(1,.8,1);
+    dir.normalize();
+    const dist=radius/Math.tan(THREE.MathUtils.degToRad(perspCamera.fov/2))*1.5+radius;
+    orbit.target.copy(center);
+    camera.position.copy(center).addScaledVector(dir,dist);
+    if(camera.isOrthographicCamera){
+      orthoHalfH=radius*1.6;
+      const stage=document.querySelector('.model-stage');
+      const aspect=stage?Math.max(1,stage.clientWidth)/Math.max(1,stage.clientHeight):1;
+      camera.left=-orthoHalfH*aspect;camera.right=orthoHalfH*aspect;
+      camera.top=orthoHalfH;camera.bottom=-orthoHalfH;
+      camera.updateProjectionMatrix();
+    }
+    camera.lookAt(center);
+    orbit.update();
+    invalidate();
   }
   /* 一键落地：把选中物体底面贴到网格平面（y=0）。 */
   function dropToFloor(){
@@ -876,6 +905,46 @@ export function initModel(env){
     buildEditOverlay(o);editInfoText();
     env.notify(result.welded>0?'已焊接 '+result.welded+' 个重合顶点。':'没有发现重合顶点。');
   }
+  function flipSelectedNormals(){
+    const o=findData(selectedId);
+    if(!o){env.notify('先点选一个物体。');return;}
+    if(o.type==='light'){env.notify('灯光没有面，不需要翻转法线。');return;}
+    const result=applyGeometryOp(o,(v,f)=>flipNormals(v,f));
+    if(!result)return;
+    buildEditOverlay(o);
+    env.notify('已翻转法线，面的朝向反过来了。');
+  }
+  /* 按松散部件分离：把不相连的网格块拆成独立物体，继承原物体的变换/颜色。 */
+  function separateSelected(){
+    const o=findData(selectedId);
+    if(!o){env.notify('先点选一个物体。');return;}
+    if(o.type==='light'){env.notify('灯光不能分离。');return;}
+    const g=meshOf(o.id);if(!g)return;
+    const data0=extractGeometry(g.children[0].geometry);
+    if(!data0){env.notify('这个物体没有可分离的网格。');return;}
+    const parts=separateComponents(data0.verts,data0.faces);
+    if(parts.length<=1){env.notify('这是一个连通的整体，没有可分离的松散部件。');return;}
+    const data=env.getState();
+    /* 原物体替换为第一块，其余新建；总数不能超上限。 */
+    const extra=parts.length-1;
+    if(data.objects.length+extra>MAX_OBJECTS){env.notify('分离后会有 '+parts.length+' 个物体，超过上限 '+MAX_OBJECTS+'，先删掉一些。');return;}
+    pushHistory();historyPending=false;
+    let nextId=data.nextId;
+    const newObjs=[];
+    parts.forEach((p,i)=>{
+      if(i===0){
+        newObjs.push({...o,verts:p.verts,faces:p.faces});
+      }else{
+        newObjs.push({...o,id:nextId++,name:(o.name+' 部件'+(i+1)).slice(0,30),verts:p.verts,faces:p.faces,mods:{...o.mods}});
+      }
+    });
+    const objects=data.objects.map(x=>x.id===o.id?newObjs[0]:x).concat(newObjs.slice(1));
+    env.setState({...data,nextId,objects});
+    rebuildAll();
+    select(o.id);
+    closeSheet();commitSoon();
+    env.notify('已分离成 '+parts.length+' 个独立物体，可分别移动编辑。');
+  }
   function applyTransformToData(){
     const o=findData(selectedId);if(!o)return;
     const g=meshOf(o.id);if(!g)return;
@@ -1419,6 +1488,9 @@ export function initModel(env){
     const insetBtn=$('modelInsetBtn');if(insetBtn)insetBtn.onclick=insetSelected;
     const delFaceBtn=$('modelDelFaceBtn');if(delFaceBtn)delFaceBtn.onclick=deleteSelectedFaces;
     const weldBtn=$('modelWeldBtn');if(weldBtn)weldBtn.onclick=weldSelected;
+    const separateBtn=$('modelSeparateBtn');if(separateBtn)separateBtn.onclick=separateSelected;
+    const flipBtn=$('modelFlipBtn');if(flipBtn)flipBtn.onclick=flipSelectedNormals;
+    const focusBtn=$('modelFocusBtn');if(focusBtn)focusBtn.onclick=focusSelected;
     const projBtn=$('modelProjBtn');if(projBtn)projBtn.onclick=toggleProjection;
     const wireBtn=$('modelWireBtn');if(wireBtn)wireBtn.onclick=toggleWireframe;
     const snapBtn=$('modelSnapBtn');if(snapBtn)snapBtn.onclick=toggleSnap;

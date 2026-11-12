@@ -24,6 +24,7 @@ import {initModel,modelSerialize,modelSanitize,modelModeEnter,modelModeLeave,mod
 import {readStoredTheme,sanitizeTheme,writeStoredTheme,themeFromSettings,applyTheme,themeColor} from './theme.js';
 import {initStarHome,starHomeEnter,starHomeLeave,starHomeAvailable,starSanitize} from './star-home.js';
 import {splitLocations} from './error-loc.js';
+import {snippetsFor,snippetById} from './snippets.js';
 
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
 /* 原生工作区快照的硬上限（EditorActivity 里是同一个数）。
@@ -431,6 +432,46 @@ on('templateCreate',createTemplateNote);
 on('templateInsert',insertTemplateNote);
 $('templateDialog').addEventListener('click',event=>{if(event.target===$('templateDialog'))$('templateDialog').close();});
 menu('menuTemplates',openTemplateDialog);
+
+/* ---------------- 代码片段库 ---------------- */
+function openSnippetDialog(){
+  if(worker){notify('请先停止运行，再插入代码片段。');return;}
+  closeMenu();
+  const dlg=$('snippetDialog'),list=$('snippetList'),lead=$('snippetLead');
+  if(!dlg||!list)return;
+  const ext=extension(active()?active().path:'');
+  const items=snippetsFor(ext);
+  list.replaceChildren();
+  if(!items.length){
+    if(lead)lead.textContent='当前文件（.'+(ext||'无扩展名')+'）暂时没有配套片段。支持 Python、C/C++、JavaScript、HTML、CSS。';
+    const p=document.createElement('p');p.className='hint';p.textContent='换个对应语言的代码文件再试试。';list.append(p);
+  }else{
+    if(lead)lead.textContent='当前语言：'+language(active().path)[0]+'，共 '+items.length+' 个片段。点一下插到光标处。';
+    for(const s of items){
+      const card=document.createElement('button');
+      card.type='button';card.className='snippet-card';
+      const title=document.createElement('strong');title.textContent=s.title;
+      const desc=document.createElement('small');desc.textContent=s.desc;
+      card.append(title,desc);
+      card.onclick=()=>insertSnippet(s.id);
+      list.append(card);
+    }
+  }
+  dlg.showModal();
+}
+function insertSnippet(id){
+  if(worker){notify('请先停止运行，再插入代码片段。');return;}
+  const s=snippetById(id);
+  if(!s||!view){notify('编辑器还没有准备好。');return;}
+  const sel=view.state.selection.main;
+  view.dispatch({changes:{from:sel.from,to:sel.to,insert:s.code},selection:{anchor:sel.from+s.code.length},scrollIntoView:true});
+  changed();
+  const dlg=$('snippetDialog');if(dlg&&dlg.open)dlg.close();
+  notify('已插入「'+s.title+'」片段。');
+}
+on('snippetClose',()=>{const dlg=$('snippetDialog');if(dlg&&dlg.open)dlg.close();});
+$('snippetDialog').addEventListener('click',event=>{if(event.target===$('snippetDialog'))$('snippetDialog').close();});
+menu('menuSnippets',openSnippetDialog);
 
 /* ---------------- 笔记生成试题 ---------------- */
 function setQuizStage(stage){
