@@ -1,0 +1,74 @@
+/* 星穹首页：画布铺满首页，标签与控制浮在其上。 */
+#starStage{position:absolute;inset:0;z-index:1;display:none}
+body.starhome #starStage{display:block}
+body.starhome .home-scroll{display:none}
+body.starhome.listview .home-scroll{display:block}
+body.starhome.listview #starStage{display:none}
+#starCanvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#starLabels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.star-label{
+  position:absolute;left:0;top:0;pointer-events:auto;
+  padding:3px 10px;border-radius:999px;
+  background:rgba(10,16,32,.55);border:1px solid rgba(159,184,255,.28);
+  color:#eaf2ff;font-size:12px;font-weight:600;letter-spacing:.02em;
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  white-space:nowrap;transition:opacity .2s;
+  text-shadow:0 1px 8px rgba(0,0,0,.5);
+}
+.star-label:active{background:rgba(47,212,191,.3)}
+.star-hud{
+  position:absolute;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));
+  display:flex;align-items:center;gap:8px;pointer-events:none;
+}
+.star-hud>*{pointer-events:auto}
+.star-hint{
+  flex:1;min-width:0;font-size:11px;color:#9fb8d8;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  text-shadow:0 1px 6px rgba(0,0,0,.6);
+}
+.star-hud button{
+  flex:none;height:36px;min-height:36px;padding:0 14px;border-radius:999px;
+  background:rgba(10,16,32,.6);border:1px solid rgba(159,184,255,.3);
+  color:#cfe0ff;font-size:12px;font-weight:600;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
+.star-hud button.active{background:rgba(47,212,191,.25);border-color:#2fd4bf;color:#b8fff2}
+.star-hole-chip{
+  position:absolute;right:12px;top:calc(64px + env(safe-area-inset-top));
+  display:flex;align-items:center;gap:6px;height:36px;min-height:36px;padding:0 14px;
+  border-radius:999px;background:rgba(5,8,16,.7);border:1px solid rgba(255,154,61,.45);
+  color:#ffd9ae;font-size:12px;font-weight:600;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
+.star-hole-chip #starHoleBadge{
+  min-width:18px;height:18px;border-radius:999px;background:#ff9a3d;color:#241305;
+  font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px;
+}
+.home-skybtn{
+  margin-left:8px;height:26px;min-height:26px;padding:0 10px;border-radius:999px;
+  background:rgba(159,160,237,.2);border:1px solid rgba(191,172,255,.4);
+  color:#e6e4ff;font-size:11px;font-weight:600;
+}
+/* 黑洞面板 */
+.star-hole-sheet{
+  position:absolute;left:0;right:0;bottom:0;z-index:40;max-height:60%;
+  display:flex;flex-direction:column;
+  background:rgba(8,11,22,.92);border-radius:18px 18px 0 0;
+  border-top:1px solid rgba(255,154,61,.35);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.star-hole-head{display:flex;align-items:center;padding:14px 16px 8px}
+.star-hole-head strong{flex:1;color:#ffd9ae;font-size:15px}
+.star-hole-head button{width:34px;height:34px;min-height:34px;border-radius:999px;background:rgba(255,255,255,.08);color:#cfe0ff}
+#starHoleList{overflow-y:auto;padding:0 16px;display:flex;flex-direction:column;gap:8px}
+.star-hole-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(159,184,255,.15)}
+.star-hole-row span{flex:1;color:#eaf2ff;font-size:13.5px;font-weight:600}
+.star-hole-row button{height:34px;min-height:34px;padding:0 12px;border-radius:9px;background:rgba(255,255,255,.1);color:#cfe0ff;font-size:12px;font-weight:600}
+.star-hole-row button.primary{background:#ff9a3d;color:#241305}
+.star-hole-empty{color:#8fa3c8;font-size:12.5px;padding:8px 2px}
+.star-hole-note{color:#7d91b8;font-size:11px;padding:10px 16px 14px;margin:0}
+/* 列表视图滚动条用夜空语言 */
+body.starhome .home-scroll::-webkit-scrollbar{width:6px}
+body.starhome .home-scroll::-webkit-scrollbar-track{background:rgba(10,16,32,.4)}
+body.starhome .home-scroll::-webkit-scrollbar-thumb{background:rgba(159,184,255,.35);border-radius:3px}

@@ -4,7 +4,7 @@ import {gunzipSync} from 'node:zlib';
 const out='../src/main/assets/studio';
 await mkdir(out,{recursive:true});
 await build({entryPoints:['src/app.js'],bundle:true,outfile:out+'/app.js',format:'iife',target:['chrome64'],minify:true,legalComments:'eof'});
-for(const file of ['index.html','meteor-sky.webp','sky-ripple.js','boot.js','theme-boot.js','style.css','lecture.css','tts.css','ai.css','model.css','shell.css','theme.css','python-worker.js','cpp-worker.js','javascript-worker.js','worker-output.js'])await copyFile('src/'+file,out+'/'+file);
+for(const file of ['index.html','meteor-sky.webp','sky-ripple.js','boot.js','theme-boot.js','style.css','lecture.css','tts.css','ai.css','model.css','star-home.css','shell.css','theme.css','python-worker.js','cpp-worker.js','javascript-worker.js','worker-output.js'])await copyFile('src/'+file,out+'/'+file);
 /* C/C++ 离线编译工具链（Clang 22 WASM）：IIFE 入口 + 运行时资源。
    资源发布为 .bin：一是躲开 AGP 对 .gz 的自动解压，二是躲开 noCompress 'wasm'
    规则让 88 MB 工具链参与 APK deflate 压缩。加载器按清单取 URL、按字节读取，

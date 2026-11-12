@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"><meta name="theme-color" content="#ffffff"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 23V9h4v5.4L17.2 9h5.2l-5.8 6.1L23 23h-5.2l-3.7-5.4L12 19.4V23z' fill='white'/%3E%3C/svg%3E"><meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'"><title>天工</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lecture.css"><link rel="stylesheet" href="tts.css"><link rel="stylesheet" href="ai.css"><link rel="stylesheet" href="model.css"><link rel="stylesheet" href="shell.css"><link rel="stylesheet" href="theme.css"><script src="theme-boot.js"></script></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"><meta name="theme-color" content="#ffffff"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 23V9h4v5.4L17.2 9h5.2l-5.8 6.1L23 23h-5.2l-3.7-5.4L12 19.4V23z' fill='white'/%3E%3C/svg%3E"><meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'"><title>天工</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lecture.css"><link rel="stylesheet" href="tts.css"><link rel="stylesheet" href="ai.css"><link rel="stylesheet" href="model.css"><link rel="stylesheet" href="star-home.css"><link rel="stylesheet" href="shell.css"><link rel="stylesheet" href="theme.css"><script src="theme-boot.js"></script></head>
 <body>
 <section id="landing" class="home" aria-label="天工首页" data-ready="0">
 <canvas id="skyRipple" aria-hidden="true"></canvas>
@@ -8,9 +8,20 @@
  <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.0</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
+<div id="starStage" aria-label="星穹首页">
+ <canvas id="starCanvas"></canvas>
+ <div id="starLabels"></div>
+ <div class="star-hud">
+  <span class="star-hint">拨转星空 · 点星打开 · 长按拖进黑洞收纳</span>
+  <span class="grow"></span>
+  <button id="starMotionBtn" type="button" aria-label="切换晃动">晃动</button>
+  <button id="starListBtn" type="button" aria-label="列表视图">列表</button>
+ </div>
+ <button id="starHoleBtn" class="star-hole-chip" type="button"><span id="starHoleLabel">黑洞</span><span id="starHoleBadge" hidden>0</span></button>
+</div>
 <div class="home-scroll" id="homeScroll">
  <div class="home-hero">
-  <p class="home-status"><span class="status-dot" aria-hidden="true"></span><span id="landingStatus">正在读取草稿</span></p>
+  <p class="home-status"><span class="status-dot" aria-hidden="true"></span><span id="landingStatus">正在读取草稿</span><button id="homeSkyBtn" class="home-skybtn" type="button" hidden>✦ 回到星穹</button></p>
   <h1 id="homeTitle">今天从这里开始</h1>
   <p class="home-lead" id="homeLead">挑一件想做的事。随时按返回键回到这里，东西都留在本机。</p>
  </div>
@@ -44,6 +55,11 @@
   </div>
  </section>
  <p class="home-foot">草稿会自动存好。想把改动写回手机上的原文件，打开文件点「保存」就行。</p>
+</div>
+<div id="starHoleSheet" class="star-hole-sheet" hidden>
+ <div class="star-hole-head"><strong>黑洞收纳</strong><button id="starHoleClose" type="button" aria-label="关闭">✕</button></div>
+ <div id="starHoleList"></div>
+ <p class="star-hole-note">收进来的星星只是隐藏，随时放回或打开，不影响任何草稿。</p>
 </div>
 </section>
 <header class="appbar"><button id="homeButton" class="homeback" type="button" aria-label="回到首页" title="回到首页"><span class="homeback-chev" aria-hidden="true">‹</span><span class="homeback-label">首页</span></button><button id="filesToggle" class="icon" aria-label="文件列表" title="文件列表">☰</button><div class="doc"><strong id="activePath">main.py</strong><small id="dirtyFlag">本地草稿</small></div><button id="drawToggle" class="icon drawtoggle" aria-label="画画" title="画画" aria-pressed="false" hidden>🖌️</button><button id="saveButton" class="icon saveicon" aria-label="保存" title="保存">保存</button><button id="runButton" class="primary">▶ 运行</button><button id="stopButton" class="danger" hidden>■ 停止</button><button id="moreButton" class="icon" aria-label="更多操作" title="更多操作">⋯</button></header>
