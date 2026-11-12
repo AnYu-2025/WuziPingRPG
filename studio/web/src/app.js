@@ -854,7 +854,9 @@ function refreshAvailability(){for(const card of homeCards){const a=moduleAvaila
 function setHomeEnabled(on){for(const card of homeCards)card.disabled=!on;const resume=$('resumeCard');if(resume)resume.disabled=!on;}
 function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(landingStatus)landingStatus.textContent='草稿已就绪';setHomeEnabled(true);refreshAvailability();refreshHomeTitle();refreshResume();
   /* 星穹在首页可见时启动；WebGL 不可用则保持卡片。 */
-  if(!starActive&&landingOpen&&!landing.hidden){starActive=starApi.enter();if(starActive){document.body.classList.add('starhome');setStarView(state.star&&state.star.view==='list');}}
+  /* 必须先让 #starStage 参与布局再 enter：否则量到 0 尺寸，
+     WebGL 画布被建成 1×1 再拉伸满屏，整页糊成一片浅色。 */
+  if(!starActive&&landingOpen&&!landing.hidden){document.body.classList.add('starhome');starActive=starApi.enter();if(starActive){setStarView(state.star&&state.star.view==='list');}else{document.body.classList.remove('starhome');}}
 }
 function hideLanding(){if(!landingOpen||!landing)return;if(starActive&&starApi)starApi.leave();if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model'&&modelApi)modelApi.enter();if(workspaceMode==='pelican'&&pelicanApi)pelicanApi.enter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},280);}
 function openLanding(reopen=false){
@@ -995,6 +997,8 @@ function applyMode(mode){
     lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
     $('workbench').hidden=true;$('lounge').hidden=true;
     if(aiPanel)aiPanel.hidden=true;
+    const fp2=$('focusPanel');if(fp2)fp2.hidden=true;
+    const pp2=$('pelicanPanel');if(pp2)pp2.hidden=true;
     const panel=$('modelPanel');if(panel)panel.hidden=false;
     $('activePath').textContent='3D 建模';$('dirtyFlag').textContent='场景自动保存';
     /* 3D 渲染层 enter 时才建 WebGL；不可用则提示降级。 */

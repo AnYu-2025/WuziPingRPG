@@ -600,10 +600,16 @@ body.notepad .mdtoggle[aria-pressed="true"]{background:#f0e6cf;border-color:#b08
 @keyframes meteor-cross { 0% { opacity:0; transform:translate3d(0,0,0) rotate(-37deg); } 5% { opacity:.9; } 70% { opacity:.8; } 80% { opacity:0; transform:translate3d(-130vw,105vh,0) rotate(-37deg); } 100% { opacity:0; transform:translate3d(-130vw,105vh,0) rotate(-37deg); } }
 @media(prefers-reduced-motion:reduce) { #landing .meteor-field i { animation:none; } }
 
-#skyRipple { position:absolute; inset:0; width:100%; height:100%; z-index:1; opacity:0; pointer-events:none; filter:blur(2px) brightness(.78); transition:opacity .4s; }
+#skyRipple { position:absolute; inset:0; width:100%; height:100%; z-index:1; opacity:0; pointer-events:none; transition:opacity .4s; }
 #skyRipple.ready { opacity:1; }
-#landing .meteor-field { z-index:2; }
 #landing .home-top,#landing .home-scroll { z-index:3; }
+/* 天空与流星统一由 #skyRipple 画布绘制（无缝周期，复位发生在不可见区间）。
+   画布就绪后关闭这里的 CSS 流星与重复天空层，避免两套动画叠加产生接缝。 */
+#landing:has(#skyRipple.ready) .meteor-field { display:none; }
+#landing:has(#skyRipple.ready)::before { animation:none; opacity:0; }
+/* 夜色与暗角已烘进画布，这里再叠一层只会让画面发灰、细节变糊。 */
+#landing:has(#skyRipple.ready)::after { opacity:0; }
+#landing:has(#skyRipple.ready) { background:#080b1e; }
 
 /* 专注番茄 */
 #focusPanel{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:var(--bg);overflow-y:auto}

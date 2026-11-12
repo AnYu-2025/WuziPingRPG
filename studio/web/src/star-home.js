@@ -114,7 +114,10 @@ export function initStarHome(env,api){
     holeGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture('rgba(255,154,61,.8)','rgba(120,60,20,.25)'),transparent:true,depthWrite:false}));
     holeGlow.scale.set(2.6,2.6,1);
     hole.add(holeGlow);
-    hole.position.set(0,-3.1,4.2);
+    /* 位置上移并缩小：原来 y=-3.1 会落到屏幕 97% 处被裁掉，
+       还压住底部「晃动/列表」操作条。现在整体收在操作条之上。 */
+    hole.position.set(0,-1.5,4.2);
+    hole.scale.setScalar(.72);
     scene.add(hole);
     window.addEventListener('resize',resize);
     resize();
@@ -123,9 +126,16 @@ export function initStarHome(env,api){
     return true;
   }
 
+  let lastW=0,lastH=0;
   function resize(){
     const stage=host();if(!stage||!renderer)return;
-    const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);
+    /* 容器还没布局（display:none / 0 尺寸）时不要建 1×1 画布：
+       它会被 CSS 拉伸铺满整屏，把背后的夜空糊成一片浅色。 */
+    const w=stage.clientWidth,h=stage.clientHeight;
+    if(w<2||h<2)return;
+    if(w===lastW&&h===lastH)return;
+    lastW=w;lastH=h;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     renderer.setSize(w,h,false);
     camera.aspect=w/h;camera.updateProjectionMatrix();
     dirty=true;
@@ -336,6 +346,9 @@ export function initStarHome(env,api){
   function loop(t){
     if(!active)return;
     raf=requestAnimationFrame(loop);
+    /* 尺寸自愈：首帧可能早于布局，或旋屏/分屏后容器变化，
+       每帧廉价比对一次，避免画布停留在错误分辨率。 */
+    resize();
     /* 黑洞吸入动画 */
     if(sucking){
       const s=stars.get(sucking.id);
@@ -381,19 +394,28 @@ export function initStarHome(env,api){
       proj.push({id,behind,p,depth,x:(p.x*.5+.5)*w,y:(-p.y*.5+.5)*h});
     }
     proj.sort((a,b)=>a.depth-b.depth);
+    /* 黑洞在屏幕上的排斥区：标签落进去会被吸积盘盖住，必须让开。 */
+    const hp=hole.position.clone().project(camera);
+    const holeRect={x:(hp.x*.5+.5)*w-84,y:(-hp.y*.5+.5)*h-72,w:168,h:144};
     const placed=[];
     for(const item of proj){
       const label=labels.get(item.id);
       if(!label)continue;
       if(item.behind||item.p.z>1){label.style.opacity='0';label.style.pointerEvents='none';continue;}
-      const lw=Math.max(56,(env.modules().find(m=>m.id===item.id)||{title:''}).title.length*13+20);
-      const rect={x:item.x-lw/2,y:item.y+14,w:lw,h:24};
-      const overlap=placed.some(r=>rect.x<r.x+r.w&&rect.x+rect.w>r.x&&rect.y<r.y+r.h&&rect.y+rect.h>r.y);
-      if(overlap){label.style.opacity='0';label.style.pointerEvents='none';continue;}
+      /* 用真实渲染宽度收敛，估算值会让长标签贴边被裁。 */
+      const lw=label.offsetWidth||Math.max(56,(env.modules().find(m=>m.id===item.id)||{title:''}).title.length*13+20);
+      const lh=label.offsetHeight||24;
+      const topSafe=76,bottomSafe=176,pad=10;
+      const lx=clamp(item.x,lw/2+pad,Math.max(lw/2+pad,w-lw/2-pad));
+      const ly=clamp(item.y+14,topSafe,Math.max(topSafe,h-bottomSafe-lh));
+      const rect={x:lx-lw/2,y:ly,w:lw,h:lh};
+      const hit=r=>rect.x<r.x+r.w&&rect.x+rect.w>r.x&&rect.y<r.y+r.h&&rect.y+rect.h>r.y;
+      if(placed.some(hit)||hit(holeRect)){label.style.opacity='0';label.style.pointerEvents='none';continue;}
       placed.push(rect);
-      label.style.opacity=String(clamp(1.15-Math.abs(item.p.x)*.5,0,1));
+      /* 越靠边越淡，但始终可读；被收敛过的标签不再额外压暗。 */
+      label.style.opacity=String(clamp(1.15-Math.abs(item.p.x)*.35,.55,1));
       label.style.pointerEvents='auto';
-      label.style.transform='translate(-50%,0) translate('+item.x+'px,'+(item.y+14)+'px)';
+      label.style.transform='translate(-50%,0) translate('+lx+'px,'+ly+'px)';
     }
     holeDisk.rotation.z+=.01;
     renderer.render(scene,camera);

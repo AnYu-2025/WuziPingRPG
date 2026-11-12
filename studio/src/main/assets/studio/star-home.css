@@ -8,23 +8,26 @@ body.starhome.listview #starStage{display:none}
 #starLabels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .star-label{
   position:absolute;left:0;top:0;pointer-events:auto;
-  padding:3px 10px;border-radius:999px;
-  background:rgba(10,16,32,.55);border:1px solid rgba(159,184,255,.28);
-  color:#eaf2ff;font-size:12px;font-weight:600;letter-spacing:.02em;
+  padding:4px 11px;border-radius:999px;
+  background:rgba(8,12,28,.82);border:1px solid rgba(159,184,255,.34);
+  color:#f2f7ff;font-size:12px;font-weight:600;letter-spacing:.02em;
   backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
   white-space:nowrap;transition:opacity .2s;
-  text-shadow:0 1px 8px rgba(0,0,0,.5);
+  text-shadow:0 1px 8px rgba(0,0,0,.65);
 }
-.star-label:active{background:rgba(47,212,191,.3)}
+.star-label:active{background:rgba(47,212,191,.35)}
 .star-hud{
-  position:absolute;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));
-  display:flex;align-items:center;gap:8px;pointer-events:none;
+  position:absolute;left:0;right:0;bottom:0;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:22px 14px calc(12px + env(safe-area-inset-bottom));
+  pointer-events:none;
+  background:linear-gradient(180deg,rgba(6,8,24,0),rgba(6,8,24,.72) 45%,rgba(6,8,24,.9));
 }
 .star-hud>*{pointer-events:auto}
+.star-hud-actions{display:flex;gap:10px}
 .star-hint{
-  flex:1;min-width:0;font-size:11px;color:#9fb8d8;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  text-shadow:0 1px 6px rgba(0,0,0,.6);
+  max-width:100%;font-size:11.5px;color:#c6d8f5;text-align:center;
+  text-shadow:0 1px 6px rgba(0,0,0,.8);
 }
 .star-hud button{
   flex:none;height:36px;min-height:36px;padding:0 14px;border-radius:999px;

@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.7</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.8</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -13,9 +13,10 @@
  <div id="starLabels"></div>
  <div class="star-hud">
   <span class="star-hint">拨转星空 · 点星打开 · 长按拖进黑洞收纳</span>
-  <span class="grow"></span>
-  <button id="starMotionBtn" type="button" aria-label="切换晃动">晃动</button>
-  <button id="starListBtn" type="button" aria-label="列表视图">列表</button>
+  <div class="star-hud-actions">
+   <button id="starMotionBtn" type="button" aria-label="切换晃动">晃动</button>
+   <button id="starListBtn" type="button" aria-label="列表视图">列表</button>
+  </div>
  </div>
  <button id="starHoleBtn" class="star-hole-chip" type="button"><span id="starHoleLabel">黑洞</span><span id="starHoleBadge" hidden>0</span></button>
 </div>
@@ -100,7 +101,7 @@
     <button class="draw-action" id="drawBack" title="返回文字">✎ 文字</button>
   </div>
 </div>
-<section class="console folded" id="consolePanel"><button class="consolehead" id="foldConsole" aria-expanded="false" aria-controls="consoleBody" title="展开或收起终端"><span class="ctitle">终端</span><span id="runState">就绪</span><span class="chev">⌃</span></button><div class="consolebody" id="consoleBody"><div class="consolebar"><button id="outputTab" class="active">输出</button><button id="inputTab">输入</button><span class="grow"></span><button id="saveOutput">存输出</button><button id="clearOutput">清空</button></div><pre id=”output” role=”log” aria-live=”polite”><span class=”dim”>写好代码点「运行」。Python、C++、JavaScript 都在本机跑，不联网。
+<section class="console folded" id="consolePanel"><button class="consolehead" id="foldConsole" aria-expanded="false" aria-controls="consoleBody" title="展开或收起终端"><span class="ctitle">终端</span><span id="runState">就绪</span><span class="chev">⌃</span></button><div class="consolebody" id="consoleBody"><div class="consolebar"><button id="outputTab" class="active">输出</button><button id="inputTab">输入</button><span class="grow"></span><button id="saveOutput">存输出</button><button id="clearOutput">清空</button></div><pre id="output" role="log" aria-live="polite"><span class="dim">写好代码点「运行」。Python、C++、JavaScript 都在本机跑，不联网。
 程序要读输入时，先在「输入」页填好，一行一条。</span></pre><textarea id="stdin" hidden aria-label="标准输入" placeholder="运行前填写，每个 input() 一行。未提供的输入返回 EOF。" spellcheck="false"></textarea></div></section>
 </main>
 <aside id="lectureTimeline" aria-label="时间轴与锚点"><canvas id="timelineCanvas" aria-label="录音波形时间轴"></canvas><div class="tl-controls"><button id="zoomOut" aria-label="缩小时间轴" title="缩小">－</button><button id="zoomIn" aria-label="放大时间轴" title="放大">＋</button><button id="playRate" class="tl-rate" aria-label="播放倍速" title="播放倍速">1×</button><button id="linePlay" class="tl-line" aria-label="从本行播放 10 秒" title="从本行播放 10 秒">10s</button><span id="tlRange">全程</span></div><div id="anchorList" aria-label="锚点列表"></div></aside>
