@@ -31,6 +31,7 @@ import {searchProject} from './project-search.js';
 import {renderMarkdown} from './markdown.js';
 import {DEFAULT_FOCUS,focusSanitize,focusToggle,focusReset,focusSkip,focusTick,focusSetMinutes,fmtTime,lastNDays} from './focus.js';
 import {deckSanitize,addCard,removeCard,reviewCard,dueCards,deckStats} from './cards.js';
+import {SUBJECTS,MASTERY,bookSanitize,addMistake,updateMistake,setMastery,removeMistake,filterMistakes,bookStats} from './mistakes.js';
 import {init as initPelican} from './pelican3d.js';
 import {pelicanSanitize} from './pelican.js';
 
@@ -71,7 +72,7 @@ const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript'
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null)});
+const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null),mistakes:bookSanitize(null)});
 let state=defaults(),view,restoring=false,worker=null,cppWorker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 /* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
 const micWaiters=new Map();let micSeq=0;
@@ -90,7 +91,7 @@ function active(){return state.files.find(f=>f.path===state.active)||state.files
 function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards)};}
+function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes)};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
 function mb(bytes){return (bytes/1048576).toFixed(1);}
@@ -135,6 +136,7 @@ function loadState(data){
   state.focus.running=false;
   state.pelican=pelicanSanitize(data.pelican);
   state.cards=deckSanitize(data.cards);
+  state.mistakes=bookSanitize(data.mistakes);
   state.settings.fontSize=Math.max(12,Math.min(24,Number(state.settings.fontSize)||15));state.settings.timeLimit=[15,30,60].includes(+state.settings.timeLimit)?+state.settings.timeLimit:15;if(window.innerWidth<700)state.settings.wrap=true;
   adoptTheme(data.settings);
   state.active=files.some(f=>f.path===state.active)?state.active:files[0].path;state.opened=Array.isArray(state.opened)?state.opened.filter(p=>files.some(f=>f.path===p)):[];if(!state.opened.includes(state.active))state.opened.push(state.active);
@@ -349,7 +351,8 @@ function setWorkspaceMode(mode){
   if(mode!=='focus')document.body.classList.remove('focusview');
   if(mode!=='pelican')document.body.classList.remove('pelicanview');
   if(mode!=='cards')document.body.classList.remove('cardsview');
-  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['modelPanel','model'],['aiPanel','ai']]){
+  if(mode!=='mistakes')document.body.classList.remove('mistakesview');
+  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['mistakesPanel','mistakes'],['modelPanel','model'],['aiPanel','ai']]){
     const el=$(id);if(el&&mode!==m)el.hidden=true;
   }
 }
@@ -998,6 +1001,19 @@ function applyMode(mode){
     cardsResetReview();renderCards();
     return true;
   }
+  if(mode==='mistakes'){
+    document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('mistakesview');
+    lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
+    $('workbench').hidden=true;$('lounge').hidden=true;
+    if(aiPanel)aiPanel.hidden=true;
+    const mp=$('modelPanel');if(mp)mp.hidden=true;
+    const fp=$('focusPanel');if(fp)fp.hidden=true;
+    const cp=$('cardsPanel');if(cp)cp.hidden=true;
+    const mip=$('mistakesPanel');if(mip)mip.hidden=false;
+    $('activePath').textContent='错题本';$('dirtyFlag').textContent='';
+    mistCloseForm();renderMistakes();
+    return true;
+  }
   if(mode==='pelican'){
     document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('pelicanview');
     lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
@@ -1264,6 +1280,85 @@ on('cardsSave',()=>{
   if(!r.ok){notify('正面和背面都要填写。');return;}
   state.cards=r.deck;$('cardsFront').value='';$('cardsBack').value='';
   notify('已添加卡片');renderCards();scheduleSave();
+});
+
+/* 错题本：科目/掌握度筛选 + 记错题表单 + 列表(展开/掌握度/编辑/删除)。 */
+let mistEditId=null,mistOpen=new Set();
+function mistFillSubjects(){
+  for(const id of ['mistSubject','mistFormSubject']){
+    const sel=$(id);if(!sel||sel.options.length)continue;
+    if(id==='mistSubject'){const o=document.createElement('option');o.value='全部';o.textContent='全部科目';sel.append(o);}
+    for(const s of SUBJECTS){const o=document.createElement('option');o.value=s;o.textContent=s;sel.append(o);}
+  }
+}
+function mistCloseForm(){mistEditId=null;const f=$('mistForm');if(f)f.hidden=true;}
+function mistOpenForm(item){
+  mistFillSubjects();
+  mistEditId=item?item.id:null;
+  $('mistTitle').value=item?item.title:'';
+  $('mistFormSubject').value=item?item.subject:'数学';
+  $('mistQuestion').value=item?item.question:'';
+  $('mistAnswer').value=item?item.answer:'';
+  $('mistReason').value=item?item.reason:'';
+  $('mistForm').hidden=false;
+  $('mistTitle').focus();
+}
+function renderMistakes(){
+  mistFillSubjects();
+  const book=state.mistakes||bookSanitize(null);
+  const st=bookStats(book);
+  const stats=$('mistStats');if(stats)stats.textContent='共 '+st.total+' 题 · 已掌握 '+st.mastered+' · 掌握率 '+st.rate+'%';
+  const subject=$('mistSubject')?$('mistSubject').value:'全部';
+  const mastery=$('mistMastery')?+$('mistMastery').value:-1;
+  const list=$('mistList');if(!list)return;
+  const items=filterMistakes(book,subject,mastery);
+  list.replaceChildren();
+  if(!items.length){const e=document.createElement('p');e.className='mist-empty';e.textContent=book.items.length?'这个筛选下没有错题。':'还没有错题，点「＋ 记错题」开始。';list.append(e);return;}
+  for(const it of items){
+    const card=document.createElement('div');card.className='mist-item';
+    const head=document.createElement('div');head.className='mist-item-head';
+    const t=document.createElement('span');t.className='t';t.textContent=it.title;
+    const badge=document.createElement('span');badge.className='mist-badge';badge.textContent=it.subject;
+    const mas=document.createElement('span');mas.className='mist-mastery m'+it.mastery;mas.textContent=MASTERY[it.mastery];
+    head.append(t,badge,mas);
+    head.onclick=()=>{if(mistOpen.has(it.id))mistOpen.delete(it.id);else mistOpen.add(it.id);renderMistakes();};
+    card.append(head);
+    if(mistOpen.has(it.id)){
+      const body=document.createElement('div');body.className='mist-item-body';
+      for(const [label,val] of [['题目',it.question],['正解',it.answer],['错因',it.reason]]){
+        if(!val)continue;
+        const f=document.createElement('div');f.className='mist-field';
+        const b=document.createElement('b');b.textContent=label;
+        const span=document.createElement('span');span.textContent=val;
+        f.append(b,span);body.append(f);
+      }
+      card.append(body);
+      const act=document.createElement('div');act.className='mist-item-actions';
+      for(let m=0;m<3;m++){
+        const b=document.createElement('button');b.type='button';b.textContent=MASTERY[m];if(it.mastery===m)b.className='on';
+        b.onclick=e=>{e.stopPropagation();state.mistakes=setMastery(state.mistakes,it.id,m,Date.now()).book;renderMistakes();scheduleSave();};
+        act.append(b);
+      }
+      const edit=document.createElement('button');edit.type='button';edit.textContent='编辑';
+      edit.onclick=e=>{e.stopPropagation();mistOpenForm(it);};
+      const del=document.createElement('button');del.type='button';del.className='del';del.textContent='删除';
+      del.onclick=e=>{e.stopPropagation();state.mistakes=removeMistake(state.mistakes,it.id);mistOpen.delete(it.id);renderMistakes();scheduleSave();};
+      act.append(edit,del);card.append(act);
+    }
+    list.append(card);
+  }
+}
+on('mistAddBtn',()=>mistOpenForm(null));
+on('mistCancel',()=>mistCloseForm());
+{const ms=$('mistSubject');if(ms)ms.addEventListener('change',()=>renderMistakes());
+ const mm=$('mistMastery');if(mm)mm.addEventListener('change',()=>renderMistakes());}
+on('mistSave',()=>{
+  const fields={title:$('mistTitle').value,subject:$('mistFormSubject').value,question:$('mistQuestion').value,answer:$('mistAnswer').value,reason:$('mistReason').value};
+  if(!fields.title.trim()&&!fields.question.trim()){notify('至少填写标题或题目。');return;}
+  const now=Date.now();
+  if(mistEditId){const r=updateMistake(state.mistakes,mistEditId,fields,now);if(r.ok)state.mistakes=r.book;}
+  else{const r=addMistake(state.mistakes,fields,now);if(r.ok)state.mistakes=r.book;}
+  mistCloseForm();renderMistakes();scheduleSave();notify('已保存错题');
 });
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},

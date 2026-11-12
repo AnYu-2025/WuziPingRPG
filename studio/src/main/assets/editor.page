@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.9</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.10</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -39,6 +39,7 @@
    <button class="home-card" type="button" data-mode="scan" data-kind="native" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">▣</span><span class="home-tag">相机</span></span><span class="home-copy"><strong>扫描文档</strong><small>拍书页和讲义，自动裁边，导出 PDF</small></span></button>
    <button class="home-card" type="button" data-mode="focus" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🍅</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>专注番茄</strong><small>工作/休息循环，统计今日专注</small></span></button>
    <button class="home-card" type="button" data-mode="cards" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🗂</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>记忆卡片</strong><small>间隔重复背卡，到期自动提醒</small></span></button>
+   <button class="home-card" type="button" data-mode="mistakes" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">📕</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>错题本</strong><small>按科目记错题，标记掌握度</small></span></button>
   </div>
  </section>
  <section class="home-group" data-group="create" aria-label="创作">
@@ -243,6 +244,37 @@
    <div class="cards-actions"><button id="cardsSave" class="primary" type="button">保存卡片</button></div>
   </div>
   <div class="cards-list" id="cardsList" hidden></div>
+ </div>
+</section>
+
+<section id="mistakesPanel" hidden aria-label="错题本">
+ <div class="mist-wrap">
+  <div class="mist-head">
+   <strong>错题本</strong>
+   <span class="mist-stats" id="mistStats"></span>
+  </div>
+  <div class="mist-filters">
+   <select id="mistSubject" aria-label="按科目筛选"></select>
+   <select id="mistMastery" aria-label="按掌握度筛选">
+    <option value="-1">全部掌握度</option>
+    <option value="0">未掌握</option>
+    <option value="1">模糊</option>
+    <option value="2">已掌握</option>
+   </select>
+   <button id="mistAddBtn" class="primary" type="button">＋ 记错题</button>
+  </div>
+  <div class="mist-form" id="mistForm" hidden>
+   <input id="mistTitle" type="text" maxlength="120" placeholder="标题（如：二次函数求根）">
+   <select id="mistFormSubject" aria-label="科目"></select>
+   <textarea id="mistQuestion" rows="3" maxlength="2000" placeholder="题目 / 错在哪"></textarea>
+   <textarea id="mistAnswer" rows="3" maxlength="2000" placeholder="正确解法 / 答案"></textarea>
+   <textarea id="mistReason" rows="2" maxlength="1000" placeholder="错因（粗心 / 概念不清…）"></textarea>
+   <div class="mist-form-actions">
+    <button id="mistSave" class="primary" type="button">保存</button>
+    <button id="mistCancel" type="button">取消</button>
+   </div>
+  </div>
+  <div class="mist-list" id="mistList"></div>
  </div>
 </section>
 

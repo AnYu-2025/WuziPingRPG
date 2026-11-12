@@ -661,6 +661,40 @@ body.focusview .quickkeys,body.focusview .statusbar #position{display:none}
 .cards-row button{flex:none;min-height:32px;padding:0 10px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);color:#c2453a;font-size:12px}
 body.cardsview .quickkeys,body.cardsview .statusbar #position{display:none}
 
+/* 错题本 */
+#mistakesPanel{flex:1;min-height:0;overflow-y:auto;background:var(--bg)}
+.mist-wrap{display:flex;flex-direction:column;gap:12px;padding:16px 14px calc(20px + env(safe-area-inset-bottom));max-width:600px;margin:0 auto;width:100%}
+.mist-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.mist-head strong{font-size:17px;color:var(--text-strong)}
+.mist-stats{font-size:12px;color:var(--muted)}
+.mist-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mist-filters select{flex:1;min-width:110px;height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text-strong);padding:0 8px;font-size:13px}
+.mist-filters button{min-height:40px;padding:0 14px;border-radius:10px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:13px;font-weight:600}
+.mist-filters button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.mist-form{display:flex;flex-direction:column;gap:9px;padding:12px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.mist-form input,.mist-form textarea,.mist-form select{border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text-strong);padding:9px 11px;font-size:14px;font-family:inherit;width:100%}
+.mist-form-actions{display:flex;gap:8px}
+.mist-form-actions button{min-height:40px;padding:0 16px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);color:var(--text-strong);font-size:13.5px;font-weight:600}
+.mist-form-actions button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.mist-list{display:flex;flex-direction:column;gap:10px}
+.mist-item{border-radius:14px;background:var(--surface);border:1px solid var(--line);overflow:hidden}
+.mist-item-head{display:flex;align-items:center;gap:8px;padding:11px 13px}
+.mist-item-head .t{flex:1;min-width:0;font-size:14.5px;font-weight:600;color:var(--text-strong);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mist-badge{flex:none;font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.mist-mastery{flex:none;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600}
+.mist-mastery.m0{background:#f6e0de;color:#c2453a}
+.mist-mastery.m1{background:#f3e8d2;color:#b7791f}
+.mist-mastery.m2{background:#dcefe2;color:#2f7d4f}
+.mist-item-body{padding:0 13px 11px;display:flex;flex-direction:column;gap:7px}
+.mist-field{font-size:13px;color:var(--text);line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.mist-field b{color:var(--muted);font-weight:600;font-size:11.5px;display:block;margin-bottom:2px}
+.mist-item-actions{display:flex;gap:6px;flex-wrap:wrap;padding:0 13px 12px}
+.mist-item-actions button{min-height:34px;padding:0 11px;border-radius:9px;background:var(--surface-2);border:1px solid var(--line);color:var(--text-strong);font-size:12px}
+.mist-item-actions button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.mist-item-actions button.del{color:#c2453a}
+.mist-empty{font-size:13px;color:var(--muted);text-align:center;padding:24px 0}
+body.mistakesview .quickkeys,body.mistakesview .statusbar #position{display:none}
+
 /* 鹈鹕骑车 */
 #pelicanPanel{flex:1;min-height:0;position:relative;background:#87c5eb}
 .pelican-stage{position:absolute;inset:0}
