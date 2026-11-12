@@ -1,0 +1,1 @@
+function n(r,e){let t=r&&typeof r=="object"?r:{},s=new Set(Array.isArray(e)?e:[]);return{starred:Array.isArray(t.starred)?[...new Set(t.starred.filter(a=>s.has(a)))]:[],motion:t.motion!==!1,view:t.view==="list"?"list":"sky"}}export{n as a};

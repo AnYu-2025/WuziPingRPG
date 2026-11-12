@@ -3,7 +3,9 @@ import {mkdir,copyFile,readdir,readFile,writeFile} from 'node:fs/promises';
 import {gunzipSync} from 'node:zlib';
 const out='../src/main/assets/studio';
 await mkdir(out,{recursive:true});
-await build({entryPoints:['src/app.js'],bundle:true,outfile:out+'/app.js',format:'iife',target:['chrome64'],minify:true,legalComments:'eof'});
+/* 分包构建：主 bundle 不含 three；3D/星穹渲染层懒加载成独立 chunk，
+   旧 WebView 解析不了 three 时主界面照常。index.html 以 type=module 加载 app.js。 */
+await build({entryPoints:['src/app.js'],bundle:true,splitting:true,format:'esm',outdir:out,target:['chrome64'],minify:true,legalComments:'eof'});
 for(const file of ['index.html','meteor-sky.webp','sky-ripple.js','boot.js','theme-boot.js','style.css','lecture.css','tts.css','ai.css','model.css','star-home.css','shell.css','theme.css','python-worker.js','cpp-worker.js','javascript-worker.js','worker-output.js'])await copyFile('src/'+file,out+'/'+file);
 /* C/C++ 离线编译工具链（Clang 22 WASM）：IIFE 入口 + 运行时资源。
    资源发布为 .bin：一是躲开 AGP 对 .gz 的自动解压，二是躲开 noCompress 'wasm'

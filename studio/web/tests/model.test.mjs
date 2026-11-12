@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {modelSanitize} from '../src/model3d.js';
+import {modelSanitize} from '../src/model-data.js';
 
 test('empty or malformed scene data falls back to a blank scene',()=>{
   for(const raw of [null,undefined,{},[],{objects:'nope'},{version:9}]){

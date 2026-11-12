@@ -6,6 +6,7 @@
  * 不支持 WebGL 时整体不启用，首页保留卡片列表，功能不丢。
  */
 import * as THREE from 'three';
+import {starSanitize} from './star-data.js';
 
 const R=5;
 const STAR_COLORS={
@@ -15,13 +16,6 @@ const STAR_COLORS={
 };
 const DEFAULT_PREFS=()=>({starred:[],motion:true,view:'sky'});
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
-
-export function starSanitize(raw,knownIds){
-  const r=raw&&typeof raw==='object'?raw:{};
-  const known=new Set(Array.isArray(knownIds)?knownIds:[]);
-  const starred=Array.isArray(r.starred)?[...new Set(r.starred.filter(id=>known.has(id)))]:[];
-  return {starred,motion:r.motion!==false,view:r.view==='list'?'list':'sky'};
-}
 
 /* 斐波那契球面布点，稍微压扁上下极，保证星星都在可拨到的范围。 */
 export function starPositions(n,radius=R){
@@ -37,7 +31,7 @@ export function starPositions(n,radius=R){
   return out;
 }
 
-export function initStarHome(env){
+export function initStarHome(env,api){
   const $=id=>document.getElementById(id);
   let renderer=null,scene=null,camera=null,group=null,stars=new Map();
   let hole=null,holeDisk=null,holeGlow=null,labels=new Map(),constellation=null;
@@ -435,8 +429,16 @@ export function initStarHome(env){
   api.debug=()=>({stars:stars.size,starred:prefs.starred.length,active});
 }
 
-const api={enter:()=>false,leave:()=>{},available:()=>false,openHole:()=>{},debug:()=>({})};
-export function starHomeEnter(){return api.enter();}
-export function starHomeLeave(){api.leave();}
-export function starHomeAvailable(){return api.available();}
-export const starHomeDebug=()=>api.debug();
+/* 懒加载入口：app.js 通过动态 import 调用，three 只在首页星穹启用时才加载。
+ * 旧 WebView 解析不了 three 时，首页保留卡片列表，功能不丢。 */
+export function init(env){
+  const api={enter:()=>false,leave:()=>{},available:()=>false,openHole:()=>{},debug:()=>({})};
+  initStarHome(env,api);
+  return {
+    enter:()=>api.enter(),
+    leave:()=>api.leave(),
+    available:()=>api.available(),
+    openHole:()=>api.openHole(),
+    debug:()=>api.debug()
+  };
+}

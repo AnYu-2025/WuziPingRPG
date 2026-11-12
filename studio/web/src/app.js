@@ -20,9 +20,9 @@ import {initAI,aiSerialize,aiSanitize,aiRestore,aiModeEnter,aiModeLeave,aiHidePa
 import {BACK,resolveBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS,moduleById,isNativeModule,moduleAvailability} from './back.js';
 import {NOTE_TEMPLATES,templateById,templateFileName,sanitizeTemplateState,insertTemplate,noteTemplateAction,notepadTarget,isNotepadNotePath,shouldRememberCodePath} from './note-templates.js';
 import {createQuizRequester,quizAIAvailability,normalizeQuizCount,gradeQuiz,retryWrongQuiz,quizToMarkdown,quizFileName,QUIZ_TYPE_LABELS,QUIZ_NOTE_LIMIT} from './quiz.js';
-import {initModel,modelSerialize,modelSanitize,modelModeEnter,modelModeLeave,modelStatusText,modelPanelOpen,modelClosePanel,modelDebug} from './model3d.js';
+import {modelSanitize} from './model-data.js';
 import {readStoredTheme,sanitizeTheme,writeStoredTheme,themeFromSettings,applyTheme,themeColor} from './theme.js';
-import {initStarHome,starHomeEnter,starHomeLeave,starHomeAvailable,starSanitize} from './star-home.js';
+import {starSanitize} from './star-data.js';
 import {splitLocations} from './error-loc.js';
 import {snippetsFor,snippetById} from './snippets.js';
 import {searchProject} from './project-search.js';
@@ -64,7 +64,7 @@ const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript'
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSerialize(),star:{starred:[],motion:true}});
+const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true}});
 let state=defaults(),view,restoring=false,worker=null,cppWorker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 /* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
 const micWaiters=new Map();let micSeq=0;
@@ -83,7 +83,7 @@ function active(){return state.files.find(f=>f.path===state.active)||state.files
 function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSerialize(),star:starSanitize(state.star,MODULES.map(m=>m.id))};}
+function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id))};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
 function mb(bytes){return (bytes/1048576).toFixed(1);}
@@ -148,7 +148,7 @@ function createEditor(){
  ]};
  view=new EditorView({state:EditorState.create(config),parent:$('editor')});view.dom.style.fontSize=state.settings.fontSize+'px';editorStates.set(active().path,view.state);position();lectureViewCreated();
 }
-function position(){if(!view)return;const pos=view.state.selection.main.head,line=view.state.doc.lineAt(pos);$('position').textContent=`第 ${line.number} 行，第 ${pos-line.from+1} 列`;const note=$('noteCount');if(note&&document.body.classList.contains('notepad'))note.textContent=view.state.doc.length+' 字 · '+view.state.doc.lines+' 行';else if(note&&document.body.classList.contains('lecture'))note.textContent=lectureStatusText();else if(note&&document.body.classList.contains('tts'))note.textContent=ttsStatusText();else if(note&&document.body.classList.contains('aiview'))note.textContent=aiStatusText();else if(note&&document.body.classList.contains('modelview'))note.textContent=modelStatusText();const empty=$('noteEmpty');if(empty){const blank=document.body.classList.contains('notepad')||document.body.classList.contains('lecture');empty.classList.toggle('show',blank&&view.state.doc.length===0);}}
+function position(){if(!view)return;const pos=view.state.selection.main.head,line=view.state.doc.lineAt(pos);$('position').textContent=`第 ${line.number} 行，第 ${pos-line.from+1} 列`;const note=$('noteCount');if(note&&document.body.classList.contains('notepad'))note.textContent=view.state.doc.length+' 字 · '+view.state.doc.lines+' 行';else if(note&&document.body.classList.contains('lecture'))note.textContent=lectureStatusText();else if(note&&document.body.classList.contains('tts'))note.textContent=ttsStatusText();else if(note&&document.body.classList.contains('aiview'))note.textContent=aiStatusText();else if(note&&document.body.classList.contains('modelview'))note.textContent=modelApi?modelApi.status():'';const empty=$('noteEmpty');if(empty){const blank=document.body.classList.contains('notepad')||document.body.classList.contains('lecture');empty.classList.toggle('show',blank&&view.state.doc.length===0);}}
 function renderFiles(){
  const list=$('fileList');list.replaceChildren();for(const f of state.files){const row=document.createElement('div');row.className='fileitem'+(f.path===state.active?' active':'');const b=document.createElement('button');b.className='fileopen';b.title=f.path;b.dataset.path=f.path;const glyph=document.createElement('span');glyph.className='fileglyph';glyph.textContent=extension(f.path).slice(0,3);const name=document.createElement('span');name.textContent=f.path+(f.text!==f.savedText?' •':'');b.append(glyph,name);b.onclick=()=>switchFile(f.path);const menu=document.createElement('button');menu.className='filemenu';menu.textContent='⋯';menu.setAttribute('aria-label','重命名 '+f.path);menu.onclick=()=>nameDialog(f.path);row.append(b,menu);list.append(row);}
  refreshBadges();
@@ -825,15 +825,15 @@ function refreshHomeTitle(){const t=$('homeTitle');if(t)t.textContent=greet()+'�
 function refreshAvailability(){for(const card of homeCards){const a=moduleAvailability(card.dataset.mode,moduleCaps);card.dataset.unavailable=a.ok?'0':'1';if(!a.ok)card.title=a.message;else card.removeAttribute('title');}}
 function setHomeEnabled(on){for(const card of homeCards)card.disabled=!on;const resume=$('resumeCard');if(resume)resume.disabled=!on;}
 function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(landingStatus)landingStatus.textContent='草稿已就绪';setHomeEnabled(true);refreshAvailability();refreshHomeTitle();refreshResume();
-  /* 星穹在首页可见时启动；WebGL 不可用则保持卡片。 */
-  if(!starActive&&landingOpen&&!landing.hidden){starActive=starHomeEnter();if(starActive){document.body.classList.add('starhome');setStarView(state.star&&state.star.view==='list');}}
+  /* 星穹在首页可见时懒加载启动；WebGL/旧WebView 不可用则保持卡片。 */
+  if(!starActive&&landingOpen&&!landing.hidden){ensureStar().then(api=>{if(!landingOpen||landing.hidden)return;starActive=api.enter();if(starActive){document.body.classList.add('starhome');setStarView(state.star&&state.star.view==='list');}}).catch(()=>{});}
 }
-function hideLanding(){if(!landingOpen||!landing)return;if(starActive)starHomeLeave();if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model')modelModeEnter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},280);}
+function hideLanding(){if(!landingOpen||!landing)return;if(starActive&&starApi)starApi.leave();if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model'&&modelApi)modelApi.enter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},280);}
 function openLanding(reopen=false){
   if(!landing)return;
   if(reopen&&workspaceMode==='tts')ttsHideBar();
   if(reopen&&workspaceMode==='ai'){setAISettings(false);aiHidePanel();}
-  if(reopen&&workspaceMode==='model')modelModeLeave();
+  if(reopen&&workspaceMode==='model'&&modelApi)modelApi.leave();
   closeDrawer();closeMenu();
   if(view){try{closeSearchPanel(view);}catch(e){}}
   clearTimeout(landingTimer);
@@ -843,7 +843,7 @@ function openLanding(reopen=false){
   if(landingStatus)landingStatus.textContent=ready?'草稿已就绪':'正在读取草稿';
   if(reopen&&KNOWN_MODES.includes(workspaceMode)){selectedMode=workspaceMode;lastOpened=workspaceMode;}
   refreshHomeTitle();refreshResume();
-  if(starActive)starHomeEnter();
+  if(starActive&&starApi)starApi.enter();
 }
 function setLectureTab(name){
   const tab=name==='timeline'||name==='slides'?name:'notes';
@@ -857,7 +857,7 @@ function setLectureTab(name){
 /* 模块自己的子层，栈顶在前。新功能要加子层时在这里登记，返回键就会先关它。 */
 const MODULE_LAYERS=[
   {id:'aiSettings',mode:'ai',open:()=>!!$('aiPanel')&&$('aiPanel').classList.contains('settings-open'),close:()=>setAISettings(false)},
-  {id:'modelPanel',mode:'model',open:()=>modelPanelOpen(),close:()=>modelClosePanel()}
+  {id:'modelPanel',mode:'model',open:()=>!!modelApi&&modelApi.panelOpen(),close:()=>{if(modelApi)modelApi.closePanel();}}
 ];
 function moduleLayers(){return MODULE_LAYERS.filter(layer=>(!layer.mode||layer.mode===workspaceMode)&&layer.open()).map(layer=>layer.id);}
 function closeModuleLayer(id){const layer=MODULE_LAYERS.find(item=>item.id===id);if(layer)layer.close();}
@@ -930,7 +930,7 @@ function applyMode(mode){
   const ttsTarget=mode==='tts'?((lastTtsPath&&state.files.find(x=>x.path===lastTtsPath))||state.files.find(x=>x.path==='English.txt')||ensureEnglishText()):null;
   if(mode==='tts'&&!ttsTarget)return false;
   if(workspaceMode==='tts'&&mode!=='tts')ttsModeLeave();
-  if(workspaceMode==='model'&&mode!=='model')modelModeLeave();
+  if(workspaceMode==='model'&&mode!=='model'&&modelApi)modelApi.leave();
   const leavingAI=workspaceMode==='ai'&&mode!=='ai';
   setWorkspaceMode(mode);  const noteEmpty=$('noteEmpty');
   if(noteEmpty)noteEmpty.textContent=mode==='lecture'?'点上方「🎙 开始录音」，边听边记；每一行都会自动带上时间戳。':'从这里开始写点什么…';
@@ -944,7 +944,9 @@ function applyMode(mode){
     if(aiPanel)aiPanel.hidden=true;
     const panel=$('modelPanel');if(panel)panel.hidden=false;
     $('activePath').textContent='3D 建模';$('dirtyFlag').textContent='场景自动保存';
-    modelModeEnter();return true;
+    /* 3D 渲染层懒加载：旧 WebView 加载失败时退回首页，不影响其它功能。 */
+    ensureModel().then(api=>{if(workspaceMode==='model')api.enter();}).catch(()=>{notify('3D 需要较新的系统 WebView，当前设备暂不支持；其它功能不受影响。');openLanding(true);});
+    return true;
   }
   if(mode==='ai'){
     document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('aiview');
@@ -1054,21 +1056,45 @@ initTTS({
   view:()=>view,
   activePath:()=>state.active
 });
-initModel({
-  notify,
-  native,
-  send:(type,payload)=>send(type,payload),
-  getState:()=>state.model,
-  setState:value=>{state.model=modelSanitize(value);},
-  scheduleSave,
-  /* 二进制导出（OBJ/GLB）走原生导出通道；浏览器里退回下载。 */
-  exportBinary:(name,bytes,mime)=>{
-    const id='model-'+Date.now()+'-'+Math.floor(Math.random()*1e6);
-    if(native){pendingSaves.set(id,{path:name,text:'',binary:true});send('exportBinary',{id,path:name,data:bytesToBase64(bytes),mime});}
-    else{const blob=new Blob([bytes],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('已导出 '+name);}
-  }
-});
 function bytesToBase64(bytes){let binary='';const chunk=0x8000;for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk));return btoa(binary);}
+/* 3D 与星穹的渲染层（three.js）懒加载：主 bundle 不含 three，
+ * 旧 WebView 解析不了 three 时主界面/编码照常，仅 3D/星穹降级。 */
+let modelApi=null,modelLoad=null;
+function ensureModel(){
+  if(modelApi)return Promise.resolve(modelApi);
+  if(!modelLoad)modelLoad=import('./model3d.js').then(m=>{
+    modelApi=m.init({
+      notify,native,
+      send:(type,payload)=>send(type,payload),
+      getState:()=>state.model,
+      setState:value=>{state.model=modelSanitize(value);},
+      scheduleSave,
+      exportBinary:(name,bytes,mime)=>{
+        const id='model-'+Date.now()+'-'+Math.floor(Math.random()*1e6);
+        if(native){pendingSaves.set(id,{path:name,text:'',binary:true});send('exportBinary',{id,path:name,data:bytesToBase64(bytes),mime});}
+        else{const blob=new Blob([bytes],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('已导出 '+name);}
+      }
+    });
+    return modelApi;
+  }).catch(e=>{modelLoad=null;throw e;});
+  return modelLoad;
+}
+let starApi=null,starLoad=null;
+function ensureStar(){
+  if(starApi)return Promise.resolve(starApi);
+  if(!starLoad)starLoad=import('./star-home.js').then(m=>{
+    starApi=m.init({
+      notify,
+      modules:()=>MODULES,
+      open:id=>enterHomeMode(id),
+      getPrefs:()=>state.star||{starred:[],motion:true},
+      setPrefs:p=>{state.star=starSanitize(p,MODULES.map(m=>m.id));scheduleSave();},
+      showList:()=>setStarView(true)
+    });
+    return starApi;
+  }).catch(e=>{starLoad=null;throw e;});
+  return starLoad;
+}
 /* 星穹首页：WebGL 可用时把功能做成恒星；不可用保留卡片列表。 */
 let starActive=false;
 function setStarView(list){
@@ -1077,14 +1103,6 @@ function setStarView(list){
   /* 记住用户选的视图，下次打开首页照旧。 */
   if(state.star){state.star.view=list?'list':'sky';scheduleSave();}
 }
-initStarHome({
-  notify,
-  modules:()=>MODULES,
-  open:id=>enterHomeMode(id),
-  getPrefs:()=>state.star||{starred:[],motion:true},
-  setPrefs:p=>{state.star=starSanitize(p,MODULES.map(m=>m.id));scheduleSave();},
-  showList:()=>setStarView(true)
-});
 on('homeSkyBtn',()=>setStarView(false));
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
@@ -1132,5 +1150,5 @@ initAI({
  runSnippet:aiRunSnippet
 });
 openLanding(false);
-window.Studio={getState:()=>({...snapshot(),mode:workspaceMode,home:landingOpen,layers:moduleLayers(),resume:rememberedMode(),caps:moduleCaps}),get view(){return view;},run,stop,flush,importFiles,back:handleSystemBack,exitMessage:()=>exitCopy(state.files).message,lecture:lectureDebug,tts:ttsDebug,ai:aiDebug,model:modelDebug};
+window.Studio={getState:()=>({...snapshot(),mode:workspaceMode,home:landingOpen,layers:moduleLayers(),resume:rememberedMode(),caps:moduleCaps}),get view(){return view;},run,stop,flush,importFiles,back:handleSystemBack,exitMessage:()=>exitCopy(state.files).message,lecture:lectureDebug,tts:ttsDebug,ai:aiDebug,model:()=>modelApi?modelApi.debug():{objects:0,selected:0,mode:'object',sheet:'',active:false}};
 if(native)send('ready');else{let saved=null;try{saved=JSON.parse(localStorage.getItem('ember-studio-v1'));}catch(e){}restore(saved);}

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {starSanitize,starPositions} from '../src/star-home.js';
+import {starSanitize} from '../src/star-data.js';
+import {starPositions} from '../src/star-home.js';
 
 const IDS=['lecture','tts','scan','python','notepad','photo','model','ai','game'];
 
