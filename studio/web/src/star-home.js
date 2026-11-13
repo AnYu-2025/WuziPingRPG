@@ -34,7 +34,7 @@ export function starPositions(n,radius=R){
 export function initStarHome(env,api){
   const $=id=>document.getElementById(id);
   let renderer=null,scene=null,camera=null,group=null,stars=new Map();
-  let hole=null,holeDisk=null,holeGlow=null,labels=new Map(),constellation=null;
+  let hole=null,holeDisk=null,holeSwirl=null,holeGlow=null,holeHud=[],labels=new Map(),constellation=null;
   const buzz=ms=>{try{if(navigator.vibrate)navigator.vibrate(ms);}catch(e){}};
   /* 近邻星连成星座线：每颗可见星连最近的两颗，去重；收纳后重连。 */
   function buildConstellation(){
@@ -82,6 +82,65 @@ export function initStarHome(env,api){
     return tex;
   }
 
+  /* EHT 实机照片风格吸积环：中心暗阴影，环下亮上暗（多普勒束流），整体柔糊。 */
+  function ehtRingTexture(){
+    const S=256,c=document.createElement('canvas');c.width=c.height=S;
+    const g=c.getContext('2d'),cx=S/2,cy=S/2;
+    let grad=g.createRadialGradient(cx,cy,S*.14,cx,cy,S*.5);
+    grad.addColorStop(0,'rgba(255,110,35,0)');
+    grad.addColorStop(.4,'rgba(255,110,35,.22)');
+    grad.addColorStop(.58,'rgba(255,130,45,.7)');
+    grad.addColorStop(.74,'rgba(200,60,20,.4)');
+    grad.addColorStop(1,'rgba(110,18,8,0)');
+    g.fillStyle=grad;g.fillRect(0,0,S,S);
+    /* 下半 hotspot（照片里最亮的橙黄弧） */
+    g.globalCompositeOperation='lighter';
+    grad=g.createRadialGradient(cx,cy+S*.15,S*.03,cx,cy+S*.15,S*.36);
+    grad.addColorStop(0,'rgba(255,230,160,.95)');
+    grad.addColorStop(.45,'rgba(255,160,60,.55)');
+    grad.addColorStop(1,'rgba(255,110,35,0)');
+    g.fillStyle=grad;g.fillRect(0,0,S,S);
+    /* 压暗上半，形成不对称 */
+    g.globalCompositeOperation='destination-out';
+    grad=g.createLinearGradient(0,0,0,cy);
+    grad.addColorStop(0,'rgba(0,0,0,.62)');
+    grad.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=grad;g.fillRect(0,0,S,cy);
+    /* 中心暗阴影 */
+    grad=g.createRadialGradient(cx,cy,0,cx,cy,S*.24);
+    grad.addColorStop(0,'rgba(0,0,0,1)');
+    grad.addColorStop(.75,'rgba(0,0,0,.92)');
+    grad.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=grad;g.beginPath();g.arc(cx,cy,S*.25,0,7);g.fill();
+    return new THREE.CanvasTexture(c);
+  }
+  /* 吸积流 swirl：几条淡橙螺旋 streak，持续慢转提供"活"的感觉，
+     不带动主环（主环保持照片的下亮上暗方位）。 */
+  function swirlTexture(){
+    const S=256,c=document.createElement('canvas');c.width=c.height=S;
+    const g=c.getContext('2d'),cx=S/2,cy=S/2;
+    g.lineCap='round';
+    for(let i=0;i<4;i++){
+      const r0=S*(.28+i*.045);
+      g.strokeStyle='rgba(255,'+(150+i*20)+','+(60+i*15)+','+(0.20-i*.035)+')';
+      g.lineWidth=5-i;
+      g.shadowColor='rgba(255,140,50,.5)';g.shadowBlur=6;
+      g.beginPath();
+      g.arc(cx,cy,r0,i*1.7,i*1.7+2.1);
+      g.stroke();
+    }
+    return new THREE.CanvasTexture(c);
+  }
+  /* 引力透镜弧：上下两段细亮弧，科幻感（低调）。 */
+  function lensArcTexture(){
+    const S=256,c=document.createElement('canvas');c.width=c.height=S;
+    const g=c.getContext('2d'),cx=S/2,cy=S/2;
+    g.strokeStyle='rgba(150,205,255,.4)';g.lineWidth=2;g.shadowColor='rgba(150,205,255,.7)';g.shadowBlur=6;
+    g.beginPath();g.arc(cx,cy,S*.36,Math.PI*1.15,Math.PI*1.85);g.stroke();
+    g.beginPath();g.arc(cx,cy,S*.36,Math.PI*.15,Math.PI*.85);g.stroke();
+    return new THREE.CanvasTexture(c);
+  }
+
   function ensure(){
     if(renderer)return true;
     const cv=canvas();if(!cv)return false;
@@ -104,20 +163,26 @@ export function initStarHome(env,api){
     dustGeo.setAttribute('position',new THREE.BufferAttribute(dustPos,3));
     const dust=new THREE.Points(dustGeo,new THREE.PointsMaterial({color:0x9fb8ff,size:.06,transparent:true,opacity:.55,sizeAttenuation:true}));
     scene.add(dust);
-    /* 黑洞：暗核 + 吸积盘 + 外晕 */
+    /* 黑洞（首页视觉中心）：参照 EHT 实机照片——暗阴影+下亮橙红吸积环+光子环+透镜弧+科幻HUD */
     hole=new THREE.Group();
-    const core=new THREE.Mesh(new THREE.SphereGeometry(.42,24,16),new THREE.MeshBasicMaterial({color:0x000000}));
+    const core=new THREE.Mesh(new THREE.SphereGeometry(.5,24,16),new THREE.MeshBasicMaterial({color:0x000000}));
     hole.add(core);
-    holeDisk=new THREE.Mesh(new THREE.TorusGeometry(.62,.07,10,48),new THREE.MeshBasicMaterial({color:0xff9a3d,transparent:true,opacity:.9}));
-    holeDisk.rotation.x=Math.PI/2.4;
-    hole.add(holeDisk);
-    holeGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture('rgba(255,154,61,.8)','rgba(120,60,20,.25)'),transparent:true,depthWrite:false}));
-    holeGlow.scale.set(2.6,2.6,1);
-    hole.add(holeGlow);
-    /* 位置上移并缩小：原来 y=-3.1 会落到屏幕 97% 处被裁掉，
-       还压住底部「晃动/列表」操作条。现在整体收在操作条之上。 */
-    hole.position.set(0,-1.5,4.2);
-    hole.scale.setScalar(.72);
+    holeDisk=new THREE.Sprite(new THREE.SpriteMaterial({map:ehtRingTexture(),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
+    holeDisk.scale.set(3.2,3.2,1);hole.add(holeDisk);
+    holeSwirl=new THREE.Sprite(new THREE.SpriteMaterial({map:swirlTexture(),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.8}));
+    holeSwirl.scale.set(3.1,3.1,1);hole.add(holeSwirl);
+    const photon=new THREE.Mesh(new THREE.TorusGeometry(.56,.012,8,64),new THREE.MeshBasicMaterial({color:0xffd9a0,transparent:true,opacity:.45,blending:THREE.AdditiveBlending,depthWrite:false}));
+    hole.add(photon);
+    const lens=new THREE.Sprite(new THREE.SpriteMaterial({map:lensArcTexture(),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.5}));
+    lens.scale.set(3.6,3.6,1);hole.add(lens);
+    holeGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture('rgba(255,110,35,.42)','rgba(140,30,10,.18)'),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
+    holeGlow.scale.set(5,5,1);hole.add(holeGlow);
+    const hudMat=new THREE.MeshBasicMaterial({color:0x7fd4ff,transparent:true,opacity:.16,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide});
+    const hud1=new THREE.Mesh(new THREE.RingGeometry(1.5,1.52,64),hudMat);hole.add(hud1);
+    const hud2=new THREE.Mesh(new THREE.RingGeometry(1.8,1.81,64,1,0,Math.PI*1.5),hudMat.clone());hud2.material.opacity=.12;hole.add(hud2);
+    holeHud=[hud1,hud2];
+    hole.position.set(0,0,3.5);
+    hole.scale.setScalar(1.15);
     scene.add(hole);
     window.addEventListener('resize',resize);
     resize();
@@ -184,8 +249,8 @@ export function initStarHome(env,api){
   function updateHoleBadge(){
     const badge=$('starHoleBadge');
     if(badge){badge.textContent=String(prefs.starred.length);badge.hidden=prefs.starred.length===0;}
-    const holeLabel=$('starHoleLabel');
-    if(holeLabel)holeLabel.textContent=prefs.starred.length?'黑洞 · '+prefs.starred.length+' 颗':'黑洞';
+    const chip=$('starHoleBtn');
+    if(chip)chip.style.display=prefs.starred.length?'flex':'none';
   }
   function savePrefs(){env.setPrefs(prefs);}
 
@@ -232,7 +297,7 @@ export function initStarHome(env,api){
         }
         const over=pickHole(e);
         holeGlow.material.opacity=over?1:.7;
-        holeDisk.material.color.setHex(over?0xffd75e:0xff9a3d);
+        holeDisk.material.color.setHex(over?0xffe0b0:0xffffff);
         dirty=true;
         return;
       }
@@ -252,7 +317,7 @@ export function initStarHome(env,api){
       if(dragStar&&dragMoved){
         if(pickHole(e))starStar(dragStar);
         else snapBack(dragStar);
-        holeGlow.material.opacity=.7;holeDisk.material.color.setHex(0xff9a3d);
+        holeGlow.material.opacity=.7;holeDisk.material.color.setHex(0xffffff);
       }else if(wasTap){
         if(pickHole(e))openHole();
         else{
@@ -396,7 +461,7 @@ export function initStarHome(env,api){
     proj.sort((a,b)=>a.depth-b.depth);
     /* 黑洞在屏幕上的排斥区：标签落进去会被吸积盘盖住，必须让开。 */
     const hp=hole.position.clone().project(camera);
-    const holeRect={x:(hp.x*.5+.5)*w-84,y:(-hp.y*.5+.5)*h-72,w:168,h:144};
+    const holeRect={x:(hp.x*.5+.5)*w-130,y:(-hp.y*.5+.5)*h-130,w:260,h:260};
     const placed=[];
     for(const item of proj){
       const label=labels.get(item.id);
@@ -417,7 +482,10 @@ export function initStarHome(env,api){
       label.style.pointerEvents='auto';
       label.style.transform='translate(-50%,0) translate('+lx+'px,'+ly+'px)';
     }
-    holeDisk.rotation.z+=.01;
+    holeSwirl.material.rotation-=.0035;
+    holeHud[0].rotation.z-=.002;holeHud[1].rotation.z+=.003;
+    const breathe=1+Math.sin(t*.0012)*.03;
+    holeGlow.scale.set(5*breathe,5*breathe,1);
     renderer.render(scene,camera);
   }
 

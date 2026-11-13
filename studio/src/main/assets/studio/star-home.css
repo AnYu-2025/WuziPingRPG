@@ -38,11 +38,12 @@ body.starhome.listview #starStage{display:none}
 .star-hud button.active{background:rgba(47,212,191,.25);border-color:#2fd4bf;color:#b8fff2}
 .star-hole-chip{
   position:absolute;right:12px;top:calc(64px + env(safe-area-inset-top));
-  display:flex;align-items:center;gap:6px;height:36px;min-height:36px;padding:0 14px;
+  display:flex;align-items:center;justify-content:center;gap:6px;height:36px;min-width:36px;padding:0 10px;
   border-radius:999px;background:rgba(5,8,16,.7);border:1px solid rgba(255,154,61,.45);
   color:#ffd9ae;font-size:12px;font-weight:600;
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
 }
+.star-hole-chip:empty{display:none}
 .star-hole-chip #starHoleBadge{
   min-width:18px;height:18px;border-radius:999px;background:#ff9a3d;color:#241305;
   font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px;
