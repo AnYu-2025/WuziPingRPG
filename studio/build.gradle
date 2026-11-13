@@ -3,7 +3,7 @@ def studioParallel = project.findProperty('studioParallel') == 'true'
 android {
     namespace 'cn.wuziping.studio'
     compileSdk 34
-    defaultConfig { applicationId (studioParallel ? 'cn.wuziping.ember.preview07' : 'cn.wuziping.ember'); manifestPlaceholders = [studioLabel: studioParallel ? '天工 · 试玩' : '天工']; minSdk 23; targetSdk 34; versionCode 54; versionName '0.3.14' }
+    defaultConfig { applicationId (studioParallel ? 'cn.wuziping.ember.preview07' : 'cn.wuziping.ember'); manifestPlaceholders = [studioLabel: studioParallel ? '天工 · 试玩' : '天工']; minSdk 23; targetSdk 34; versionCode 55; versionName '0.3.15' }
     sourceSets {
         main.java.srcDirs += ['../core/src/main/java','../app/src/main/java']
         main.assets.srcDirs += ['../app/src/main/assets']

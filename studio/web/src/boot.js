@@ -30,8 +30,14 @@
     var reason = event && event.reason;
     report('promise', reason && (reason.stack || reason.message) || reason || '');
   });
-  setTimeout(function () {
-    if (window.Studio && (window.Studio.view || window.__studioLandingReady)) return;
+  /* 轮询等启动完成；慢设备冷启动可能超过 3 秒，别误报。
+     8 秒仍没起来才提示，且每秒复查，起来了就不弹。 */
+  var bootTries = 0;
+  var bootTimer = setInterval(function () {
+    bootTries++;
+    if (window.Studio && (window.Studio.view || window.__studioLandingReady)) { clearInterval(bootTimer); return; }
+    if (bootTries < 8) return;
+    clearInterval(bootTimer);
     var host = document.getElementById('editor');
     if (!host || host.getAttribute('data-boot-failed') === '1') return;
     host.setAttribute('data-boot-failed', '1');
@@ -65,5 +71,5 @@
     } else {
       host.appendChild(box);
     }
-  }, 3000);
+  }, 1000);
 })();

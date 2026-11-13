@@ -33,6 +33,7 @@ import {DEFAULT_FOCUS,focusSanitize,focusToggle,focusReset,focusSkip,focusTick,f
 import {deckSanitize,addCard,removeCard,reviewCard,dueCards,deckStats} from './cards.js';
 import {SUBJECTS,MASTERY,bookSanitize,addMistake,updateMistake,setMastery,removeMistake,filterMistakes,bookStats} from './mistakes.js';
 import {habitsSanitize,addHabit,removeHabit,isChecked,toggleCheck,currentStreak,bestStreak,totalChecks,lastNDaysChecks,habitsStats} from './habits.js';
+import {DAYS,PERIODS,COURSE_COLORS,scheduleSanitize,addCourse,updateCourse,removeCourse,coursesOnDay,nowInfo,currentStatus,fmtMin,weeksText} from './schedule.js';
 import {init as initPelican} from './pelican3d.js';
 import {pelicanSanitize} from './pelican.js';
 
@@ -73,7 +74,7 @@ const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript'
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null),mistakes:bookSanitize(null),habits:habitsSanitize(null)});
+const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null),mistakes:bookSanitize(null),habits:habitsSanitize(null),schedule:scheduleSanitize(null)});
 let state=defaults(),view,restoring=false,worker=null,cppWorker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 /* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
 const micWaiters=new Map();let micSeq=0;
@@ -92,7 +93,7 @@ function active(){return state.files.find(f=>f.path===state.active)||state.files
 function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits)};}
+function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule)};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
 function mb(bytes){return (bytes/1048576).toFixed(1);}
@@ -139,6 +140,7 @@ function loadState(data){
   state.cards=deckSanitize(data.cards);
   state.mistakes=bookSanitize(data.mistakes);
   state.habits=habitsSanitize(data.habits);
+  state.schedule=scheduleSanitize(data.schedule);
   state.settings.fontSize=Math.max(12,Math.min(24,Number(state.settings.fontSize)||15));state.settings.timeLimit=[15,30,60].includes(+state.settings.timeLimit)?+state.settings.timeLimit:15;if(window.innerWidth<700)state.settings.wrap=true;
   adoptTheme(data.settings);
   state.active=files.some(f=>f.path===state.active)?state.active:files[0].path;state.opened=Array.isArray(state.opened)?state.opened.filter(p=>files.some(f=>f.path===p)):[];if(!state.opened.includes(state.active))state.opened.push(state.active);
@@ -355,7 +357,8 @@ function setWorkspaceMode(mode){
   if(mode!=='cards')document.body.classList.remove('cardsview');
   if(mode!=='mistakes')document.body.classList.remove('mistakesview');
   if(mode!=='habits')document.body.classList.remove('habitsview');
-  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['mistakesPanel','mistakes'],['habitsPanel','habits'],['modelPanel','model'],['aiPanel','ai']]){
+  if(mode!=='schedule')document.body.classList.remove('scheduleview');
+  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['mistakesPanel','mistakes'],['habitsPanel','habits'],['schedulePanel','schedule'],['modelPanel','model'],['aiPanel','ai']]){
     const el=$(id);if(el&&mode!==m)el.hidden=true;
   }
 }
@@ -884,6 +887,7 @@ function openLanding(reopen=false){
   landingOpen=true;homeFromSession=!!reopen;
   if(landingBack){landingBack.hidden=!reopen;const meta=moduleById(workspaceMode);landingBack.textContent='‹ 回到'+(meta?meta.title:'刚才的工作');}
   if(landingStatus)landingStatus.textContent=ready?'草稿已就绪':'正在读取草稿';
+  try{renderTodayStrip(currentStatus(state.schedule,schedInfo()));}catch(e){}
   if(reopen&&KNOWN_MODES.includes(workspaceMode)){selectedMode=workspaceMode;lastOpened=workspaceMode;}
   refreshHomeTitle();refreshResume();
   if(starActive&&starApi)starApi.enter();
@@ -1029,6 +1033,21 @@ function applyMode(mode){
     const hp=$('habitsPanel');if(hp)hp.hidden=false;
     $('activePath').textContent='习惯打卡';$('dirtyFlag').textContent='';
     renderHabits();
+    return true;
+  }
+  if(mode==='schedule'){
+    document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('scheduleview');
+    lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
+    $('workbench').hidden=true;$('lounge').hidden=true;
+    if(aiPanel)aiPanel.hidden=true;
+    const mp=$('modelPanel');if(mp)mp.hidden=true;
+    const fp=$('focusPanel');if(fp)fp.hidden=true;
+    const cp=$('cardsPanel');if(cp)cp.hidden=true;
+    const mip=$('mistakesPanel');if(mip)mip.hidden=true;
+    const hp=$('habitsPanel');if(hp)hp.hidden=true;
+    const sp=$('schedulePanel');if(sp)sp.hidden=false;
+    $('activePath').textContent='课程表';$('dirtyFlag').textContent='';
+    schedCloseForm();renderSchedule();
     return true;
   }
   if(mode==='pelican'){
@@ -1418,6 +1437,143 @@ on('habitAddBtn',()=>{
   state.habits=r.book;el.value='';renderHabits();scheduleSave();
 });
 {const hn=$('habitName');if(hn)hn.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('habitAddBtn').click();}});}
+
+/* 课程表：周网格 + 正在上/下一节 + 冲突检测 + 单双周。 */
+let schedEditId=null,schedColor=0;
+function schedInfo(){return nowInfo(new Date(),(state.schedule&&state.schedule.termStart)||'');}
+function schedCloseForm(){schedEditId=null;const f=$('schedForm');if(f)f.hidden=true;}
+function schedFillSelects(){
+  const day=$('schedDay');
+  if(day&&!day.options.length)DAYS.forEach((d,i)=>{const o=document.createElement('option');o.value=i+1;o.textContent=d;day.append(o);});
+  const st=$('schedStart');
+  if(st&&!st.options.length)PERIODS.forEach((p,i)=>{const o=document.createElement('option');o.value=i+1;o.textContent='第'+(i+1)+'节 '+fmtMin(p[0]);st.append(o);});
+  const ln=$('schedLen');
+  if(ln&&!ln.options.length)for(let i=1;i<=4;i++){const o=document.createElement('option');o.value=i;o.textContent='连上'+i+'节';ln.append(o);}
+  const colors=$('schedColors');
+  if(colors&&!colors.children.length){
+    COURSE_COLORS.forEach((c,i)=>{
+      const b=document.createElement('button');b.type='button';b.style.background=c;b.setAttribute('aria-label','颜色'+(i+1));
+      b.onclick=()=>{schedColor=i;[...colors.children].forEach((x,j)=>x.classList.toggle('on',j===i));};
+      colors.append(b);
+    });
+  }
+}
+function schedOpenForm(course){
+  schedFillSelects();
+  schedEditId=course?course.id:null;
+  $('schedName').value=course?course.name:'';
+  $('schedPlace').value=course?course.place:'';
+  $('schedTeacher').value=course?course.teacher:'';
+  $('schedDay').value=course?course.day:Math.min(7,schedInfo().day);
+  $('schedStart').value=course?course.start:1;
+  $('schedLen').value=course?course.len:2;
+  $('schedWeeks').value=course&&course.weeks.length?course.weeks.join(','):'';
+  schedColor=course?course.color:0;
+  [...$('schedColors').children].forEach((x,j)=>x.classList.toggle('on',j===schedColor));
+  $('schedDelete').hidden=!course;
+  $('schedForm').hidden=false;
+  $('schedName').focus();
+}
+function parseWeeks(text){
+  const t=String(text||'').trim();
+  if(!t)return [];
+  const out=new Set();
+  for(const part of t.split(/[,，、\s]+/)){
+    const m=part.match(/^(\d+)\s*[-~]\s*(\d+)$/);
+    if(m){const a=+m[1],b=+m[2];for(let i=Math.min(a,b);i<=Math.max(a,b);i++)out.add(i);}
+    else if(/^\d+$/.test(part))out.add(+part);
+  }
+  return [...out].filter(w=>w>=1&&w<=30).sort((a,b)=>a-b);
+}
+function renderSchedule(){
+  schedFillSelects();
+  const sched=state.schedule||scheduleSanitize(null);
+  const info=schedInfo();
+  const wk=$('schedWeek');if(wk)wk.textContent='第 '+info.week+' 周 · '+DAYS[info.day-1];
+  const term=$('schedTermStart');if(term&&document.activeElement!==term)term.value=sched.termStart||'';
+  /* 正在上 / 下一节 */
+  const st=currentStatus(sched,info);
+  const nowBox=$('schedNow');
+  if(nowBox){
+    if(st.now){
+      const c=st.now;
+      nowBox.innerHTML='';
+      const b=document.createElement('b');b.textContent='正在上 · ';
+      nowBox.append(b,document.createTextNode(c.name+(c.place?'（'+c.place+'）':'')));
+    }else if(st.next){
+      const c=st.next.course;
+      const when=st.next.deltaMin!=null?(st.next.deltaMin+'分钟后'):DAYS[st.next.day-1];
+      nowBox.innerHTML='';
+      const b=document.createElement('b');b.textContent='下一节 · ';
+      nowBox.append(b,document.createTextNode(when+' '+c.name+(c.place?'（'+c.place+'）':'')));
+    }else{
+      nowBox.textContent='这周还没排课，点「＋ 加课」开始。';
+    }
+  }
+  renderTodayStrip(st);
+  /* 周网格 */
+  const grid=$('schedGrid');if(!grid)return;
+  grid.replaceChildren();
+  grid.append(Object.assign(document.createElement('span'),{className:'sched-corner',textContent:'节'}));
+  for(let d=1;d<=7;d++){
+    const h=document.createElement('span');h.className='sched-dayhead'+(d===info.day?' today':'');h.textContent=DAYS[d-1];
+    h.style.gridColumn=String(d+1);h.style.gridRow='1';grid.append(h);
+  }
+  for(let p=1;p<=12;p++){
+    const cell=document.createElement('span');cell.className='sched-period';cell.textContent=String(p);
+    cell.style.gridColumn='1';cell.style.gridRow=String(p+1);grid.append(cell);
+  }
+  for(let d=1;d<=7;d++)for(let p=1;p<=12;p++){
+    const c=document.createElement('span');c.className='sched-cell';
+    c.style.gridColumn=String(d+1);c.style.gridRow=String(p+1);grid.append(c);
+  }
+  for(let d=1;d<=7;d++){
+    for(const c of coursesOnDay(sched,d,info.week)){
+      const b=document.createElement('button');b.type='button';b.className='sched-course';
+      b.style.background=COURSE_COLORS[c.color];
+      b.style.gridColumn=String(d+1);b.style.gridRow=(c.start+1)+' / span '+c.len;
+      const name=document.createElement('b');name.textContent=c.name;
+      const place=document.createElement('small');place.textContent=(c.place||'')+(c.teacher?' · '+c.teacher:'');
+      b.append(name,place);
+      b.onclick=()=>schedOpenForm(c);
+      grid.append(b);
+    }
+  }
+}
+function renderTodayStrip(st){
+  const strip=$('todayStrip');if(!strip)return;
+  if(!st||(!st.now&&!st.next)){strip.hidden=true;return;}
+  strip.hidden=false;
+  const when=$('todayWhen'),name=$('todayName'),meta=$('todayMeta');
+  if(st.now){
+    when.textContent='正在上';name.textContent=st.now.name;
+    meta.textContent=(st.now.place||'')+(st.now.teacher?' · '+st.now.teacher:'')+' · '+weeksText(st.now);
+  }else{
+    const c=st.next.course;
+    when.textContent=st.next.deltaMin!=null?(st.next.deltaMin+'分钟后'):DAYS[st.next.day-1];
+    name.textContent=c.name;
+    meta.textContent=(c.place||'')+' · 第'+c.start+'节 · '+weeksText(c);
+  }
+}
+on('schedAddBtn',()=>schedOpenForm(null));
+on('schedCancel',()=>schedCloseForm());
+on('schedSave',()=>{
+  const fields={name:$('schedName').value,place:$('schedPlace').value,teacher:$('schedTeacher').value,
+    day:+$('schedDay').value,start:+$('schedStart').value,len:+$('schedLen').value,
+    color:schedColor,weeks:parseWeeks($('schedWeeks').value)};
+  if(!fields.name.trim()){notify('先填课名。');return;}
+  let r;
+  if(schedEditId)r=updateCourse(state.schedule,schedEditId,fields);
+  else r=addCourse(state.schedule,fields);
+  if(!r.ok){notify(r.conflict?'和已有课撞时间了，换个节次或周次。':'没保存上，检查一下课名。');return;}
+  state.schedule=r.sched;schedCloseForm();renderSchedule();scheduleSave();
+});
+on('schedDelete',()=>{
+  if(schedEditId){state.schedule=removeCourse(state.schedule,schedEditId);schedCloseForm();renderSchedule();scheduleSave();}
+});
+{const ts=$('schedTermStart');if(ts)ts.addEventListener('change',()=>{state.schedule={...scheduleSanitize(state.schedule),termStart:ts.value};renderSchedule();scheduleSave();});}
+{const strip=$('todayStrip');if(strip)strip.onclick=()=>applyMode('schedule');}
+setInterval(()=>{if(workspaceMode==='schedule')renderSchedule();else if(document.body.classList.contains('starhome')||document.body.classList.contains('listview'))renderTodayStrip(currentStatus(state.schedule,schedInfo()));},30000);
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
   getDrawData:()=>state.drawStrokes||[],

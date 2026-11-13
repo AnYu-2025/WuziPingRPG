@@ -30,20 +30,21 @@ export const GROUPS=[
 
 /* 顺序即首页顺序。resume 是「接着做」卡片上的标题。 */
 export const MODULES=[
-  {id:'lecture',group:'study',kind:'web',title:'上课',resume:'继续上课',detail:'录音、笔记、PPT 同一条时间轴',icon:'🎙',tag:'录音'},
-  {id:'tts',group:'study',kind:'web',title:'英文朗读',resume:'继续英文朗读',detail:'按句子朗读英文，可调语速',icon:'EN',tag:'离线'},
-  {id:'scan',group:'study',kind:'native',title:'扫描文档',resume:'继续扫描文档',detail:'拍书页和讲义，自动裁边，导出 PDF',icon:'▣',tag:'相机',minSdk:29},
-  {id:'focus',group:'study',kind:'web',title:'专注番茄',resume:'继续专注',detail:'工作/休息循环，统计今日专注',icon:'🍅',tag:'离线'},
-  {id:'cards',group:'study',kind:'web',title:'记忆卡片',resume:'继续记忆卡片',detail:'间隔重复背卡，到期自动提醒复习',icon:'🗂',tag:'离线'},
-  {id:'mistakes',group:'study',kind:'web',title:'错题本',resume:'继续错题本',detail:'按科目记错题，标记掌握度',icon:'📕',tag:'离线'},
-  {id:'habits',group:'study',kind:'web',title:'习惯打卡',resume:'继续习惯打卡',detail:'每日打卡，看连续天数与纪录',icon:'✅',tag:'离线'},
-  {id:'python',group:'create',kind:'web',title:'写代码',resume:'继续写代码',detail:'Python、C++、网页，离线运行',icon:'</>',tag:'离线'},
-  {id:'notepad',group:'create',kind:'web',title:'记事本',resume:'继续记事本',detail:'写字、手绘，草稿自动留在本机',icon:'✎',tag:'草稿'},
-  {id:'photo',group:'create',kind:'native',title:'修图',resume:'继续修图',detail:'浮生图梦：调色、裁剪、拼图、水印',icon:'◐',tag:'照片'},
-  {id:'model',group:'create',kind:'web',title:'3D 建模',resume:'继续 3D 建模',detail:'手机上捏模型，触屏转视角',icon:'◈',tag:'离线'},
-  {id:'ai',group:'more',kind:'web',title:'AI 助手',resume:'继续 AI 助手',detail:'对话和手机工具，敏感操作要你点允许',icon:'✧',tag:'联网'},
-  {id:'game',group:'more',kind:'web',title:'星火远征',resume:'继续星火远征',detail:'原来的游戏存档还在',icon:'✦',tag:'游戏'},
-  {id:'pelican',group:'more',kind:'web',title:'鹈鹕骑车',resume:'继续鹈鹕骑车',detail:'3D 休闲：点按跳跃躲障碍',icon:'🚲',tag:'3D'}
+  {id:'lecture',group:'study',kind:'web',title:'上课',resume:'继续上课',detail:'边听边记，录音、笔记、PPT 对着同一条时间轴',icon:'🎙',tag:'录音'},
+  {id:'tts',group:'study',kind:'web',title:'英文朗读',resume:'继续英文朗读',detail:'一句一句读英文，语速随你调',icon:'EN',tag:'离线'},
+  {id:'scan',group:'study',kind:'native',title:'扫描文档',resume:'继续扫描文档',detail:'拍书页讲义，自动裁边，存成 PDF',icon:'▣',tag:'相机',minSdk:29},
+  {id:'focus',group:'study',kind:'web',title:'专注番茄',resume:'继续专注',detail:'学一会儿歇一会儿，今天学了多久一目了然',icon:'🍅',tag:'离线'},
+  {id:'cards',group:'study',kind:'web',title:'记忆卡片',resume:'继续记忆卡片',detail:'快忘的自动排到前面，背过的越隔越久',icon:'🗂',tag:'离线'},
+  {id:'mistakes',group:'study',kind:'web',title:'错题本',resume:'继续错题本',detail:'错在哪、为什么错，记下来慢慢啃',icon:'📕',tag:'离线'},
+  {id:'habits',group:'study',kind:'web',title:'习惯打卡',resume:'继续习惯打卡',detail:'每天打个勾，看看自己坚持了几天',icon:'✅',tag:'离线'},
+  {id:'schedule',group:'study',kind:'web',title:'课程表',resume:'继续课程表',detail:'这周上什么课、在哪上、还有几分钟',icon:'📅',tag:'离线'},
+  {id:'python',group:'create',kind:'web',title:'写代码',resume:'继续写代码',detail:'Python、C++、网页，没网也能跑',icon:'</>',tag:'离线'},
+  {id:'notepad',group:'create',kind:'web',title:'记事本',resume:'继续记事本',detail:'想到什么写什么，关掉也不丢',icon:'✎',tag:'草稿'},
+  {id:'photo',group:'create',kind:'native',title:'修图',resume:'继续修图',detail:'调色、裁剪、拼图、加水印',icon:'◐',tag:'照片'},
+  {id:'model',group:'create',kind:'web',title:'3D 建模',resume:'继续 3D 建模',detail:'在手机上捏模型，手指转视角',icon:'◈',tag:'离线'},
+  {id:'ai',group:'more',kind:'web',title:'AI 助手',resume:'继续 AI 助手',detail:'有事问它；要动你手机里的东西，会先问你',icon:'✧',tag:'联网'},
+  {id:'game',group:'more',kind:'web',title:'星火远征',resume:'继续星火远征',detail:'之前的存档都还在，接着玩',icon:'✦',tag:'游戏'},
+  {id:'pelican',group:'more',kind:'web',title:'鹈鹕骑车',resume:'继续鹈鹕骑车',detail:'点一下跳一下，别撞上就行',icon:'🚲',tag:'3D'}
 ];
 /* 旧名字保留给已有调用方。 */
 export const HOME_ACTIONS=MODULES;
