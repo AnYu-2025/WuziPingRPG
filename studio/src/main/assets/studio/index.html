@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.16</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.17</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -380,8 +380,23 @@
      <option value="random">随机刷</option>
      <option value="wrong">只刷错题</option>
     </select>
+    <select id="mqDifficulty" aria-label="难度">
+     <option value="0">全部难度</option>
+     <option value="1">基础</option>
+     <option value="2">进阶</option>
+     <option value="3">偏难</option>
+    </select>
    </div>
    <button id="mqStart" class="primary" type="button">开始刷题</button>
+   <div class="mq-import">
+    <p class="mq-import-info" id="mqImportInfo"></p>
+    <div class="mq-import-actions">
+     <button id="mqImportBtn" type="button">导入题库 JSON</button>
+     <button id="mqClearCustom" type="button">清空导入</button>
+    </div>
+    <input id="mqImportFile" type="file" accept=".json,.jsonl,.txt,application/json" hidden>
+    <p class="mq-note">格式：JSON 数组或 JSONL，每条 {q, options[], answer, explain, subject, difficulty, tag}。导入自动去重，与内置题合并。</p>
+   </div>
   </div>
   <div class="mq-run" id="mqRun" hidden>
    <div class="mq-runhead"><span id="mqProgress"></span><button id="mqQuit" type="button">退出</button></div>

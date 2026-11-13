@@ -35,7 +35,7 @@ import {SUBJECTS,MASTERY,bookSanitize,addMistake,updateMistake,setMastery,remove
 import {habitsSanitize,addHabit,removeHabit,isChecked,toggleCheck,currentStreak,bestStreak,totalChecks,lastNDaysChecks,habitsStats} from './habits.js';
 import {DAYS,PERIODS,COURSE_COLORS,scheduleSanitize,addCourse,updateCourse,removeCourse,coursesOnDay,nowInfo,currentStatus,fmtMin,weeksText} from './schedule.js';
 import {splitChapters,shelfSanitize,novelSettingsSanitize,progressText} from './novel.js';
-import {QUIZ_SUBJECTS,bankCount,quizById} from './quiz-data.js';
+import {QUIZ_SUBJECTS,bankCount,quizById,getBank,parseBankText,DIFF_LABELS} from './quiz-data.js';
 import {quizStatsSanitize,buildQuiz as mqBuild,answerQuiz as mqAnswerFn,nextQuiz as mqNextFn,gradeQuiz as mqGrade,accuracy as mqAccuracy,sessionSummary as mqSummary} from './medquiz.js';
 import {init as initPelican} from './pelican3d.js';
 import {pelicanSanitize} from './pelican.js';
@@ -1698,26 +1698,35 @@ on('novelTocBtn',()=>{
   toc.hidden=false;
 });
 
-/* 医学生刷题：组卷 + 即时判分 + 解析 + 错题本。 */
+/* 医学生刷题：内置偏难重点题 + 外部题库导入（去重合并）+ 难度筛选 + 错题本。 */
 let mqSession=null;
+const MQ_CUSTOM_KEY='ember-medquiz-custom';
+function mqLoadCustom(){try{const t=localStorage.getItem(MQ_CUSTOM_KEY);const a=t?JSON.parse(t):[];return Array.isArray(a)?a:[];}catch(e){return [];}}
+function mqSaveCustom(list){try{localStorage.setItem(MQ_CUSTOM_KEY,JSON.stringify(list));return true;}catch(e){notify('本机存储放不下这么多题，先清理空间。');return false;}}
+function mqBank(){return getBank(mqLoadCustom());}
 function mqShowSetup(){$('mqSetup').hidden=false;$('mqRun').hidden=true;$('mqResult').hidden=true;}
 function renderMqSetup(){
   const sel=$('mqSubject');
   if(sel&&!sel.options.length){const all=document.createElement('option');all.value='全部';all.textContent='全部科目';sel.append(all);for(const s of QUIZ_SUBJECTS){const o=document.createElement('option');o.value=s;o.textContent=s;sel.append(o);}}
   if(sel)sel.value=state.medquiz.lastSubject||'全部';
   const md=$('mqMode');if(md)md.value=state.medquiz.lastMode||'order';
-  const st=$('mqStats');if(st)st.textContent='已答 '+state.medquiz.answered+' · 正确率 '+mqAccuracy(state.medquiz)+'% · 错题 '+Object.keys(state.medquiz.wrong).length;
+  const df=$('mqDifficulty');if(df)df.value=String(state.medquiz.lastDifficulty||0);
+  const bank=mqBank();
+  const st=$('mqStats');if(st)st.textContent='题库 '+bank.length+' 题 · 已答 '+state.medquiz.answered+' · 正确率 '+mqAccuracy(state.medquiz)+'% · 错题 '+Object.keys(state.medquiz.wrong).length;
+  const imp=$('mqImportInfo');if(imp)imp.textContent='内置偏难重点题 + 你导入的 '+mqLoadCustom().length+' 题（自动去重）。';
 }
 function mqRenderQuestion(){
   const s=mqSession;if(!s)return;
-  const qid=s.ids[s.pos];const q=quizById(qid);
-  $('mqProgress').textContent=(s.pos+1)+' / '+s.ids.length+' · '+q.subject;
+  const bank=mqBank();
+  const qid=s.ids[s.pos];const q=bank.find(x=>x.id===qid);
+  if(!q){mqShowSetup();renderMqSetup();return;}
+  $('mqProgress').textContent=(s.pos+1)+' / '+s.ids.length+' · '+q.subject+' · '+(DIFF_LABELS[q.difficulty]||'')+(q.tag?' · '+q.tag:'');
   $('mqQuestion').textContent=q.q;
   const opts=$('mqOptions');opts.replaceChildren();
   const answered=s.answers[qid]!=null;
   q.options.forEach((opt,i)=>{
     const b=document.createElement('button');b.type='button';
-    const k=document.createElement('span');k.className='k';k.textContent='ABCD'[i];
+    const k=document.createElement('span');k.className='k';k.textContent='ABCDEF'[i];
     const txt=document.createElement('span');txt.textContent=opt;
     b.append(k,txt);
     if(answered){b.disabled=true;if(i===q.answer)b.classList.add('right');else if(i===s.answers[qid])b.classList.add('wrong');}
@@ -1725,23 +1734,24 @@ function mqRenderQuestion(){
     opts.append(b);
   });
   const ex=$('mqExplain');
-  if(answered){ex.hidden=false;ex.innerHTML='';const b=document.createElement('b');b.textContent=(s.answers[qid]===q.answer?'答对了 · ':'答错了 · ');ex.append(b,document.createTextNode(q.explain));}
+  if(answered){ex.hidden=false;ex.innerHTML='';const b=document.createElement('b');b.textContent=(s.answers[qid]===q.answer?'答对了 · ':'答错了 · ');ex.append(b,document.createTextNode(q.explain||'（无解析）'));}
   else ex.hidden=true;
   $('mqNext').hidden=!answered;
   $('mqNext').textContent=(s.pos+1>=s.ids.length)?'看结果':'下一题';
 }
 function mqAnswer(i){
   const s=mqSession;if(!s)return;
+  const bank=mqBank();
   const qid=s.ids[s.pos];
-  mqSession=mqAnswerFn(s,qid,i);
-  state.medquiz=mqGrade(state.medquiz,qid,i);
+  mqSession=mqAnswerFn(s,qid,i,bank);
+  state.medquiz=mqGrade(state.medquiz,qid,i,bank);
   scheduleSave();mqRenderQuestion();
 }
 on('mqStart',()=>{
-  const subject=$('mqSubject').value,mode=$('mqMode').value;
-  state.medquiz={...quizStatsSanitize(state.medquiz),lastSubject:subject,lastMode:mode};
-  mqSession=mqBuild(state.medquiz,subject,mode);
-  if(!mqSession.ids.length){notify(mode==='wrong'?'没有错题，先刷几道吧。':'这个科目暂时没有题。');return;}
+  const subject=$('mqSubject').value,mode=$('mqMode').value,diff=+($('mqDifficulty')?$('mqDifficulty').value:0);
+  state.medquiz={...quizStatsSanitize(state.medquiz),lastSubject:subject,lastMode:mode,lastDifficulty:diff};
+  mqSession=mqBuild(state.medquiz,subject,mode,undefined,mqBank(),diff);
+  if(!mqSession.ids.length){notify(mode==='wrong'?'没有错题，先刷几道吧。':'这个筛选下暂时没有题。');return;}
   $('mqSetup').hidden=true;$('mqResult').hidden=true;$('mqRun').hidden=false;
   mqRenderQuestion();scheduleSave();
 });
@@ -1749,7 +1759,7 @@ on('mqNext',()=>{
   mqSession=mqNextFn(mqSession);
   if(mqSession.finished){
     $('mqRun').hidden=true;$('mqResult').hidden=false;
-    const sum=mqSummary(mqSession);
+    const sum=mqSummary(mqSession,mqBank());
     const sc=$('mqScore');sc.innerHTML='';
     const b=document.createElement('b');b.textContent=sum.right+' / '+sum.total;
     sc.append(b,document.createTextNode('答对 '+sum.right+' 题，答错 '+sum.wrong+' 题。错题已收进错题本。'));
@@ -1759,9 +1769,28 @@ on('mqNext',()=>{
 on('mqQuit',()=>{mqSession=null;mqShowSetup();renderMqSetup();});
 on('mqBackSetup',()=>{mqSession=null;mqShowSetup();renderMqSetup();});
 on('mqRetryWrong',()=>{
-  mqSession=mqBuild(state.medquiz,'全部','wrong');
+  mqSession=mqBuild(state.medquiz,'全部','wrong',undefined,mqBank(),0);
   if(!mqSession.ids.length){mqShowSetup();renderMqSetup();return;}
   $('mqResult').hidden=true;$('mqRun').hidden=false;mqRenderQuestion();
+});
+on('mqImportBtn',()=>$('mqImportFile').click());
+{const f=$('mqImportFile');if(f)f.addEventListener('change',async()=>{
+  const file=f.files&&f.files[0];f.value='';if(!file)return;
+  if(file.size>20*1024*1024){notify('文件太大（>20MB）。');return;}
+  let text='';try{text=await file.text();}catch(e){notify('读不了这个文件。');return;}
+  const {list,errors}=parseBankText(text);
+  if(!list.length){notify('没解析出有效题目，需 JSON/JSONL，含 q/options/answer。');return;}
+  const custom=mqLoadCustom();
+  const merged=getBank(custom.concat(list)); // 去重
+  const added=merged.length-getBank(custom).length;
+  if(!mqSaveCustom(custom.concat(list)))return;
+  renderMqSetup();
+  notify('导入 '+list.length+' 条，去重后新增 '+added+' 题，现共 '+merged.length+' 题。'+(errors.length?'（'+errors.length+' 条格式不对已跳过）':''));
+});}
+on('mqClearCustom',()=>{
+  if(!confirm('清空你导入的全部题目？内置题不受影响。'))return;
+  try{localStorage.removeItem(MQ_CUSTOM_KEY);}catch(e){}
+  renderMqSetup();notify('已清空导入题库。');
 });
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
