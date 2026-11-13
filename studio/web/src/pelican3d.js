@@ -8,7 +8,8 @@ export function init(env){
   const $=id=>document.getElementById(id);
   let renderer=null,scene=null,camera=null,raf=0,active=false,last=0;
   let pelican=null,bike=null,pedal=null,legL=null,legR=null,wingL=null,wingR=null,head=null,shadow=null;
-  const wheels=[],clouds=[],dashes=[],obstaclePool=[];
+  const wheels=[],clouds=[],dashes=[],obstaclePool=[],particles=[];
+  let prevScore=0,wasOver=false,crashT=0,stretch=0,squash=0,prevGround=true,shake=0;
   let state=pelicanStart(0);
   let best=(env.getBest&&env.getBest())||0;
 
@@ -141,6 +142,28 @@ export function init(env){
     return g;
   }
 
+  function burst(x,y,n,color){
+    for(let i=0;i<n;i++){
+      let p=particles.find(q=>!q.active);
+      if(!p){
+        if(particles.length>=48)break;
+        const m=new THREE.Mesh(new THREE.SphereGeometry(.06,6,5),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true}));
+        scene.add(m);p={m,active:false,vx:0,vy:0,life:0};particles.push(p);
+      }
+      p.active=true;p.m.visible=true;p.m.material.color.setHex(color);
+      p.m.position.set(x,y,.25);
+      const a=Math.random()*Math.PI*2,s=2+Math.random()*3;
+      p.vx=Math.cos(a)*s;p.vy=Math.sin(a)*s+2.5;p.life=.5+Math.random()*.3;
+      p.m.material.opacity=1;
+    }
+  }
+  function scorePop(text){
+    const stage=$('pelicanStage');if(!stage)return;
+    const el=document.createElement('span');el.className='pelican-pop';el.textContent=text;
+    el.style.left=(38+Math.random()*12)+'%';el.style.top='36%';
+    stage.append(el);setTimeout(()=>el.remove(),750);
+  }
+
   function ensure(){
     if(renderer)return true;
     const canvas=$('pelicanCanvas');if(!canvas)return false;
@@ -230,9 +253,20 @@ export function init(env){
       state=pelicanTick(state,dt);
       if(state.over){env.onOver&&env.onOver(state.score,state.best);env.setBest&&env.setBest(state.best);}
     }
-    /* 主角姿态 */
+    /* 事件：撞车 / 得分 / 起跳 / 落地 */
+    if(state.over&&!wasOver){crashT=0;shake=1;burst(0,state.y+.7,16,0xffb347);burst(0,state.y+.5,8,0xffffff);}
+    wasOver=state.over;
+    if(state.score>prevScore){scorePop('+1');burst(.7,state.y+.9,4,0xffe08a);}
+    prevScore=state.score;
+    if(prevGround&&!state.onGround&&state.started&&!state.over)stretch=1;
+    if(!prevGround&&state.onGround){squash=1;burst(0,.12,5,0xcfc8b8);}
+    prevGround=state.onGround;
+    /* 主角姿态：跳跃拉伸/落地压扁/撞车翻倒 */
+    stretch=Math.max(0,stretch-dt*4);squash=Math.max(0,squash-dt*5);
     pelican.position.y=state.y;
-    pelican.rotation.z=state.onGround?0:clamp(state.vy*.02,-.3,.3);
+    if(state.over){crashT+=dt;pelican.rotation.z=Math.min(1.1,crashT*3);}
+    else pelican.rotation.z=clamp(state.vy*.02,-.3,.3);
+    pelican.scale.set(1+squash*.15-stretch*.08,1-squash*.18+stretch*.15,1);
     const spin=state.distance*3;
     for(const w of wheels)w.rotation.z=-spin;
     pedal.rotation.z=-spin;
@@ -247,6 +281,18 @@ export function init(env){
     for(const d of dashes){d.position.x-=move;if(d.position.x<-21)d.position.x+=42;}
     for(const c of clouds){c.position.x-=move*.12+dt*.25;if(c.position.x<-24)c.position.x+=48;}
     syncObstacles();
+    /* 粒子更新 */
+    for(const p of particles){
+      if(!p.active)continue;
+      p.life-=dt;
+      if(p.life<=0){p.active=false;p.m.visible=false;continue;}
+      p.vy-=12*dt;p.m.position.x+=p.vx*dt;p.m.position.y+=p.vy*dt;
+      p.m.material.opacity=Math.min(1,p.life*2.5);
+    }
+    /* 镜头震动 */
+    shake=Math.max(0,shake-dt*2.5);
+    camera.position.x=(Math.random()-.5)*shake*.3;
+    camera.position.y=1.9+(Math.random()-.5)*shake*.3;
     const hud=$('pelicanScore');if(hud)hud.textContent=state.score;
     const bhud=$('pelicanBest');if(bhud)bhud.textContent=state.best;
     const msg=$('pelicanMsg');
@@ -260,7 +306,11 @@ export function init(env){
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
   function tap(){
-    if(!state.started||state.over){state=pelicanStart(best);best=state.best;}
+    if(!state.started||state.over){
+      state=pelicanStart(best);best=state.best;
+      crashT=0;shake=0;stretch=0;squash=0;prevScore=0;wasOver=false;prevGround=true;
+      for(const p of particles){p.active=false;p.m.visible=false;}
+    }
     else state=pelicanJump(state);
   }
   function enter(){

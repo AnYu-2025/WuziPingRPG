@@ -34,7 +34,8 @@ export function starPositions(n,radius=R){
 export function initStarHome(env,api){
   const $=id=>document.getElementById(id);
   let renderer=null,scene=null,camera=null,group=null,stars=new Map();
-  let hole=null,holeDisk=null,holeSwirl=null,holeGlow=null,holeHud=[],labels=new Map(),constellation=null;
+  let hole=null,holeDisk=null,holeSwirl=null,holeGlow=null,holePhoton=null,holeShock=null,holeHud=[],labels=new Map(),constellation=null;
+  let holePulse=0,holeAttract=0,shockT=1;
   const buzz=ms=>{try{if(navigator.vibrate)navigator.vibrate(ms);}catch(e){}};
   /* 近邻星连成星座线：每颗可见星连最近的两颗，去重；收纳后重连。 */
   function buildConstellation(){
@@ -171,8 +172,10 @@ export function initStarHome(env,api){
     holeDisk.scale.set(3.2,3.2,1);hole.add(holeDisk);
     holeSwirl=new THREE.Sprite(new THREE.SpriteMaterial({map:swirlTexture(),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.8}));
     holeSwirl.scale.set(3.1,3.1,1);hole.add(holeSwirl);
-    const photon=new THREE.Mesh(new THREE.TorusGeometry(.56,.012,8,64),new THREE.MeshBasicMaterial({color:0xffd9a0,transparent:true,opacity:.45,blending:THREE.AdditiveBlending,depthWrite:false}));
-    hole.add(photon);
+    holePhoton=new THREE.Mesh(new THREE.TorusGeometry(.56,.012,8,64),new THREE.MeshBasicMaterial({color:0xffd9a0,transparent:true,opacity:.45,blending:THREE.AdditiveBlending,depthWrite:false}));
+    hole.add(holePhoton);
+    holeShock=new THREE.Mesh(new THREE.RingGeometry(.6,.66,48),new THREE.MeshBasicMaterial({color:0xffc07a,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+    hole.add(holeShock);
     const lens=new THREE.Sprite(new THREE.SpriteMaterial({map:lensArcTexture(),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.5}));
     lens.scale.set(3.6,3.6,1);hole.add(lens);
     holeGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture('rgba(255,110,35,.42)','rgba(140,30,10,.18)'),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
@@ -296,6 +299,7 @@ export function initStarHome(env,api){
           s.sprite.position.copy(p);
         }
         const over=pickHole(e);
+        holeAttract=over?1:0;
         holeGlow.material.opacity=over?1:.7;
         holeDisk.material.color.setHex(over?0xffe0b0:0xffffff);
         dirty=true;
@@ -317,7 +321,7 @@ export function initStarHome(env,api){
       if(dragStar&&dragMoved){
         if(pickHole(e))starStar(dragStar);
         else snapBack(dragStar);
-        holeGlow.material.opacity=.7;holeDisk.material.color.setHex(0xffffff);
+        holeGlow.material.opacity=.7;holeDisk.material.color.setHex(0xffffff);holeAttract=0;
       }else if(wasTap){
         if(pickHole(e))openHole();
         else{
@@ -349,6 +353,7 @@ export function initStarHome(env,api){
   function finishStar(id){
     if(!prefs.starred.includes(id))prefs.starred.push(id);
     buzz([12,40,12]);
+    holePulse=1;shockT=0;
     savePrefs();applyStarred();
     const s=stars.get(id);if(s)s.sprite.position.copy(s.base);
     const m=env.modules().find(x=>x.id===id);
@@ -461,7 +466,9 @@ export function initStarHome(env,api){
     proj.sort((a,b)=>a.depth-b.depth);
     /* 黑洞在屏幕上的排斥区：标签落进去会被吸积盘盖住，必须让开。 */
     const hp=hole.position.clone().project(camera);
-    const holeRect={x:(hp.x*.5+.5)*w-130,y:(-hp.y*.5+.5)*h-130,w:260,h:260};
+    const hpe=hole.position.clone().add(new THREE.Vector3(1.15*hole.scale.x,0,0)).project(camera);
+    const hr=Math.max(70,Math.abs((hpe.x-hp.x)*.5*w));
+    const holeRect={x:(hp.x*.5+.5)*w-hr,y:(-hp.y*.5+.5)*h-hr,w:hr*2,h:hr*2};
     const placed=[];
     for(const item of proj){
       const label=labels.get(item.id);
@@ -485,7 +492,13 @@ export function initStarHome(env,api){
     holeSwirl.material.rotation-=.0035;
     holeHud[0].rotation.z-=.002;holeHud[1].rotation.z+=.003;
     const breathe=1+Math.sin(t*.0012)*.03;
-    holeGlow.scale.set(5*breathe,5*breathe,1);
+    holePulse=Math.max(0,holePulse-.02);
+    holeGlow.scale.set(5*breathe*(1+holePulse*.25),5*breathe*(1+holePulse*.25),1);
+    holePhoton.material.opacity=.4+Math.sin(t*.002)*.12+holePulse*.4;
+    const target=1.15*(1+holeAttract*.08+holePulse*.1);
+    hole.scale.setScalar(hole.scale.x+(target-hole.scale.x)*.15);
+    if(shockT<1){shockT=Math.min(1,shockT+.03);const sc=.7+shockT*2.2;holeShock.scale.set(sc,sc,1);holeShock.material.opacity=(1-shockT)*.5;}
+    else holeShock.material.opacity=0;
     renderer.render(scene,camera);
   }
 

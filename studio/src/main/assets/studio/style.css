@@ -732,4 +732,6 @@ body.habitsview .quickkeys,body.habitsview .statusbar #position{display:none}
 .pelican-msg{position:absolute;left:0;right:0;top:40%;text-align:center;color:#0b3550;font-size:17px;font-weight:700;text-shadow:0 1px 0 rgba(255,255,255,.5);pointer-events:none;padding:0 16px}
 .pelican-jump{position:absolute;right:16px;bottom:calc(18px + env(safe-area-inset-bottom));width:74px;height:74px;border-radius:50%;background:rgba(255,255,255,.85);border:2px solid #0b3550;color:#0b3550;font-size:22px;font-weight:800;box-shadow:0 6px 18px rgba(0,0,0,.2)}
 .pelican-jump:active{transform:scale(.94)}
+.pelican-pop{position:absolute;color:#0b3550;font-size:20px;font-weight:800;text-shadow:0 1px 0 rgba(255,255,255,.5);pointer-events:none;animation:pelican-pop .7s ease-out forwards}
+@keyframes pelican-pop{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-46px)}}
 body.pelicanview .quickkeys,body.pelicanview .statusbar{display:none}
