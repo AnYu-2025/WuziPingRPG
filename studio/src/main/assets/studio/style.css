@@ -784,3 +784,66 @@ body.pelicanview .quickkeys,body.pelicanview .statusbar{display:none}
 .sched-term input{border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--text-strong);padding:7px 9px;font-size:13px}
 .sched-term-note{font-size:11.5px;color:var(--muted);margin:8px 0 2px}
 body.scheduleview .quickkeys,body.scheduleview .statusbar #position{display:none}
+
+/* 小说阅读器 */
+#novelPanel{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--bg)}
+.novel-wrap{flex:1;min-height:0;display:flex;flex-direction:column}
+.novel-shelf{flex:1;overflow-y:auto;padding:16px 14px;max-width:640px;margin:0 auto;width:100%}
+.novel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.novel-head strong{font-size:17px;color:var(--text-strong)}
+.novel-head button{min-height:38px;padding:0 14px;border-radius:11px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:13px;font-weight:600}
+.novel-head button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.novel-shelf-list{display:flex;flex-direction:column;gap:10px}
+.novel-book{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--line);text-align:left}
+.novel-book .cover{flex:none;width:40px;height:54px;border-radius:6px;background:linear-gradient(150deg,#5b8cff,#8a6fc0);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px}
+.novel-book .info{flex:1;min-width:0}
+.novel-book .info b{display:block;font-size:14.5px;color:var(--text-strong);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.novel-book .info small{font-size:11.5px;color:var(--muted)}
+.novel-book .del{flex:none;min-height:32px;padding:0 10px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);color:#c2453a;font-size:12px}
+.novel-empty{font-size:13px;color:var(--muted);text-align:center;padding:30px 0}
+.novel-reader{flex:1;min-height:0;display:flex;flex-direction:column}
+.novel-bar{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.novel-bar button{min-height:34px;padding:0 12px;border-radius:9px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:12.5px}
+.novel-title{flex:1;text-align:center;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.novel-settings{display:flex;gap:6px;justify-content:center;padding:8px;border-bottom:1px solid var(--line)}
+.novel-settings button{min-height:32px;padding:0 12px;border-radius:9px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:12px}
+.novel-settings button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.novel-body{flex:1;overflow-y:auto;padding:20px 22px;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere;font-family:Georgia,"Songti SC","SimSun",serif}
+.novel-body[data-theme=paper]{background:#f6f1e7;color:#3a3226}
+.novel-body[data-theme=green]{background:#e6f2e6;color:#2c3a2c}
+.novel-body[data-theme=night]{background:#14161c;color:#b9c0cc}
+.novel-nav{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line)}
+.novel-nav button{flex:1;min-height:40px;border-radius:10px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:13px;font-weight:600}
+.novel-nav span{flex:none;font-size:12px;color:var(--muted)}
+.novel-toc{position:absolute;inset:0;background:var(--bg);overflow-y:auto;padding:14px;z-index:5}
+.novel-toc button{display:block;width:100%;text-align:left;padding:11px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:13px;margin-bottom:8px}
+.novel-toc button.on{border-color:var(--accent);color:var(--accent)}
+body.novelview .quickkeys,body.novelview .statusbar{display:none}
+
+/* 医学生刷题 */
+#medquizPanel{flex:1;min-height:0;overflow-y:auto;background:var(--bg)}
+.mq-wrap{max-width:600px;margin:0 auto;padding:16px 14px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
+.mq-head{display:flex;align-items:baseline;justify-content:space-between}
+.mq-head strong{font-size:17px;color:var(--text-strong)}
+.mq-stats{font-size:12px;color:var(--muted)}
+.mq-note{font-size:11.5px;color:var(--muted);margin:0}
+.mq-row{display:flex;gap:8px}
+.mq-row select{flex:1;height:42px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);color:var(--text-strong);padding:0 10px;font-size:13.5px}
+.mq-wrap button.primary{min-height:44px;border-radius:12px;background:var(--accent);border:1px solid var(--accent);color:var(--on-accent);font-size:14px;font-weight:700}
+.mq-runhead{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--muted)}
+.mq-runhead button{min-height:32px;padding:0 12px;border-radius:9px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:12px}
+.mq-q{font-size:16px;font-weight:600;color:var(--text-strong);line-height:1.6;padding:14px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.mq-options{display:flex;flex-direction:column;gap:8px}
+.mq-options button{display:flex;gap:10px;align-items:flex-start;text-align:left;padding:12px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:14px;line-height:1.5}
+.mq-options button .k{flex:none;font-weight:700;color:var(--muted)}
+.mq-options button.right{border-color:#2f7d4f;background:#dcefe2;color:#1d5236}
+.mq-options button.wrong{border-color:#c2453a;background:#f6e0de;color:#8c2b23}
+.mq-options button:disabled{opacity:.9}
+.mq-explain{padding:13px 14px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line);font-size:13px;color:var(--text);line-height:1.6}
+.mq-explain b{color:var(--accent)}
+.mq-score{text-align:center;font-size:15px;color:var(--text-strong);padding:20px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+.mq-score b{font-size:34px;color:var(--accent);display:block;margin-bottom:6px}
+.mq-result-actions{display:flex;gap:8px}
+.mq-result-actions button{flex:1;min-height:44px;border-radius:12px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:14px;font-weight:600}
+.mq-result-actions button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+body.medquizview .quickkeys,body.medquizview .statusbar #position{display:none}

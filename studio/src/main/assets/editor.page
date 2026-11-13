@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.15</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.16</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -47,6 +47,7 @@
    <button class="home-card" type="button" data-mode="mistakes" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">📕</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>错题本</strong><small>错在哪、为什么错，记下来慢慢啃</small></span></button>
    <button class="home-card" type="button" data-mode="habits" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✅</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>习惯打卡</strong><small>每天打个勾，看看自己坚持了几天</small></span></button>
    <button class="home-card" type="button" data-mode="schedule" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">📅</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>课程表</strong><small>下节课在哪上、还有几分钟，一眼看清</small></span></button>
+   <button class="home-card" type="button" data-mode="medquiz" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🩺</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>医学生刷题</strong><small>8 科基础题，答完看解析，错题自动收</small></span></button>
   </div>
  </section>
  <section class="home-group" data-group="create" aria-label="创作">
@@ -64,6 +65,7 @@
    <button class="home-card" type="button" data-mode="ai" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✧</span><span class="home-tag">联网</span></span><span class="home-copy"><strong>AI 助手</strong><small>有事问它；要动你手机里的东西，会先问你</small></span></button>
    <button class="home-card" type="button" data-mode="game" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✦</span><span class="home-tag">游戏</span></span><span class="home-copy"><strong>星火远征</strong><small>之前的存档都还在，接着玩</small></span></button>
    <button class="home-card" type="button" data-mode="pelican" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🚲</span><span class="home-tag">3D</span></span><span class="home-copy"><strong>鹈鹕骑车</strong><small>点一下跳一下，别撞上就行</small></span></button>
+   <button class="home-card" type="button" data-mode="novel" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">📖</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>小说阅读器</strong><small>导入 TXT 自动分章，进度记得住</small></span></button>
   </div>
  </section>
  <p class="home-foot">东西都会自动存好。想把改动写回手机上的原文件，打开文件点「保存」就行。</p>
@@ -332,6 +334,69 @@
    <label>开学第一天<input id="schedTermStart" type="date"></label>
    <p class="sched-term-note">设了开学日，才能算出"第几周"、自动过滤单双周。</p>
   </details>
+ </div>
+</section>
+
+<section id="novelPanel" hidden aria-label="小说阅读器">
+ <div class="novel-wrap">
+  <div class="novel-shelf" id="novelShelfView">
+   <div class="novel-head"><strong>书架</strong><button id="novelImportBtn" class="primary" type="button">＋ 导入 TXT</button></div>
+   <input id="novelFile" type="file" accept=".txt,text/plain" hidden>
+   <div class="novel-shelf-list" id="novelShelfList"></div>
+  </div>
+  <div class="novel-reader" id="novelReaderView" hidden>
+   <div class="novel-bar">
+    <button id="novelBackShelf" type="button">‹ 书架</button>
+    <span class="novel-title" id="novelTitle"></span>
+    <button id="novelTocBtn" type="button">目录</button>
+   </div>
+   <div class="novel-settings">
+    <button id="novelFontMinus" type="button" aria-label="缩小字号">A−</button>
+    <button id="novelFontPlus" type="button" aria-label="放大字号">A＋</button>
+    <button id="novelThemePaper" type="button">纸</button>
+    <button id="novelThemeGreen" type="button">护眼</button>
+    <button id="novelThemeNight" type="button">夜</button>
+   </div>
+   <div class="novel-body" id="novelBody" data-theme="paper"></div>
+   <div class="novel-nav">
+    <button id="novelPrev" type="button">上一章</button>
+    <span id="novelPos"></span>
+    <button id="novelNext" type="button">下一章</button>
+   </div>
+   <div class="novel-toc" id="novelToc" hidden></div>
+  </div>
+ </div>
+</section>
+
+<section id="medquizPanel" hidden aria-label="医学生刷题">
+ <div class="mq-wrap">
+  <div class="mq-setup" id="mqSetup">
+   <div class="mq-head"><strong>医学生刷题</strong><span class="mq-stats" id="mqStats"></span></div>
+   <p class="mq-note">基础医学自测题，供学习参考；临床请以最新教材与指南为准。</p>
+   <div class="mq-row">
+    <select id="mqSubject" aria-label="科目"></select>
+    <select id="mqMode" aria-label="模式">
+     <option value="order">顺序刷</option>
+     <option value="random">随机刷</option>
+     <option value="wrong">只刷错题</option>
+    </select>
+   </div>
+   <button id="mqStart" class="primary" type="button">开始刷题</button>
+  </div>
+  <div class="mq-run" id="mqRun" hidden>
+   <div class="mq-runhead"><span id="mqProgress"></span><button id="mqQuit" type="button">退出</button></div>
+   <div class="mq-q" id="mqQuestion"></div>
+   <div class="mq-options" id="mqOptions"></div>
+   <div class="mq-explain" id="mqExplain" hidden></div>
+   <button id="mqNext" class="primary" type="button" hidden>下一题</button>
+  </div>
+  <div class="mq-result" id="mqResult" hidden>
+   <div class="mq-score" id="mqScore"></div>
+   <div class="mq-result-actions">
+    <button id="mqRetryWrong" class="primary" type="button">刷错题</button>
+    <button id="mqBackSetup" type="button">返回</button>
+   </div>
+  </div>
  </div>
 </section>
 

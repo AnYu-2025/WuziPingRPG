@@ -34,6 +34,9 @@ import {deckSanitize,addCard,removeCard,reviewCard,dueCards,deckStats} from './c
 import {SUBJECTS,MASTERY,bookSanitize,addMistake,updateMistake,setMastery,removeMistake,filterMistakes,bookStats} from './mistakes.js';
 import {habitsSanitize,addHabit,removeHabit,isChecked,toggleCheck,currentStreak,bestStreak,totalChecks,lastNDaysChecks,habitsStats} from './habits.js';
 import {DAYS,PERIODS,COURSE_COLORS,scheduleSanitize,addCourse,updateCourse,removeCourse,coursesOnDay,nowInfo,currentStatus,fmtMin,weeksText} from './schedule.js';
+import {splitChapters,shelfSanitize,novelSettingsSanitize,progressText} from './novel.js';
+import {QUIZ_SUBJECTS,bankCount,quizById} from './quiz-data.js';
+import {quizStatsSanitize,buildQuiz as mqBuild,answerQuiz as mqAnswerFn,nextQuiz as mqNextFn,gradeQuiz as mqGrade,accuracy as mqAccuracy,sessionSummary as mqSummary} from './medquiz.js';
 import {init as initPelican} from './pelican3d.js';
 import {pelicanSanitize} from './pelican.js';
 
@@ -74,7 +77,7 @@ const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript'
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null),mistakes:bookSanitize(null),habits:habitsSanitize(null),schedule:scheduleSanitize(null)});
+const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null),mistakes:bookSanitize(null),habits:habitsSanitize(null),schedule:scheduleSanitize(null),novel:shelfSanitize(null),medquiz:quizStatsSanitize(null)});
 let state=defaults(),view,restoring=false,worker=null,cppWorker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 /* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
 const micWaiters=new Map();let micSeq=0;
@@ -93,7 +96,7 @@ function active(){return state.files.find(f=>f.path===state.active)||state.files
 function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule)};}
+function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule),novel:shelfSanitize(state.novel),medquiz:quizStatsSanitize(state.medquiz)};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
 function mb(bytes){return (bytes/1048576).toFixed(1);}
@@ -141,6 +144,8 @@ function loadState(data){
   state.mistakes=bookSanitize(data.mistakes);
   state.habits=habitsSanitize(data.habits);
   state.schedule=scheduleSanitize(data.schedule);
+  state.novel=shelfSanitize(data.novel);
+  state.medquiz=quizStatsSanitize(data.medquiz);
   state.settings.fontSize=Math.max(12,Math.min(24,Number(state.settings.fontSize)||15));state.settings.timeLimit=[15,30,60].includes(+state.settings.timeLimit)?+state.settings.timeLimit:15;if(window.innerWidth<700)state.settings.wrap=true;
   adoptTheme(data.settings);
   state.active=files.some(f=>f.path===state.active)?state.active:files[0].path;state.opened=Array.isArray(state.opened)?state.opened.filter(p=>files.some(f=>f.path===p)):[];if(!state.opened.includes(state.active))state.opened.push(state.active);
@@ -358,7 +363,9 @@ function setWorkspaceMode(mode){
   if(mode!=='mistakes')document.body.classList.remove('mistakesview');
   if(mode!=='habits')document.body.classList.remove('habitsview');
   if(mode!=='schedule')document.body.classList.remove('scheduleview');
-  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['mistakesPanel','mistakes'],['habitsPanel','habits'],['schedulePanel','schedule'],['modelPanel','model'],['aiPanel','ai']]){
+  if(mode!=='novel')document.body.classList.remove('novelview');
+  if(mode!=='medquiz')document.body.classList.remove('medquizview');
+  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['mistakesPanel','mistakes'],['habitsPanel','habits'],['schedulePanel','schedule'],['novelPanel','novel'],['medquizPanel','medquiz'],['modelPanel','model'],['aiPanel','ai']]){
     const el=$(id);if(el&&mode!==m)el.hidden=true;
   }
 }
@@ -1050,6 +1057,39 @@ function applyMode(mode){
     schedCloseForm();renderSchedule();
     return true;
   }
+  if(mode==='novel'){
+    document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('novelview');
+    lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
+    $('workbench').hidden=true;$('lounge').hidden=true;
+    if(aiPanel)aiPanel.hidden=true;
+    const mp=$('modelPanel');if(mp)mp.hidden=true;
+    const fp=$('focusPanel');if(fp)fp.hidden=true;
+    const cp=$('cardsPanel');if(cp)cp.hidden=true;
+    const mip=$('mistakesPanel');if(mip)mip.hidden=true;
+    const hp=$('habitsPanel');if(hp)hp.hidden=true;
+    const sp=$('schedulePanel');if(sp)sp.hidden=true;
+    const np=$('novelPanel');if(np)np.hidden=false;
+    $('activePath').textContent='小说阅读器';$('dirtyFlag').textContent='';
+    novelShowShelf();renderNovelShelf();
+    return true;
+  }
+  if(mode==='medquiz'){
+    document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('medquizview');
+    lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
+    $('workbench').hidden=true;$('lounge').hidden=true;
+    if(aiPanel)aiPanel.hidden=true;
+    const mp=$('modelPanel');if(mp)mp.hidden=true;
+    const fp=$('focusPanel');if(fp)fp.hidden=true;
+    const cp=$('cardsPanel');if(cp)cp.hidden=true;
+    const mip=$('mistakesPanel');if(mip)mip.hidden=true;
+    const hp=$('habitsPanel');if(hp)hp.hidden=true;
+    const sp=$('schedulePanel');if(sp)sp.hidden=true;
+    const np=$('novelPanel');if(np)np.hidden=true;
+    const qp=$('medquizPanel');if(qp)qp.hidden=false;
+    $('activePath').textContent='医学生刷题';$('dirtyFlag').textContent='';
+    mqShowSetup();renderMqSetup();
+    return true;
+  }
   if(mode==='pelican'){
     document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('pelicanview');
     lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
@@ -1574,6 +1614,155 @@ on('schedDelete',()=>{
 {const ts=$('schedTermStart');if(ts)ts.addEventListener('change',()=>{state.schedule={...scheduleSanitize(state.schedule),termStart:ts.value};renderSchedule();scheduleSave();});}
 {const strip=$('todayStrip');if(strip)strip.onclick=()=>applyMode('schedule');}
 setInterval(()=>{if(workspaceMode==='schedule')renderSchedule();else if(document.body.classList.contains('starhome')||document.body.classList.contains('listview'))renderTodayStrip(currentStatus(state.schedule,schedInfo()));},30000);
+
+/* 小说阅读器：书架 + 导入TXT + 分章 + 进度记忆 + 主题字号。正文存独立 localStorage 键。 */
+let novelChapters=[],novelBookId=null;
+const novelTextKey=id=>'ember-novel-text-'+id;
+function novelShowShelf(){novelBookId=null;const r=$('novelReaderView');if(r)r.hidden=true;const s=$('novelShelfView');if(s)s.hidden=false;}
+function renderNovelShelf(){
+  const shelf=state.novel||shelfSanitize(null);
+  const list=$('novelShelfList');if(!list)return;
+  list.replaceChildren();
+  if(!shelf.books.length){const e=document.createElement('p');e.className='novel-empty';e.textContent='书架还空着，点「＋ 导入 TXT」放一本书进来。';list.append(e);return;}
+  for(const b of shelf.books){
+    const row=document.createElement('div');row.className='novel-book';
+    const cover=document.createElement('span');cover.className='cover';cover.textContent='📖';
+    const info=document.createElement('span');info.className='info';
+    const t=document.createElement('b');t.textContent=b.title;
+    const meta=document.createElement('small');meta.textContent=(b.author?b.author+' · ':'')+progressText(b);
+    info.append(t,meta);
+    const open=document.createElement('button');open.type='button';open.className='del';open.style.color='var(--accent)';open.textContent='读';
+    open.onclick=()=>novelOpen(b.id);
+    const del=document.createElement('button');del.type='button';del.className='del';del.textContent='删';
+    del.onclick=()=>{state.novel={...shelfSanitize(state.novel),books:shelfSanitize(state.novel).books.filter(x=>x.id!==b.id)};try{localStorage.removeItem(novelTextKey(b.id));}catch(e){}renderNovelShelf();scheduleSave();};
+    row.append(cover,info,open,del);list.append(row);
+  }
+}
+function novelOpen(id){
+  const shelf=state.novel||shelfSanitize(null);
+  const book=shelf.books.find(b=>b.id===id);if(!book)return;
+  let text='';try{text=localStorage.getItem(novelTextKey(id))||'';}catch(e){}
+  novelChapters=splitChapters(text);
+  novelBookId=id;
+  $('novelShelfView').hidden=true;$('novelReaderView').hidden=false;
+  $('novelTitle').textContent=book.title;
+  novelRenderChapter(Math.min(book.ch,Math.max(0,novelChapters.length-1)));
+}
+function novelRenderChapter(ch){
+  const body=$('novelBody');if(!body)return;
+  const c=novelChapters[ch];
+  body.textContent=c?c.body:'（这一章是空的）';
+  body.scrollTop=0;
+  const shelf=shelfSanitize(state.novel);
+  const book=shelf.books.find(b=>b.id===novelBookId);
+  if(book){book.ch=ch;state.novel={...shelf,books:shelf.books.map(b=>b.id===novelBookId?book:b)};scheduleSave();}
+  $('novelPos').textContent=(ch+1)+' / '+novelChapters.length;
+  $('novelPrev').disabled=ch<=0;
+  $('novelNext').disabled=ch>=novelChapters.length-1;
+  const s=state.novel.settings;
+  body.dataset.theme=s.theme;body.style.fontSize=s.fontSize+'px';body.style.lineHeight=String(s.line);
+  for(const [id,th] of [['novelThemePaper','paper'],['novelThemeGreen','green'],['novelThemeNight','night']]){const b=$(id);if(b)b.classList.toggle('on',s.theme===th);}
+}
+function novelSetTheme(th){state.novel={...shelfSanitize(state.novel),settings:{...state.novel.settings,theme:th}};const body=$('novelBody');if(body)body.dataset.theme=th;for(const [id,t] of [['novelThemePaper','paper'],['novelThemeGreen','green'],['novelThemeNight','night']]){const b=$(id);if(b)b.classList.toggle('on',t===th);}scheduleSave();}
+function novelFont(d){const s=novelSettingsSanitize({...state.novel.settings,fontSize:(state.novel.settings.fontSize||18)+d});state.novel={...shelfSanitize(state.novel),settings:s};const body=$('novelBody');if(body)body.style.fontSize=s.fontSize+'px';scheduleSave();}
+on('novelImportBtn',()=>$('novelFile').click());
+{const f=$('novelFile');if(f)f.addEventListener('change',async()=>{
+  const file=f.files&&f.files[0];f.value='';if(!file)return;
+  if(file.size>6*1024*1024){notify('文件太大（>6MB），换个小一点的 TXT。');return;}
+  let text='';try{text=await file.text();}catch(e){notify('读不了这个文件。');return;}
+  const chapters=splitChapters(text);
+  if(!chapters.length){notify('文件是空的。');return;}
+  const shelf=shelfSanitize(state.novel);
+  if(shelf.books.length>=20){notify('书架满了（20 本），先删几本。');return;}
+  const id=shelf.nextId;
+  const title=(file.name||'未命名').replace(/\.txt$/i,'').slice(0,60);
+  const book={id,title,author:'',addedAt:Date.now(),chapterCount:chapters.length,chars:text.length,ch:0};
+  try{localStorage.setItem(novelTextKey(id),text);}catch(e){notify('本机存储放不下这本书，先删几本。');return;}
+  state.novel={...shelf,nextId:id+1,current:id,books:[...shelf.books,book]};
+  renderNovelShelf();scheduleSave();novelOpen(id);
+});}
+on('novelBackShelf',()=>{novelShowShelf();renderNovelShelf();});
+on('novelPrev',()=>{const b=shelfSanitize(state.novel).books.find(x=>x.id===novelBookId);if(b&&b.ch>0)novelRenderChapter(b.ch-1);});
+on('novelNext',()=>{const b=shelfSanitize(state.novel).books.find(x=>x.id===novelBookId);if(b&&b.ch<novelChapters.length-1)novelRenderChapter(b.ch+1);});
+on('novelFontMinus',()=>novelFont(-1));
+on('novelFontPlus',()=>novelFont(1));
+on('novelThemePaper',()=>novelSetTheme('paper'));
+on('novelThemeGreen',()=>novelSetTheme('green'));
+on('novelThemeNight',()=>novelSetTheme('night'));
+on('novelTocBtn',()=>{
+  const toc=$('novelToc');if(!toc)return;
+  if(!toc.hidden){toc.hidden=true;return;}
+  toc.replaceChildren();
+  const cur=shelfSanitize(state.novel).books.find(x=>x.id===novelBookId);
+  novelChapters.forEach((c,i)=>{const b=document.createElement('button');b.type='button';b.textContent=c.title;if(cur&&cur.ch===i)b.className='on';b.onclick=()=>{toc.hidden=true;novelRenderChapter(i);};toc.append(b);});
+  toc.hidden=false;
+});
+
+/* 医学生刷题：组卷 + 即时判分 + 解析 + 错题本。 */
+let mqSession=null;
+function mqShowSetup(){$('mqSetup').hidden=false;$('mqRun').hidden=true;$('mqResult').hidden=true;}
+function renderMqSetup(){
+  const sel=$('mqSubject');
+  if(sel&&!sel.options.length){const all=document.createElement('option');all.value='全部';all.textContent='全部科目';sel.append(all);for(const s of QUIZ_SUBJECTS){const o=document.createElement('option');o.value=s;o.textContent=s;sel.append(o);}}
+  if(sel)sel.value=state.medquiz.lastSubject||'全部';
+  const md=$('mqMode');if(md)md.value=state.medquiz.lastMode||'order';
+  const st=$('mqStats');if(st)st.textContent='已答 '+state.medquiz.answered+' · 正确率 '+mqAccuracy(state.medquiz)+'% · 错题 '+Object.keys(state.medquiz.wrong).length;
+}
+function mqRenderQuestion(){
+  const s=mqSession;if(!s)return;
+  const qid=s.ids[s.pos];const q=quizById(qid);
+  $('mqProgress').textContent=(s.pos+1)+' / '+s.ids.length+' · '+q.subject;
+  $('mqQuestion').textContent=q.q;
+  const opts=$('mqOptions');opts.replaceChildren();
+  const answered=s.answers[qid]!=null;
+  q.options.forEach((opt,i)=>{
+    const b=document.createElement('button');b.type='button';
+    const k=document.createElement('span');k.className='k';k.textContent='ABCD'[i];
+    const txt=document.createElement('span');txt.textContent=opt;
+    b.append(k,txt);
+    if(answered){b.disabled=true;if(i===q.answer)b.classList.add('right');else if(i===s.answers[qid])b.classList.add('wrong');}
+    else b.onclick=()=>mqAnswer(i);
+    opts.append(b);
+  });
+  const ex=$('mqExplain');
+  if(answered){ex.hidden=false;ex.innerHTML='';const b=document.createElement('b');b.textContent=(s.answers[qid]===q.answer?'答对了 · ':'答错了 · ');ex.append(b,document.createTextNode(q.explain));}
+  else ex.hidden=true;
+  $('mqNext').hidden=!answered;
+  $('mqNext').textContent=(s.pos+1>=s.ids.length)?'看结果':'下一题';
+}
+function mqAnswer(i){
+  const s=mqSession;if(!s)return;
+  const qid=s.ids[s.pos];
+  mqSession=mqAnswerFn(s,qid,i);
+  state.medquiz=mqGrade(state.medquiz,qid,i);
+  scheduleSave();mqRenderQuestion();
+}
+on('mqStart',()=>{
+  const subject=$('mqSubject').value,mode=$('mqMode').value;
+  state.medquiz={...quizStatsSanitize(state.medquiz),lastSubject:subject,lastMode:mode};
+  mqSession=mqBuild(state.medquiz,subject,mode);
+  if(!mqSession.ids.length){notify(mode==='wrong'?'没有错题，先刷几道吧。':'这个科目暂时没有题。');return;}
+  $('mqSetup').hidden=true;$('mqResult').hidden=true;$('mqRun').hidden=false;
+  mqRenderQuestion();scheduleSave();
+});
+on('mqNext',()=>{
+  mqSession=mqNextFn(mqSession);
+  if(mqSession.finished){
+    $('mqRun').hidden=true;$('mqResult').hidden=false;
+    const sum=mqSummary(mqSession);
+    const sc=$('mqScore');sc.innerHTML='';
+    const b=document.createElement('b');b.textContent=sum.right+' / '+sum.total;
+    sc.append(b,document.createTextNode('答对 '+sum.right+' 题，答错 '+sum.wrong+' 题。错题已收进错题本。'));
+    $('mqRetryWrong').hidden=sum.wrong===0;
+  }else mqRenderQuestion();
+});
+on('mqQuit',()=>{mqSession=null;mqShowSetup();renderMqSetup();});
+on('mqBackSetup',()=>{mqSession=null;mqShowSetup();renderMqSetup();});
+on('mqRetryWrong',()=>{
+  mqSession=mqBuild(state.medquiz,'全部','wrong');
+  if(!mqSession.ids.length){mqShowSetup();renderMqSetup();return;}
+  $('mqResult').hidden=true;$('mqRun').hidden=false;mqRenderQuestion();
+});
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
   getDrawData:()=>state.drawStrokes||[],
