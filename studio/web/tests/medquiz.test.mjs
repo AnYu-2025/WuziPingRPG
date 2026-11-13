@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {QUIZ_BANK,QUIZ_SUBJECTS,bankCount,getBank,parseBankText,mergeBank,qKey} from '../src/quiz-data.js';
 import {buildQuiz,answerQuiz,nextQuiz,gradeQuiz,accuracy,sessionSummary,quizStatsSanitize,shuffle} from '../src/medquiz.js';
 
-test('bank integrity: >=160 questions, unique ids & stems, valid answers',()=>{
-  assert.ok(QUIZ_BANK.length>=160);
+test('bank integrity: >=500 questions, unique ids & stems, valid answers',()=>{
+  assert.ok(QUIZ_BANK.length>=500);
   const ids=new Set(QUIZ_BANK.map(q=>q.id));
   assert.equal(ids.size,QUIZ_BANK.length);
   const stems=new Set(QUIZ_BANK.map(q=>qKey(q.q)));
@@ -15,7 +15,7 @@ test('bank integrity: >=160 questions, unique ids & stems, valid answers',()=>{
     assert.ok(QUIZ_SUBJECTS.includes(q.subject));
     assert.ok([1,2,3].includes(q.difficulty));
   }
-  assert.equal(bankCount('解剖'),20);
+  assert.equal(bankCount('解剖'),65);
 });
 
 test('mergeBank dedupes by normalized stem',()=>{
