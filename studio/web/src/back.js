@@ -36,6 +36,7 @@ export const MODULES=[
   {id:'focus',group:'study',kind:'web',title:'专注番茄',resume:'继续专注',detail:'工作/休息循环，统计今日专注',icon:'🍅',tag:'离线'},
   {id:'cards',group:'study',kind:'web',title:'记忆卡片',resume:'继续记忆卡片',detail:'间隔重复背卡，到期自动提醒复习',icon:'🗂',tag:'离线'},
   {id:'mistakes',group:'study',kind:'web',title:'错题本',resume:'继续错题本',detail:'按科目记错题，标记掌握度',icon:'📕',tag:'离线'},
+  {id:'habits',group:'study',kind:'web',title:'习惯打卡',resume:'继续习惯打卡',detail:'每日打卡，看连续天数与纪录',icon:'✅',tag:'离线'},
   {id:'python',group:'create',kind:'web',title:'写代码',resume:'继续写代码',detail:'Python、C++、网页，离线运行',icon:'</>',tag:'离线'},
   {id:'notepad',group:'create',kind:'web',title:'记事本',resume:'继续记事本',detail:'写字、手绘，草稿自动留在本机',icon:'✎',tag:'草稿'},
   {id:'photo',group:'create',kind:'native',title:'修图',resume:'继续修图',detail:'浮生图梦：调色、裁剪、拼图、水印',icon:'◐',tag:'照片'},

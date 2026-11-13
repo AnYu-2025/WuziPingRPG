@@ -695,6 +695,35 @@ body.cardsview .quickkeys,body.cardsview .statusbar #position{display:none}
 .mist-empty{font-size:13px;color:var(--muted);text-align:center;padding:24px 0}
 body.mistakesview .quickkeys,body.mistakesview .statusbar #position{display:none}
 
+/* 习惯打卡 */
+#habitsPanel{flex:1;min-height:0;overflow-y:auto;background:var(--bg)}
+.habit-wrap{display:flex;flex-direction:column;gap:12px;padding:16px 14px calc(20px + env(safe-area-inset-bottom));max-width:600px;margin:0 auto;width:100%}
+.habit-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.habit-head strong{font-size:17px;color:var(--text-strong)}
+.habit-stats{font-size:12px;color:var(--muted)}
+.habit-add{display:flex;gap:8px}
+.habit-add input{flex:1;height:42px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);color:var(--text-strong);padding:0 12px;font-size:14px}
+.habit-add button{min-height:42px;padding:0 16px;border-radius:11px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:13.5px;font-weight:600}
+.habit-add button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.habit-list{display:flex;flex-direction:column;gap:10px}
+.habit-item{border-radius:14px;background:var(--surface);border:1px solid var(--line);padding:12px 13px;display:flex;flex-direction:column;gap:10px}
+.habit-item-top{display:flex;align-items:center;gap:10px}
+.habit-item-top .t{flex:1;min-width:0;font-size:15px;font-weight:600;color:var(--text-strong);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.habit-streak{flex:none;font-size:12px;color:var(--accent);font-weight:700}
+.habit-best{flex:none;font-size:11px;color:var(--muted)}
+.habit-check{flex:none;min-width:64px;min-height:40px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--surface-2);color:var(--text-strong);font-size:13px;font-weight:700}
+.habit-check.done{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.habit-week{display:flex;gap:6px;align-items:flex-end}
+.habit-week .d{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.habit-week .d i{width:100%;max-width:24px;height:24px;border-radius:7px;background:var(--surface-2);border:1px solid var(--line)}
+.habit-week .d.on i{background:var(--accent);border-color:var(--accent)}
+.habit-week .d.today i{outline:2px solid var(--accent);outline-offset:1px}
+.habit-week .d b{font-size:9.5px;color:var(--muted);font-weight:600}
+.habit-item-foot{display:flex;justify-content:flex-end}
+.habit-item-foot button{min-height:30px;padding:0 10px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);color:#c2453a;font-size:12px}
+.habit-empty{font-size:13px;color:var(--muted);text-align:center;padding:24px 0}
+body.habitsview .quickkeys,body.habitsview .statusbar #position{display:none}
+
 /* 鹈鹕骑车 */
 #pelicanPanel{flex:1;min-height:0;position:relative;background:#87c5eb}
 .pelican-stage{position:absolute;inset:0}

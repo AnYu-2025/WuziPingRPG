@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.10</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.11</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -40,6 +40,7 @@
    <button class="home-card" type="button" data-mode="focus" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🍅</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>专注番茄</strong><small>工作/休息循环，统计今日专注</small></span></button>
    <button class="home-card" type="button" data-mode="cards" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🗂</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>记忆卡片</strong><small>间隔重复背卡，到期自动提醒</small></span></button>
    <button class="home-card" type="button" data-mode="mistakes" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">📕</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>错题本</strong><small>按科目记错题，标记掌握度</small></span></button>
+   <button class="home-card" type="button" data-mode="habits" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✅</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>习惯打卡</strong><small>每日打卡，看连续天数与纪录</small></span></button>
   </div>
  </section>
  <section class="home-group" data-group="create" aria-label="创作">
@@ -275,6 +276,20 @@
    </div>
   </div>
   <div class="mist-list" id="mistList"></div>
+ </div>
+</section>
+
+<section id="habitsPanel" hidden aria-label="习惯打卡">
+ <div class="habit-wrap">
+  <div class="habit-head">
+   <strong>习惯打卡</strong>
+   <span class="habit-stats" id="habitStats"></span>
+  </div>
+  <div class="habit-add">
+   <input id="habitName" type="text" maxlength="40" placeholder="新习惯（如：跑步 / 背单词）">
+   <button id="habitAddBtn" class="primary" type="button">添加</button>
+  </div>
+  <div class="habit-list" id="habitList"></div>
  </div>
 </section>
 
