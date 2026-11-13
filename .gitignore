@@ -23,3 +23,7 @@ dist/*-source.zip
 *.apk.[0-9]*
 node_modules/
 studio/web/.cache/
+
+# Tooling caches (not repository inputs)
+.mimosa/
+studio/web/.npm-cache/
