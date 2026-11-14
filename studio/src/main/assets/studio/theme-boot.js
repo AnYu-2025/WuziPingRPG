@@ -16,4 +16,9 @@
   root.setAttribute('data-appearance', theme.appearance);
   root.setAttribute('data-accent', theme.accent);
   root.style.colorScheme = mode;
+  /* 科幻动效门控：首屏绘制前定好，避免动画类名闪烁。与 fx.js 读同一个键。 */
+  var fxOn = true;
+  try { if (localStorage.getItem('ember-studio-fx-v1') === 'off') fxOn = false; } catch (ignored) {}
+  try { if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) fxOn = false; } catch (ignored) {}
+  root.setAttribute('data-fx', fxOn ? 'on' : 'off');
 })();

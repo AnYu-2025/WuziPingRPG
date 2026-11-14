@@ -920,7 +920,7 @@ body.medcalcview .quickkeys,body.medcalcview .statusbar #position{display:none}
 /* 潮声 · 白噪音景 */
 #soundscapePanel{flex:1;min-height:0;overflow-y:auto;background:var(--bg)}
 .ss-wrap{max-width:640px;margin:0 auto;padding:14px 14px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
-.ss-stage{position:relative;height:180px;border-radius:18px;overflow:hidden;background:linear-gradient(180deg,#0b1020,#101a2c);border:1px solid var(--line)}
+.ss-stage{position:relative;height:180px;border-radius:18px;overflow:hidden;background-color:#0b1020;background-image:linear-gradient(180deg,#0b1020,#101a2c);border:1px solid var(--line)}
 .ss-stage canvas{position:absolute;inset:0;width:100%;height:100%}
 .ss-now{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-size:12px;color:rgba(220,235,255,.75);letter-spacing:.05em;pointer-events:none}
 .ss-presets{display:flex;gap:6px;flex-wrap:wrap}

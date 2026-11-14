@@ -1,0 +1,327 @@
+/* 天工 · 跃迁动效语言 (fx)
+ * 科幻感来自三层：常驻全息肌理（极光底、网格、HUD 框）、
+ * 明确的跃迁转场（暗场 + 扫描光束 + 色散光带）、克制的入场与反馈。
+ * 全部由 html[data-fx="on"] 门控并尊重 prefers-reduced-motion；
+ * 关闭后界面与旧版完全一致。只动 transform / opacity / clip-path / background-position。 */
+
+:root{
+  --fx-cyan:#5fe6ff;
+  --fx-azure:#4d8dff;
+  --fx-violet:#a97bff;
+  --fx-magenta:#ff5dc8;
+  --fx-amber:#ffb454;
+  --fx-mint:#57e6b0;
+  --fx-ink:#050b16;
+  --fx-dur:.52s;
+  --fx-ease:cubic-bezier(.16,.84,.28,1);
+  --fx-hud:rgba(var(--accent-rgb),.55);
+  --fx-hud-soft:rgba(var(--accent-rgb),.14);
+  --fx-panel-glow:0 0 0 1px rgba(var(--accent-rgb),.10),0 10px 30px rgba(8,28,40,.07);
+}
+html[data-theme="dark"]{
+  --fx-hud:rgba(95,230,255,.5);
+  --fx-hud-soft:rgba(95,230,255,.16);
+  --fx-panel-glow:0 0 0 1px rgba(95,230,255,.14),0 12px 34px rgba(0,0,0,.4);
+}
+
+/* ---------- 常驻：环境极光底（极淡，不抢内容） ---------- */
+html[data-fx="on"] body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(60% 42% at 12% 0%,rgba(95,230,255,.10),transparent 62%),
+    radial-gradient(52% 40% at 92% 8%,rgba(169,123,255,.09),transparent 60%),
+    radial-gradient(70% 50% at 50% 108%,rgba(87,230,176,.08),transparent 62%);
+  animation:fx-aurora 26s ease-in-out infinite alternate;
+}
+html[data-theme="dark"][data-fx="on"] body::before{opacity:.85}
+@keyframes fx-aurora{
+  0%{transform:translate3d(0,0,0) scale(1)}
+  100%{transform:translate3d(0,-1.5%,0) scale(1.06)}
+}
+/* 内容层压在极光之上。
+   注意：#landing / #aiPanel 本身是 fixed 全屏层，绝不能改它们的 position，
+   否则首页会塌成一条 56px 的带、星空画布跟着变成 420×56。这里只给它们提层。 */
+html[data-fx="on"] #landing{z-index:80}
+html[data-fx="on"] #aiPanel{z-index:30}
+html[data-fx="on"] .appbar{position:relative;z-index:10}
+html[data-fx="on"] #workbench,
+html[data-fx="on"] #modelPanel{position:relative;z-index:1}
+html[data-fx="on"] #lounge,
+html[data-fx="on"] #focusPanel,
+html[data-fx="on"] #cardsPanel,
+html[data-fx="on"] #mistakesPanel,
+html[data-fx="on"] #habitsPanel,
+html[data-fx="on"] #schedulePanel,
+html[data-fx="on"] #novelPanel,
+html[data-fx="on"] #medquizPanel,
+html[data-fx="on"] #examsPanel,
+html[data-fx="on"] #medcalcPanel,
+html[data-fx="on"] #soundscapePanel,
+html[data-fx="on"] #pelicanPanel{position:relative;z-index:1}
+
+/* ---------- 跃迁覆盖层：暗场 + 扫描光束 + 色散光带 + 颗粒 ---------- */
+#fxWarp{position:fixed;inset:0;z-index:120;pointer-events:none;opacity:0;visibility:hidden;overflow:hidden}
+#fxWarp i{position:absolute;inset:0;display:block}
+#fxWarp .fx-veil{
+  background:radial-gradient(125% 85% at 50% 50%,rgba(4,9,18,.62),rgba(3,7,14,.86) 76%);
+  opacity:0;
+}
+#fxWarp .fx-grain{
+  background-image:repeating-linear-gradient(0deg,rgba(95,230,255,.10) 0 1px,transparent 1px 3px);
+  mix-blend-mode:screen;opacity:0;
+}
+#fxWarp .fx-band{
+  background:linear-gradient(100deg,transparent 14%,rgba(95,230,255,.14) 34%,rgba(169,123,255,.22) 50%,rgba(255,93,200,.14) 66%,transparent 86%);
+  transform:translate3d(-104%,0,0);mix-blend-mode:screen;opacity:.9;
+}
+#fxWarp .fx-scan{
+  background:linear-gradient(180deg,
+    transparent 0,transparent 47.4%,
+    rgba(95,230,255,.30) 48.6%,
+    rgba(95,230,255,.92) 49.5%,
+    rgba(255,255,255,1) 50%,
+    rgba(169,123,255,.88) 50.5%,
+    rgba(169,123,255,.26) 51.4%,
+    transparent 52.6%,transparent 100%);
+  background-size:100% 240%;background-position:0 -130%;
+  filter:drop-shadow(0 0 10px rgba(95,230,255,.9));opacity:0;
+}
+#fxWarp .fx-edge{
+  border-top:1px solid rgba(95,230,255,.75);border-bottom:1px solid rgba(169,123,255,.7);
+  box-shadow:inset 0 0 60px rgba(95,230,255,.18);
+  transform:scaleY(.02);opacity:0;
+}
+html[data-fx="on"] #fxWarp.fx-run{visibility:visible;animation:fx-veil-in var(--fx-dur) linear both}
+html[data-fx="on"] #fxWarp.fx-run .fx-veil{animation:fx-veil var(--fx-dur) ease-out both}
+html[data-fx="on"] #fxWarp.fx-run .fx-grain{animation:fx-grain var(--fx-dur) steps(7) both}
+html[data-fx="on"] #fxWarp.fx-run .fx-band{animation:fx-band var(--fx-dur) var(--fx-ease) both}
+html[data-fx="on"] #fxWarp.fx-run .fx-scan{animation:fx-scan var(--fx-dur) cubic-bezier(.42,0,.24,1) both}
+html[data-fx="on"] #fxWarp.fx-run .fx-edge{animation:fx-edge var(--fx-dur) var(--fx-ease) both}
+@keyframes fx-veil-in{0%{opacity:1}100%{opacity:1}}
+@keyframes fx-veil{0%{opacity:0}14%{opacity:1}62%{opacity:.9}100%{opacity:0}}
+@keyframes fx-grain{0%{opacity:0}18%{opacity:1}78%{opacity:.55}100%{opacity:0}}
+@keyframes fx-band{0%{transform:translate3d(-104%,0,0)}100%{transform:translate3d(104%,0,0)}}
+@keyframes fx-scan{0%{opacity:0;background-position:0 -130%}8%{opacity:1}90%{opacity:1}100%{opacity:0;background-position:0 240%}}
+@keyframes fx-edge{0%{opacity:0;transform:scaleY(.02)}18%{opacity:1;transform:scaleY(1)}72%{opacity:.6}100%{opacity:0;transform:scaleY(1.05)}}
+
+/* ---------- 全息实体化：面板进场 ---------- */
+html[data-fx="on"] .fx-in{animation:fx-materialize var(--fx-dur) var(--fx-ease) both}
+@keyframes fx-materialize{
+  0%{opacity:0;transform:translate3d(0,16px,0) scale(.986);clip-path:inset(0 0 100% 0)}
+  42%{opacity:1;clip-path:inset(0 0 0 0)}
+  100%{opacity:1;transform:none;clip-path:inset(0 0 0 0)}
+}
+html[data-fx="on"] .fx-in::after{
+  content:"";position:absolute;left:10%;right:10%;top:0;height:2px;pointer-events:none;z-index:6;
+  background:linear-gradient(90deg,transparent,var(--fx-cyan),#fff,var(--fx-violet),transparent);
+  box-shadow:0 0 14px rgba(95,230,255,.7);
+  transform:scaleX(0);opacity:0;animation:fx-hudline calc(var(--fx-dur) + .16s) var(--fx-ease) both;
+}
+@keyframes fx-hudline{0%{transform:scaleX(0);opacity:0}26%{opacity:1}58%{transform:scaleX(1);opacity:.85}100%{transform:scaleX(1);opacity:0}}
+
+/* ---------- 错峰入场 ---------- */
+html[data-fx="on"] .fx-stagger>*{animation:fx-rise .44s var(--fx-ease) both;animation-delay:calc(var(--fx-i,0)*36ms)}
+@keyframes fx-rise{0%{opacity:0;transform:translate3d(0,14px,0)}100%{opacity:1;transform:none}}
+
+/* ---------- 首页往返 ---------- */
+html[data-fx="on"] #landing.landing-out{animation:fx-warp-out .32s cubic-bezier(.4,0,1,1) both}
+@keyframes fx-warp-out{0%{opacity:1;transform:scale(1);filter:blur(0)}100%{opacity:0;transform:scale(1.07);filter:blur(7px)}}
+html[data-fx="on"] #landing.fx-home-in{animation:fx-warp-in .46s var(--fx-ease) both}
+@keyframes fx-warp-in{0%{opacity:0;transform:scale(1.05);filter:blur(6px)}100%{opacity:1;transform:scale(1);filter:blur(0)}}
+
+/* ---------- 常驻全息肌理 ---------- */
+/* 工作区坐标网格 */
+html[data-fx="on"] #workbench::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;opacity:.6;
+  background-image:linear-gradient(rgba(var(--accent-rgb),.05) 1px,transparent 1px),linear-gradient(90deg,rgba(var(--accent-rgb),.05) 1px,transparent 1px);
+  background-size:34px 34px;
+  mask-image:radial-gradient(120% 92% at 50% 0,#000 18%,transparent 76%);
+  -webkit-mask-image:radial-gradient(120% 92% at 50% 0,#000 18%,transparent 76%);
+}
+html[data-fx="on"] #workbench>*{position:relative;z-index:1}
+
+/* HUD 框：四角亮括 + 内描边 + 顶部渐隐光，常驻可见 */
+html[data-fx="on"] .fx-hud{
+  position:relative;
+  box-shadow:var(--fx-panel-glow);
+  border-color:var(--fx-hud-soft);
+}
+/* 肌理只叠在浅色实体卡片上。
+   潮声舞台 / 3D 舞台本身是深色画布容器，绝不能给它们加 background-image，
+   否则深色底被盖掉、浅色提示文字直接看不见。 */
+html[data-fx="on"] .fx-hud:not(.ss-stage):not(.model-stage){
+  background-image:
+    linear-gradient(180deg,rgba(95,230,255,.055),transparent 42%),
+    repeating-linear-gradient(0deg,rgba(var(--accent-rgb),.028) 0 1px,transparent 1px 4px);
+}
+html[data-theme="dark"][data-fx="on"] .fx-hud:not(.ss-stage):not(.model-stage){
+  background-image:
+    linear-gradient(180deg,rgba(95,230,255,.07),transparent 44%),
+    repeating-linear-gradient(0deg,rgba(95,230,255,.035) 0 1px,transparent 1px 4px);
+}
+/* 深色画布容器：保留原底色，只加发光描边与角标 */
+html[data-fx="on"] .ss-stage{
+  background-image:linear-gradient(180deg,#0b1020,#101a2c);
+  box-shadow:0 0 0 1px rgba(95,230,255,.22),0 0 26px rgba(95,230,255,.12),0 12px 30px rgba(4,12,22,.28);
+}
+html[data-fx="on"] .model-stage{
+  background-image:none;
+  box-shadow:0 0 0 1px rgba(95,230,255,.22),0 0 26px rgba(95,230,255,.12),0 12px 30px rgba(4,12,22,.28);
+}
+html[data-fx="on"] .ss-stage .ss-now{
+  color:#dff4ff;text-shadow:0 0 12px rgba(5,12,22,.9),0 1px 3px rgba(5,12,22,.95);
+  letter-spacing:.08em;
+}
+/* 密集列表行：不套四角括线（整屏都是方框会很吵），
+   改成左侧一条发光轨 + 极淡顶光，密度高时仍然安静。 */
+html[data-fx="on"] .fx-hud.fx-hud-row::before,
+html[data-fx="on"] .fx-hud.fx-hud-row::after{display:none}
+html[data-fx="on"] .fx-hud.fx-hud-row{
+  box-shadow:none;
+  border-color:var(--fx-hud-soft);
+  background-image:linear-gradient(90deg,rgba(var(--accent-rgb),.10),transparent 22%);
+}
+html[data-fx="on"] .fx-hud.fx-hud-row{position:relative}
+html[data-fx="on"] .fx-hud.fx-hud-row>.ic,
+html[data-fx="on"] .fx-hud.fx-hud-row>.t{position:relative}
+html[data-theme="dark"][data-fx="on"] .fx-hud.fx-hud-row{
+  background-image:linear-gradient(90deg,rgba(95,230,255,.10),transparent 24%);
+}
+
+/* 面板标题：左侧仪表刻度条 + 字距，像设备读数而不是普通标题 */
+html[data-fx="on"] .mc-head strong,
+html[data-fx="on"] .cards-head strong,
+html[data-fx="on"] .mist-head strong,
+html[data-fx="on"] .habit-head strong,
+html[data-fx="on"] .exam-head strong,
+html[data-fx="on"] .sched-head strong,
+html[data-fx="on"] .mq-head strong,
+html[data-fx="on"] .novel-head strong{
+  position:relative;padding-left:14px;letter-spacing:.06em;
+}
+html[data-fx="on"] .mc-head strong::before,
+html[data-fx="on"] .cards-head strong::before,
+html[data-fx="on"] .mist-head strong::before,
+html[data-fx="on"] .habit-head strong::before,
+html[data-fx="on"] .exam-head strong::before,
+html[data-fx="on"] .sched-head strong::before,
+html[data-fx="on"] .mq-head strong::before,
+html[data-fx="on"] .novel-head strong::before{
+  content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:4px;height:15px;border-radius:1px;
+  background:linear-gradient(180deg,var(--fx-cyan),var(--accent));
+  box-shadow:0 0 8px rgba(var(--accent-rgb),.5);
+}
+/* 选择芯片：选中态发光描边，未选中态细 hairline */
+html[data-fx="on"] .mc-chips button,
+html[data-fx="on"] .ss-presets button{
+  border-color:var(--fx-hud-soft);
+  transition:box-shadow .18s ease,border-color .18s ease,transform .12s ease;
+}
+html[data-fx="on"] .mc-chips button.on,
+html[data-fx="on"] .ss-presets button.on{
+  box-shadow:0 0 0 1px rgba(var(--accent-rgb),.35),0 0 16px rgba(var(--accent-rgb),.28);
+}
+html[data-fx="on"] .mc-chips button:not(.on):active,
+html[data-fx="on"] .ss-presets button:not(.on):active{transform:scale(.96)}
+/* 输入框：聚焦时青色描边发光 */
+html[data-fx="on"] .mc-inputs input:focus,
+html[data-fx="on"] .exam-form input:focus,
+html[data-fx="on"] .mq-row select:focus{
+  outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(var(--accent-rgb),.14),0 0 14px rgba(var(--accent-rgb),.18);
+}
+html[data-fx="on"] .fx-hud::before{
+  content:"";position:absolute;inset:5px;pointer-events:none;z-index:4;opacity:.9;
+  background:
+    linear-gradient(var(--fx-hud),var(--fx-hud)) left 0 top 0/18px 2px no-repeat,
+    linear-gradient(var(--fx-hud),var(--fx-hud)) left 0 top 0/2px 18px no-repeat,
+    linear-gradient(var(--fx-hud),var(--fx-hud)) right 0 top 0/18px 2px no-repeat,
+    linear-gradient(var(--fx-hud),var(--fx-hud)) right 0 top 0/2px 18px no-repeat,
+    linear-gradient(var(--fx-hud),var(--fx-hud)) left 0 bottom 0/18px 2px no-repeat,
+    linear-gradient(var(--fx-hud),var(--fx-hud)) left 0 bottom 0/2px 18px no-repeat,
+    linear-gradient(var(--fx-hud),var(--fx-hud)) right 0 bottom 0/18px 2px no-repeat,
+    linear-gradient(var(--fx-hud),var(--fx-hud)) right 0 bottom 0/2px 18px no-repeat;
+}
+html[data-fx="on"] .fx-hud::after{
+  content:"";position:absolute;left:14px;right:14px;top:0;height:1px;pointer-events:none;z-index:4;
+  background:linear-gradient(90deg,transparent,var(--fx-hud),transparent);opacity:.75;
+}
+/* 卡片标题：等宽 + 字距，读起来像仪表读数 */
+html[data-fx="on"] .mc-name,
+html[data-fx="on"] .mq-q,
+html[data-fx="on"] .cards-head strong,
+html[data-fx="on"] .mist-head strong,
+html[data-fx="on"] .habit-head strong,
+html[data-fx="on"] .exam-head strong,
+html[data-fx="on"] .sched-head strong,
+html[data-fx="on"] .mc-head strong{letter-spacing:.04em}
+html[data-fx="on"] .mc-formula{
+  border-color:var(--fx-hud-soft);
+  background:linear-gradient(180deg,rgba(var(--accent-rgb),.07),rgba(var(--accent-rgb),.02));
+  box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),.06);
+}
+/* 数值读数发光 */
+html[data-fx="on"] .mc-value,
+html[data-fx="on"] .focus-time,
+html[data-fx="on"] .exam-days b,
+html[data-fx="on"] .mq-score b{text-shadow:0 0 18px rgba(var(--accent-rgb),.28)}
+html[data-theme="dark"][data-fx="on"] .mc-value,
+html[data-theme="dark"][data-fx="on"] .focus-time,
+html[data-theme="dark"][data-fx="on"] .exam-days b,
+html[data-theme="dark"][data-fx="on"] .mq-score b{text-shadow:0 0 22px rgba(95,230,255,.35)}
+
+/* 卡片扫光：按下走一次 */
+html[data-fx="on"] .home-card{position:relative;overflow:hidden}
+html[data-fx="on"] .home-card::after{
+  content:"";position:absolute;top:0;bottom:0;width:40%;left:-48%;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(95,230,255,.22),rgba(255,255,255,.3),transparent);
+  transform:skewX(-14deg);opacity:0;
+}
+html[data-fx="on"] .home-card:not(:disabled):active::after{animation:fx-sweep .52s ease-out both}
+@keyframes fx-sweep{0%{left:-48%;opacity:0}18%{opacity:1}100%{left:118%;opacity:0}}
+
+/* 主操作呼吸边：只给真正的主动作，4.8s 一次 */
+html[data-fx="on"] #runButton:not(:disabled),
+html[data-fx="on"] #focusStart,
+html[data-fx="on"] #mqStart,
+html[data-fx="on"] #cardsStart{animation:fx-pulse 4.8s ease-in-out infinite}
+@keyframes fx-pulse{0%,100%{box-shadow:0 0 0 0 rgba(var(--accent-rgb),0)}50%{box-shadow:0 0 0 5px rgba(var(--accent-rgb),.12)}}
+html[data-fx="on"] .status-dot{animation:fx-blink 2.4s steps(2,end) infinite}
+@keyframes fx-blink{0%,60%{opacity:1}61%,100%{opacity:.35}}
+
+/* ---------- 启动序列 ---------- */
+#fxBoot{position:fixed;inset:0;z-index:200;display:none;place-items:center;background:radial-gradient(120% 80% at 50% 40%,#0a1526,#050b16 70%);color:#dff6ff}
+html[data-fx="on"] #fxBoot.fx-show{display:grid;animation:fx-boot-out .5s ease .66s both}
+#fxBoot .fx-boot-core{display:flex;flex-direction:column;align-items:center;gap:15px}
+#fxBoot .fx-boot-ring{width:78px;height:78px;border-radius:50%;border:1px solid rgba(95,230,255,.32);border-top-color:var(--fx-cyan);border-right-color:var(--fx-violet);box-shadow:0 0 30px rgba(95,230,255,.25);animation:fx-spin .9s linear infinite}
+#fxBoot .fx-boot-name{font:700 21px/1 var(--ui-font);letter-spacing:.36em;text-indent:.36em;color:#eafaff;text-shadow:0 0 20px rgba(95,230,255,.5)}
+#fxBoot .fx-boot-bar{width:176px;height:2px;background:rgba(95,230,255,.18);overflow:hidden;border-radius:2px}
+#fxBoot .fx-boot-bar i{display:block;height:100%;width:42%;background:linear-gradient(90deg,var(--fx-cyan),var(--fx-violet));box-shadow:0 0 12px rgba(95,230,255,.7);animation:fx-load .74s var(--fx-ease) both}
+#fxBoot .fx-boot-tip{font:500 11px/1 var(--ui-font);letter-spacing:.2em;color:rgba(190,225,245,.72)}
+@keyframes fx-spin{to{transform:rotate(360deg)}}
+@keyframes fx-load{0%{transform:translateX(-115%)}100%{transform:translateX(285%)}}
+@keyframes fx-boot-out{0%{opacity:1}100%{opacity:0;visibility:hidden}}
+
+/* ---------- 设置开关 ---------- */
+.fx-toggle{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text)}
+.fx-toggle input{width:18px;height:18px;accent-color:var(--accent)}
+
+/* ---------- 无障碍：系统减弱动效时全部静止 ---------- */
+@media (prefers-reduced-motion:reduce){
+  #fxWarp,#fxBoot{display:none!important;animation:none!important}
+  html[data-fx="on"] body::before,
+  html[data-fx="on"] .fx-in,
+  html[data-fx="on"] .fx-stagger>*,
+  html[data-fx="on"] #landing.landing-out,
+  html[data-fx="on"] #landing.fx-home-in,
+  html[data-fx="on"] #runButton:not(:disabled),
+  html[data-fx="on"] #focusStart,
+  html[data-fx="on"] #mqStart,
+  html[data-fx="on"] #cardsStart,
+  html[data-fx="on"] .status-dot,
+  html[data-fx="on"] .home-card:not(:disabled):active::after{animation:none!important}
+  html[data-fx="on"] .fx-in{opacity:1;transform:none;clip-path:none}
+  html[data-fx="on"] .fx-in::after{display:none}
+  html[data-fx="on"] .fx-stagger>*{opacity:1;transform:none}
+}

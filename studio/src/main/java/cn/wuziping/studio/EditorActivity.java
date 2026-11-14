@@ -408,6 +408,8 @@ public final class EditorActivity extends Activity {
             try{ttsCss=packed.readText("studio/tts.css");}catch(Throwable ignored){android.util.Log.w("EmberStudio","Bundled studio/tts.css is missing; TTS controls will render without dedicated styles.");}
             String aiCss="";
             try{aiCss=packed.readText("studio/ai.css");}catch(Throwable ignored){android.util.Log.w("EmberStudio","Bundled studio/ai.css is missing; AI assistant will render without dedicated styles.");}
+            String fxCss="";
+            try{fxCss=packed.readText("studio/fx.css");}catch(Throwable ignored){/* 旧包允许缺失 */}
             String app=packed.readText("studio/app.js").replace("</script","<\\/script");
             String policy="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'";
             html=html.replaceAll("(?is)<meta[^>]*Content-Security-Policy[^>]*>","<meta http-equiv=\"Content-Security-Policy\" content=\""+policy+"\">");
@@ -415,6 +417,7 @@ public final class EditorActivity extends Activity {
             if(lectureCss.length()>0)html=html.contains("<link rel=\"stylesheet\" href=\"lecture.css\">")?html.replace("<link rel=\"stylesheet\" href=\"lecture.css\">","<style>"+lectureCss+"</style>"):html.replace("</head>","<style>"+lectureCss+"</style></head>");
             if(ttsCss.length()>0)html=html.contains("<link rel=\"stylesheet\" href=\"tts.css\">")?html.replace("<link rel=\"stylesheet\" href=\"tts.css\">","<style>"+ttsCss+"</style>"):html.replace("</head>","<style>"+ttsCss+"</style></head>");
             if(aiCss.length()>0)html=html.contains("<link rel=\"stylesheet\" href=\"ai.css\">")?html.replace("<link rel=\"stylesheet\" href=\"ai.css\">","<style>"+aiCss+"</style>"):html.replace("</head>","<style>"+aiCss+"</style></head>");
+            if(fxCss.length()>0)html=html.contains("<link rel=\"stylesheet\" href=\"fx.css\">")?html.replace("<link rel=\"stylesheet\" href=\"fx.css\">","<style>"+fxCss+"</style>"):html.replace("</head>","<style>"+fxCss+"</style></head>");
             html=html.contains("<script src=\"boot.js\"></script>")?html.replace("<script src=\"boot.js\"></script>","<script>"+boot+"</script>"):html.replace("</body>","<script>"+boot+"</script></body>");
             html=html.contains("<script src=\"app.js\"></script>")?html.replace("<script src=\"app.js\"></script>","<script>"+app+"</script>"):html.replace("</body>","<script>"+app+"</script></body>");
             web.loadDataWithBaseURL(assets.base()+"studio/index.html",html,"text/html","UTF-8",null);

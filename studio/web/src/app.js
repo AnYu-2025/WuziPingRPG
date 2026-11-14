@@ -43,6 +43,7 @@ import {LAYERS,PRESETS,defaultSoundscape,soundscapeSanitize,setLayer,setMaster,a
 import {createSoundscapeAudio} from './soundscape-audio.js';
 import {createSoundscapeVisual} from './soundscape-visual.js';
 import {buildBackup,parseBackup,backupSummary} from './backup.js';
+import {fxBoot,setFx,fxEnabled,fxStored,fxPreferred,warp,materialize,hudMark,homeIn,bootSequence} from './fx.js';
 import {init as initPelican} from './pelican3d.js';
 import {pelicanSanitize} from './pelican.js';
 
@@ -246,6 +247,9 @@ bindThemeGroup('themeAppearance','appearance');
 bindThemeGroup('themeAccent','accent');
 function applySettings(){$('fontSize').value=state.settings.fontSize;$('fontSizeValue').textContent=state.settings.fontSize;$('wordWrap').checked=!!state.settings.wrap;$('timeLimit').value=state.settings.timeLimit;syncTheme();if(view){view.dom.style.fontSize=state.settings.fontSize+'px';view.dispatch({effects:[wrapConfig.reconfigure(state.settings.wrap?EditorView.lineWrapping:[])]});}}
 for(const id of ['fontSize','wordWrap','timeLimit'])$(id).oninput=()=>{state.settings.fontSize=+$('fontSize').value;state.settings.wrap=$('wordWrap').checked;state.settings.timeLimit=+$('timeLimit').value;applySettings();scheduleSave();};
+/* 科幻动效开关：默认开；系统「减弱动效」时强制关并禁用开关。 */
+{const t=$('fxToggle');if(t){t.checked=fxStored()&&!fxPreferred();t.disabled=fxPreferred();if(fxPreferred())t.title='系统已开启「减弱动效」，动效自动关闭';
+  t.onchange=()=>{const on=setFx(t.checked);t.checked=on;if(on)warp();notify(on?'科幻动效已开启。':'科幻动效已关闭。');};}}
 /* 报错行渲染成可点击链接：splitLocations 标出带「文件:行:列」的行。 */
 function append(text,error=false){
  const out=$('output');
@@ -892,7 +896,7 @@ function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(land
      WebGL 画布被建成 1×1 再拉伸满屏，整页糊成一片浅色。 */
   if(!starActive&&landingOpen&&!landing.hidden){document.body.classList.add('starhome');starActive=starApi.enter();if(starActive){setStarView(state.star&&state.star.view==='list');}else{document.body.classList.remove('starhome');}}
 }
-function hideLanding(){if(!landingOpen||!landing)return;if(starActive&&starApi)starApi.leave();if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model'&&modelApi)modelApi.enter();if(workspaceMode==='pelican'&&pelicanApi)pelicanApi.enter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},280);}
+function hideLanding(){if(!landingOpen||!landing)return;if(starActive&&starApi)starApi.leave();if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model'&&modelApi)modelApi.enter();if(workspaceMode==='pelican'&&pelicanApi)pelicanApi.enter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},fxEnabled()?310:280);}
 function openLanding(reopen=false){
   if(!landing)return;
   if(reopen&&workspaceMode==='tts')ttsHideBar();
@@ -910,6 +914,8 @@ function openLanding(reopen=false){
   if(reopen&&KNOWN_MODES.includes(workspaceMode)){selectedMode=workspaceMode;lastOpened=workspaceMode;}
   refreshHomeTitle();refreshResume();
   if(starActive&&starApi)starApi.enter();
+  /* 回到首页：跃迁收束 + 卡片错峰浮现 */
+  if(reopen){homeIn();materialize('homeScroll','.home-group');}
 }
 function setLectureTab(name){
   const tab=name==='timeline'||name==='slides'?name:'notes';
@@ -999,7 +1005,12 @@ function applyMode(mode){
   if(workspaceMode==='model'&&mode!=='model'&&modelApi)modelApi.leave();
   if(workspaceMode==='pelican'&&mode!=='pelican'&&pelicanApi)pelicanApi.leave();
   const leavingAI=workspaceMode==='ai'&&mode!=='ai';
+  const fxChanged=workspaceMode!==mode;
   setWorkspaceMode(mode);  const noteEmpty=$('noteEmpty');
+  /* 跃迁转场：只在真正换模块时走一次扫描 + 目标面板实体化。 */
+  const FX_STAGGER={focus:'.focus-actions button',cards:'.cards-actions button',mistakes:'.mist-filters>*',habits:'.habit-add>*',schedule:'.sched-head>*',novel:'.novel-head>*',medquiz:'.mq-row>*',exams:'.exam-head>*',medcalc:'.mc-chips button',soundscape:'.ss-presets button',model:'.model-modes button',ai:'.ai-section',python:'.quickkeys button',notepad:'.quickkeys button',lecture:'.lecture-tab',tts:'.tts-main>*',game:'.game-actions button'};
+  const FX_PANEL={focus:'focusPanel',cards:'cardsPanel',mistakes:'mistakesPanel',habits:'habitsPanel',schedule:'schedulePanel',novel:'novelPanel',medquiz:'medquizPanel',exams:'examsPanel',medcalc:'medcalcPanel',soundscape:'soundscapePanel',model:'modelPanel',ai:'aiPanel',python:'workbench',notepad:'workbench',lecture:'workbench',tts:'workbench',game:'lounge'};
+  const fxEnter=()=>{if(!fxChanged)return;warp();const p=FX_PANEL[mode];if(p)materialize(p,FX_STAGGER[mode]);};
   if(noteEmpty)noteEmpty.textContent=mode==='lecture'?'点上方「🎙 开始录音」，边听边记；每一行都会自动带上时间戳。':'从这里开始写点什么…';
   const drawToggle=$('drawToggle');
   if(leavingAI)aiModeLeave();
@@ -1012,7 +1023,7 @@ function applyMode(mode){
     const mp=$('modelPanel');if(mp)mp.hidden=true;
     const fp=$('focusPanel');if(fp)fp.hidden=false;
     $('activePath').textContent='专注番茄';$('dirtyFlag').textContent='';
-    renderFocus();
+    renderFocus();fxEnter();
     return true;
   }
   if(mode==='cards'){
@@ -1024,7 +1035,7 @@ function applyMode(mode){
     const fp=$('focusPanel');if(fp)fp.hidden=true;
     const cp=$('cardsPanel');if(cp)cp.hidden=false;
     $('activePath').textContent='记忆卡片';$('dirtyFlag').textContent='';
-    cardsResetReview();renderCards();
+    cardsResetReview();renderCards();fxEnter();
     return true;
   }
   if(mode==='mistakes'){
@@ -1037,7 +1048,7 @@ function applyMode(mode){
     const cp=$('cardsPanel');if(cp)cp.hidden=true;
     const mip=$('mistakesPanel');if(mip)mip.hidden=false;
     $('activePath').textContent='错题本';$('dirtyFlag').textContent='';
-    mistCloseForm();renderMistakes();
+    mistCloseForm();renderMistakes();fxEnter();
     return true;
   }
   if(mode==='habits'){
@@ -1051,7 +1062,7 @@ function applyMode(mode){
     const mip=$('mistakesPanel');if(mip)mip.hidden=true;
     const hp=$('habitsPanel');if(hp)hp.hidden=false;
     $('activePath').textContent='习惯打卡';$('dirtyFlag').textContent='';
-    renderHabits();
+    renderHabits();fxEnter();
     return true;
   }
   if(mode==='schedule'){
@@ -1066,7 +1077,7 @@ function applyMode(mode){
     const hp=$('habitsPanel');if(hp)hp.hidden=true;
     const sp=$('schedulePanel');if(sp)sp.hidden=false;
     $('activePath').textContent='课程表';$('dirtyFlag').textContent='';
-    schedCloseForm();renderSchedule();
+    schedCloseForm();renderSchedule();fxEnter();
     return true;
   }
   if(mode==='novel'){
@@ -1082,7 +1093,7 @@ function applyMode(mode){
     const sp=$('schedulePanel');if(sp)sp.hidden=true;
     const np=$('novelPanel');if(np)np.hidden=false;
     $('activePath').textContent='小说阅读器';$('dirtyFlag').textContent='';
-    novelShowShelf();renderNovelShelf();
+    novelShowShelf();renderNovelShelf();fxEnter();
     return true;
   }
   if(mode==='medquiz'){
@@ -1099,7 +1110,7 @@ function applyMode(mode){
     const np=$('novelPanel');if(np)np.hidden=true;
     const qp=$('medquizPanel');if(qp)qp.hidden=false;
     $('activePath').textContent='医学生刷题';$('dirtyFlag').textContent='';
-    mqShowSetup();renderMqSetup();
+    mqShowSetup();renderMqSetup();fxEnter();
     return true;
   }
   if(mode==='exams'){
@@ -1117,7 +1128,7 @@ function applyMode(mode){
     const qp=$('medquizPanel');if(qp)qp.hidden=true;
     const ep=$('examsPanel');if(ep)ep.hidden=false;
     $('activePath').textContent='考试倒计时';$('dirtyFlag').textContent='';
-    examCloseForm();renderExams();
+    examCloseForm();renderExams();fxEnter();
     return true;
   }
   if(mode==='medcalc'){
@@ -1136,7 +1147,7 @@ function applyMode(mode){
     const ep=$('examsPanel');if(ep)ep.hidden=true;
     const cp2=$('medcalcPanel');if(cp2)cp2.hidden=false;
     $('activePath').textContent='临床计算';$('dirtyFlag').textContent='';
-    mcSelect(mcCurrent||'bmi');
+    mcSelect(mcCurrent||'bmi');fxEnter();
     return true;
   }
   if(mode==='soundscape'){
@@ -1156,7 +1167,7 @@ function applyMode(mode){
     const cp2=$('medcalcPanel');if(cp2)cp2.hidden=true;
     const ssp=$('soundscapePanel');if(ssp)ssp.hidden=false;
     $('activePath').textContent='潮声 · 白噪音景';$('dirtyFlag').textContent='';
-    ssEnter();
+    ssEnter();fxEnter();
     return true;
   }
   if(mode==='pelican'){
@@ -1168,7 +1179,7 @@ function applyMode(mode){
     const fp=$('focusPanel');if(fp)fp.hidden=true;
     const pp=$('pelicanPanel');if(pp)pp.hidden=false;
     $('activePath').textContent='鹈鹕骑车';$('dirtyFlag').textContent='';
-    if(!pelicanApi.enter()){notify('鹈鹕骑车需要 WebGL 支持，当前设备暂不可用。');openLanding(true);}
+    if(!pelicanApi.enter()){notify('鹈鹕骑车需要 WebGL 支持，当前设备暂不可用。');openLanding(true);}fxEnter();
     return true;
   }
   if(mode==='model'){
@@ -1181,7 +1192,7 @@ function applyMode(mode){
     const panel=$('modelPanel');if(panel)panel.hidden=false;
     $('activePath').textContent='3D 建模';$('dirtyFlag').textContent='场景自动保存';
     /* 3D 渲染层 enter 时才建 WebGL；不可用则提示降级。 */
-    if(!modelApi.enter()){notify('3D 需要 WebGL 支持，当前设备暂不可用；其它功能不受影响。');openLanding(true);}
+    if(!modelApi.enter()){notify('3D 需要 WebGL 支持，当前设备暂不可用；其它功能不受影响。');openLanding(true);}fxEnter();
     return true;
   }
   if(mode==='ai'){
@@ -1190,21 +1201,21 @@ function applyMode(mode){
     $('workbench').hidden=true;$('lounge').hidden=true;
     if(aiPanel)aiPanel.hidden=false;
     $('activePath').textContent='AI 助手';$('dirtyFlag').textContent='';
-    aiModeEnter();return true;
+    aiModeEnter();fxEnter();return true;
   }
   if(aiPanel)aiPanel.hidden=true;
   const modelPanelEl=$('modelPanel');if(modelPanelEl)modelPanelEl.hidden=true;
   const focusPanelEl=$('focusPanel');if(focusPanelEl)focusPanelEl.hidden=true;
   const pelicanPanelEl=$('pelicanPanel');if(pelicanPanelEl)pelicanPanelEl.hidden=true;
   document.body.classList.remove('aiview');$('workbench').hidden=false;
-  if(mode==='game'){document.body.classList.remove('notepad');document.body.classList.remove('lecture');document.body.classList.remove('tts');lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();showGame();return true;}
+  if(mode==='game'){document.body.classList.remove('notepad');document.body.classList.remove('lecture');document.body.classList.remove('tts');lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();showGame();fxEnter();return true;}
   showCode();
   /* 只有代码类文件进入 lastCodePath；模板/课堂笔记不能污染 Python 返回目标。 */
   if(mode==='notepad'){document.body.classList.remove('lecture');document.body.classList.remove('tts');lectureModeLeave();if(shouldRememberCodePath(state.active))lastCodePath=state.active;document.body.classList.add('notepad');switchFile(ensureNote().path);if(drawToggle)drawToggle.hidden=false;}
   else if(mode==='lecture'){document.body.classList.remove('notepad');document.body.classList.remove('tts');document.body.classList.add('lecture');if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();const note=ensureLectureNote();switchFile(note.path);lectureModeEnter();}
   else if(mode==='tts'){document.body.classList.remove('notepad');document.body.classList.remove('lecture');lectureModeLeave();document.body.classList.add('tts');if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();switchFile(ttsTarget.path);ttsModeEnter();}
   else{document.body.classList.remove('notepad');document.body.classList.remove('lecture');document.body.classList.remove('tts');lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();const f=(lastCodePath&&state.files.find(x=>x.path===lastCodePath))||state.files.find(x=>x.path==='main.py')||state.files.find(x=>!x.path.endsWith('.txt'))||state.files[0];if(f)switchFile(f.path);}
-  setTimeout(()=>{if(view)view.focus();},260);
+  setTimeout(()=>{if(view)view.focus();},260);fxEnter();
   return true;
 }
 /* 原生模块（扫描相机、修图）是独立页面：首页留在下面，系统返回键关掉它就回到这里。 */
@@ -1243,6 +1254,9 @@ on('homeButton',()=>{flush();openLanding(true);});
 on('aiHome',()=>{flush();openLanding(true);});
 on('aiSettingsToggle',()=>{const panel=$('aiPanel');setAISettings(!(panel&&panel.classList.contains('settings-open')));});
 window.__studioLandingReady=true;
+/* 启动序列 + 首屏实体化：本次会话只放一次，不阻塞交互。 */
+bootSequence();
+materialize('homeScroll','.home-group');
 initLecture({
   notify,
   send:(type,payload)=>send(type,payload),
@@ -1414,6 +1428,7 @@ function renderCards(){
     }
     if(!deck.cards.length){const e=document.createElement('p');e.className='cards-face-hint';e.textContent='还没有卡片，点「添加卡片」开始。';list.append(e);}
   }
+  hudMark(document.querySelector('#cardsPanel'));
 }
 on('cardsStart',()=>{cardsQueue=dueCards(state.cards,Date.now());cardsShown=false;cardsCurrent=cardsQueue.shift()||null;renderCards();});
 on('cardsFace',()=>{if(!cardsCurrent)return;cardsShown=!cardsShown;renderCards();});
@@ -1501,6 +1516,7 @@ function renderMistakes(){
     }
     list.append(card);
   }
+  hudMark(document.querySelector('#mistakesPanel'));
 }
 on('mistAddBtn',()=>mistOpenForm(null));
 on('mistCancel',()=>mistCloseForm());
@@ -1548,6 +1564,7 @@ function renderHabits(){
     foot.append(del);item.append(foot);
     list.append(item);
   }
+  hudMark(document.querySelector('#habitsPanel'));
 }
 on('habitAddBtn',()=>{
   const el=$('habitName');const r=addHabit(state.habits,el.value,Date.now());
@@ -1658,6 +1675,7 @@ function renderSchedule(){
       grid.append(b);
     }
   }
+  hudMark(document.querySelector('#schedulePanel'));
 }
 function renderTodayStrip(st){
   const strip=$('todayStrip');if(!strip)return;
@@ -1716,6 +1734,7 @@ function renderNovelShelf(){
     del.onclick=()=>{state.novel={...shelfSanitize(state.novel),books:shelfSanitize(state.novel).books.filter(x=>x.id!==b.id)};try{localStorage.removeItem(novelTextKey(b.id));}catch(e){}renderNovelShelf();scheduleSave();};
     row.append(cover,info,open,del);list.append(row);
   }
+  hudMark(document.querySelector('#novelPanel'));
 }
 function novelOpen(id){
   const shelf=state.novel||shelfSanitize(null);
@@ -1822,6 +1841,7 @@ function mqRenderQuestion(){
   else ex.hidden=true;
   $('mqNext').hidden=!answered;
   $('mqNext').textContent=(s.pos+1>=s.ids.length)?'看结果':'下一题';
+  hudMark(document.querySelector('#medquizPanel'));
 }
 function mqAnswer(i){
   const s=mqSession;if(!s)return;
@@ -1925,6 +1945,7 @@ function renderExams(){
     card.append(ms);
     list.append(card);
   }
+  hudMark(document.querySelector('#examsPanel'));
 }
 on('examAddToggle',()=>{const f=$('examForm');f.hidden=!f.hidden;if(!f.hidden){$('examName').value='';$('examDate').value='';$('examName').focus();}});
 on('examCancel',()=>examCloseForm());
