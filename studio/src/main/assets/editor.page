@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.18</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.19</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -48,6 +48,7 @@
    <button class="home-card" type="button" data-mode="habits" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✅</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>习惯打卡</strong><small>每天打个勾，看看自己坚持了几天</small></span></button>
    <button class="home-card" type="button" data-mode="schedule" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">📅</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>课程表</strong><small>下节课在哪上、还有几分钟，一眼看清</small></span></button>
    <button class="home-card" type="button" data-mode="medquiz" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🩺</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>医学生刷题</strong><small>8 科基础题，答完看解析，错题自动收</small></span></button>
+   <button class="home-card" type="button" data-mode="exams" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">⏳</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>考试倒计时</strong><small>大考小考排一排，复习进度勾一勾</small></span></button>
   </div>
  </section>
  <section class="home-group" data-group="create" aria-label="创作">
@@ -412,6 +413,18 @@
     <button id="mqBackSetup" type="button">返回</button>
    </div>
   </div>
+ </div>
+</section>
+
+<section id="examsPanel" hidden aria-label="考试倒计时">
+ <div class="exam-wrap">
+  <div class="exam-head"><strong>考试倒计时</strong><button id="examAddToggle" class="primary" type="button">＋ 加考试</button></div>
+  <div class="exam-form" id="examForm" hidden>
+   <input id="examName" type="text" maxlength="40" placeholder="考试名（如：执业医考 / 期末生化）">
+   <input id="examDate" type="date">
+   <div class="exam-form-actions"><button id="examSave" class="primary" type="button">保存</button><button id="examCancel" type="button">取消</button></div>
+  </div>
+  <div class="exam-list" id="examList"></div>
  </div>
 </section>
 

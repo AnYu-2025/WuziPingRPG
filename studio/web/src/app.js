@@ -37,6 +37,7 @@ import {DAYS,PERIODS,COURSE_COLORS,scheduleSanitize,addCourse,updateCourse,remov
 import {splitChapters,shelfSanitize,novelSettingsSanitize,progressText} from './novel.js';
 import {QUIZ_SUBJECTS,bankCount,quizById,getBank,parseBankText,DIFF_LABELS} from './quiz-data.js';
 import {quizStatsSanitize,buildQuiz as mqBuild,answerQuiz as mqAnswerFn,nextQuiz as mqNextFn,gradeQuiz as mqGrade,accuracy as mqAccuracy,sessionSummary as mqSummary} from './medquiz.js';
+import {examsSanitize,addExam,removeExam,addMilestone,toggleMilestone,removeMilestone,sortExams,examProgress,countdownText,daysUntil} from './exams.js';
 import {init as initPelican} from './pelican3d.js';
 import {pelicanSanitize} from './pelican.js';
 
@@ -77,7 +78,7 @@ const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript'
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null),mistakes:bookSanitize(null),habits:habitsSanitize(null),schedule:scheduleSanitize(null),novel:shelfSanitize(null),medquiz:quizStatsSanitize(null)});
+const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null),mistakes:bookSanitize(null),habits:habitsSanitize(null),schedule:scheduleSanitize(null),novel:shelfSanitize(null),medquiz:quizStatsSanitize(null),exams:examsSanitize(null)});
 let state=defaults(),view,restoring=false,worker=null,cppWorker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 /* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
 const micWaiters=new Map();let micSeq=0;
@@ -96,7 +97,7 @@ function active(){return state.files.find(f=>f.path===state.active)||state.files
 function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule),novel:shelfSanitize(state.novel),medquiz:quizStatsSanitize(state.medquiz)};}
+function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule),novel:shelfSanitize(state.novel),medquiz:quizStatsSanitize(state.medquiz),exams:examsSanitize(state.exams)};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
 function mb(bytes){return (bytes/1048576).toFixed(1);}
@@ -146,6 +147,7 @@ function loadState(data){
   state.schedule=scheduleSanitize(data.schedule);
   state.novel=shelfSanitize(data.novel);
   state.medquiz=quizStatsSanitize(data.medquiz);
+  state.exams=examsSanitize(data.exams);
   state.settings.fontSize=Math.max(12,Math.min(24,Number(state.settings.fontSize)||15));state.settings.timeLimit=[15,30,60].includes(+state.settings.timeLimit)?+state.settings.timeLimit:15;if(window.innerWidth<700)state.settings.wrap=true;
   adoptTheme(data.settings);
   state.active=files.some(f=>f.path===state.active)?state.active:files[0].path;state.opened=Array.isArray(state.opened)?state.opened.filter(p=>files.some(f=>f.path===p)):[];if(!state.opened.includes(state.active))state.opened.push(state.active);
@@ -365,7 +367,8 @@ function setWorkspaceMode(mode){
   if(mode!=='schedule')document.body.classList.remove('scheduleview');
   if(mode!=='novel')document.body.classList.remove('novelview');
   if(mode!=='medquiz')document.body.classList.remove('medquizview');
-  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['mistakesPanel','mistakes'],['habitsPanel','habits'],['schedulePanel','schedule'],['novelPanel','novel'],['medquizPanel','medquiz'],['modelPanel','model'],['aiPanel','ai']]){
+  if(mode!=='exams')document.body.classList.remove('examsview');
+  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['mistakesPanel','mistakes'],['habitsPanel','habits'],['schedulePanel','schedule'],['novelPanel','novel'],['medquizPanel','medquiz'],['examsPanel','exams'],['modelPanel','model'],['aiPanel','ai']]){
     const el=$(id);if(el&&mode!==m)el.hidden=true;
   }
 }
@@ -1090,6 +1093,24 @@ function applyMode(mode){
     mqShowSetup();renderMqSetup();
     return true;
   }
+  if(mode==='exams'){
+    document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('examsview');
+    lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
+    $('workbench').hidden=true;$('lounge').hidden=true;
+    if(aiPanel)aiPanel.hidden=true;
+    const mp=$('modelPanel');if(mp)mp.hidden=true;
+    const fp=$('focusPanel');if(fp)fp.hidden=true;
+    const cp=$('cardsPanel');if(cp)cp.hidden=true;
+    const mip=$('mistakesPanel');if(mip)mip.hidden=true;
+    const hp=$('habitsPanel');if(hp)hp.hidden=true;
+    const sp=$('schedulePanel');if(sp)sp.hidden=true;
+    const np=$('novelPanel');if(np)np.hidden=true;
+    const qp=$('medquizPanel');if(qp)qp.hidden=true;
+    const ep=$('examsPanel');if(ep)ep.hidden=false;
+    $('activePath').textContent='考试倒计时';$('dirtyFlag').textContent='';
+    examCloseForm();renderExams();
+    return true;
+  }
   if(mode==='pelican'){
     document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('pelicanview');
     lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
@@ -1791,6 +1812,63 @@ on('mqClearCustom',()=>{
   if(!confirm('清空你导入的全部题目？内置题不受影响。'))return;
   try{localStorage.removeItem(MQ_CUSTOM_KEY);}catch(e){}
   renderMqSetup();notify('已清空导入题库。');
+});
+
+/* 考试倒计时：加考试 + 倒数天数 + 复习里程碑勾选。 */
+function examCloseForm(){const f=$('examForm');if(f)f.hidden=true;}
+function renderExams(){
+  const list=$('examList');if(!list)return;
+  const now=Date.now();
+  const exams=sortExams(state.exams,now);
+  list.replaceChildren();
+  if(!exams.length){const e=document.createElement('p');e.className='exam-empty';e.textContent='还没有考试，点「＋ 加考试」排一个。';list.append(e);return;}
+  for(const ex of exams){
+    const d=daysUntil(ex.date,now);
+    const card=document.createElement('div');card.className='exam-card'+(d<0?' past':'');
+    const top=document.createElement('div');top.className='exam-top';
+    const days=document.createElement('span');days.className='exam-days';
+    const db=document.createElement('b');db.textContent=d>0?d:(d===0?'0':-d);
+    const ds=document.createElement('small');ds.textContent=d>0?'天后':(d===0?'今天':'天前');
+    days.append(db,ds);
+    const info=document.createElement('span');info.className='exam-info';
+    const nb=document.createElement('b');nb.textContent=ex.name;
+    const meta=document.createElement('small');meta.textContent=ex.date+' · '+countdownText(ex,now);
+    info.append(nb,meta);
+    const del=document.createElement('button');del.type='button';del.className='exam-del';del.textContent='删';
+    del.onclick=()=>{state.exams=removeExam(state.exams,ex.id);renderExams();scheduleSave();};
+    top.append(days,info,del);card.append(top);
+    const prog=examProgress(ex);
+    if(prog.total){
+      const bar=document.createElement('div');bar.className='exam-progress';
+      const fill=document.createElement('i');fill.style.width=prog.pct+'%';bar.append(fill);card.append(bar);
+    }
+    const ms=document.createElement('div');ms.className='exam-ms';
+    for(const m of ex.milestones){
+      const lab=document.createElement('label');lab.className=m.done?'done':'';
+      const cb=document.createElement('input');cb.type='checkbox';cb.checked=m.done;
+      cb.onchange=()=>{state.exams=toggleMilestone(state.exams,ex.id,m.id);renderExams();scheduleSave();};
+      const sp=document.createElement('span');sp.textContent=m.label;
+      const md=document.createElement('button');md.type='button';md.className='ms-del';md.textContent='✕';
+      md.onclick=()=>{state.exams=removeMilestone(state.exams,ex.id,m.id);renderExams();scheduleSave();};
+      lab.append(cb,sp,md);ms.append(lab);
+    }
+    const add=document.createElement('div');add.className='exam-ms-add';
+    const inp=document.createElement('input');inp.type='text';inp.maxLength=60;inp.placeholder='复习里程碑（如：一轮复习）';
+    const ab=document.createElement('button');ab.type='button';ab.textContent='＋';
+    const doAdd=()=>{const r=addMilestone(state.exams,ex.id,inp.value);if(r.ok){state.exams=r.store;renderExams();scheduleSave();}};
+    ab.onclick=doAdd;
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();doAdd();}});
+    add.append(inp,ab);ms.append(add);
+    card.append(ms);
+    list.append(card);
+  }
+}
+on('examAddToggle',()=>{const f=$('examForm');f.hidden=!f.hidden;if(!f.hidden){$('examName').value='';$('examDate').value='';$('examName').focus();}});
+on('examCancel',()=>examCloseForm());
+on('examSave',()=>{
+  const r=addExam(state.exams,$('examName').value,$('examDate').value);
+  if(!r.ok){notify(r.dup?'这个考试已经排过了。':'填好考试名和日期。');return;}
+  state.exams=r.store;examCloseForm();renderExams();scheduleSave();
 });
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
