@@ -1339,6 +1339,15 @@ function renderFocus(){
   const s=state.focus||DEFAULT_FOCUS();
   const phase=$('focusPhase');if(phase)phase.textContent=s.phase==='work'?'专注':s.phase==='short'?'短休息':'长休息';
   const time=$('focusTime');if(time)time.textContent=fmtTime(s.remaining);
+  const ring=$('focusRing');
+  if(ring){
+    const total=(s.phase==='work'?s.workMin:s.phase==='short'?s.shortMin:s.longMin)*60;
+    const frac=total>0?Math.max(0,Math.min(1,s.remaining/total)):0;
+    const C=2*Math.PI*52;
+    ring.style.strokeDasharray=C.toFixed(1);
+    ring.style.strokeDashoffset=(C*(1-frac)).toFixed(1);
+    ring.classList.toggle('rest',s.phase!=='work');
+  }
   const dots=$('focusDots');
   if(dots){dots.replaceChildren();for(let i=0;i<4;i++){const d=document.createElement('i');if(i<s.cycle)d.className='on';dots.append(d);}}
   const start=$('focusStart');if(start)start.textContent=s.running?'暂停':'开始';
@@ -1631,8 +1640,9 @@ function renderSchedule(){
     const cell=document.createElement('span');cell.className='sched-period';cell.textContent=String(p);
     cell.style.gridColumn='1';cell.style.gridRow=String(p+1);grid.append(cell);
   }
+  const nowPeriod=(()=>{for(let i=0;i<PERIODS.length;i++){if(info.minutes>=PERIODS[i][0]&&info.minutes<=PERIODS[i][1])return i+1;}return 0;})();
   for(let d=1;d<=7;d++)for(let p=1;p<=12;p++){
-    const c=document.createElement('span');c.className='sched-cell';
+    const c=document.createElement('span');c.className='sched-cell'+(d===info.day&&p===nowPeriod?' now':'');
     c.style.gridColumn=String(d+1);c.style.gridRow=String(p+1);grid.append(c);
   }
   for(let d=1;d<=7;d++){
@@ -1725,6 +1735,7 @@ function novelRenderChapter(ch){
   const book=shelf.books.find(b=>b.id===novelBookId);
   if(book){book.ch=ch;state.novel={...shelf,books:shelf.books.map(b=>b.id===novelBookId?book:b)};scheduleSave();}
   $('novelPos').textContent=(ch+1)+' / '+novelChapters.length;
+  const npf=$('novelProgressFill');if(npf)npf.style.width=Math.round((ch+1)/Math.max(1,novelChapters.length)*100)+'%';
   $('novelPrev').disabled=ch<=0;
   $('novelNext').disabled=ch>=novelChapters.length-1;
   const s=state.novel.settings;
@@ -1791,6 +1802,7 @@ function mqRenderQuestion(){
   const qid=s.ids[s.pos];const q=bank.find(x=>x.id===qid);
   if(!q){mqShowSetup();renderMqSetup();return;}
   $('mqProgress').textContent=(s.pos+1)+' / '+s.ids.length+' · '+q.subject+' · '+(DIFF_LABELS[q.difficulty]||'')+(q.tag?' · '+q.tag:'');
+  const barFill=$('mqBarFill');if(barFill)barFill.style.width=Math.round((s.pos+1)/s.ids.length*100)+'%';
   $('mqQuestion').textContent=q.q;
   const opts=$('mqOptions');opts.replaceChildren();
   const answered=s.answers[qid]!=null;

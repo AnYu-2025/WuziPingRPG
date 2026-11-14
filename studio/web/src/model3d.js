@@ -63,6 +63,8 @@ export function initModel(env,api){
     catch(e){env.notify('这台设备暂时开不了 3D 画布（WebGL 不可用）。');return false;}
     renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     renderer.setClearColor(0x101820);
+    renderer.shadowMap.enabled=true;
+    renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     scene=new THREE.Scene();
     scene.fog=new THREE.Fog(0x101820,30,80);
     perspCamera=new THREE.PerspectiveCamera(50,1,.05,200);
@@ -70,11 +72,23 @@ export function initModel(env,api){
     camera=perspCamera;
     camera.position.set(3.2,2.6,4.2);
     const hemi=new THREE.HemisphereLight(0xdfeee9,0x2a343c,1.05);scene.add(hemi);
-    const sun=new THREE.DirectionalLight(0xfff4e0,1.6);sun.position.set(4,7,3);scene.add(sun);
+    const sun=new THREE.DirectionalLight(0xfff4e0,1.6);sun.position.set(4,7,3);
+    sun.castShadow=true;
+    sun.shadow.mapSize.set(1024,1024);
+    sun.shadow.camera.left=-8;sun.shadow.camera.right=8;
+    sun.shadow.camera.top=8;sun.shadow.camera.bottom=-8;
+    sun.shadow.camera.near=1;sun.shadow.camera.far=30;
+    sun.shadow.bias=-0.0005;
+    scene.add(sun);
     const fill=new THREE.DirectionalLight(0x9fc4d8,.4);fill.position.set(-5,3,-4);scene.add(fill);
     grid=new THREE.GridHelper(20,20,0x2e4a44,0x1c2a30);grid.position.y=0;scene.add(grid);
+    /* 接影地面：只显阴影不显颜色，物体落地更真实 */
+    const ground=new THREE.Mesh(new THREE.PlaneGeometry(60,60),new THREE.ShadowMaterial({opacity:.32}));
+    ground.rotation.x=-Math.PI/2;ground.position.y=-0.001;ground.receiveShadow=true;
+    scene.add(ground);
     orbit=new OrbitControls(camera,canvas);
     orbit.enableDamping=true;orbit.dampingFactor=.08;
+    orbit.autoRotate=false;orbit.autoRotateSpeed=1.2;
     orbit.minDistance=.8;orbit.maxDistance=40;orbit.maxPolarAngle=Math.PI*.96;
     orbit.target.set(0,.5,0);
     orbit.touches={ONE:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};
@@ -200,6 +214,17 @@ export function initModel(env,api){
     if(!active)return;
     raf=requestAnimationFrame(loop);
     orbit.update();
+    if(orbit.autoRotate)dirty=true;
+    /* 选中物体呼吸高亮：emissive 随时间微脉动 */
+    if(selectedId){
+      const g=meshes.get(selectedId);
+      if(g){
+        const k=0.5+0.5*Math.sin(performance.now()*0.004);
+        const hex=Math.round(0x0d3a33*(0.6+0.5*k));
+        g.traverse(c=>{if(c.isMesh&&c.material&&c.material.emissive)c.material.emissive.setHex(hex);});
+        dirty=true;
+      }
+    }
     if(dirty){renderer.render(scene,camera);dirty=false;}
   }
   function invalidate(){dirty=true;}
@@ -298,6 +323,7 @@ export function initModel(env,api){
     group.scale.fromArray(o.scl);
     group.visible=o.visible;
     if(wireframe)group.traverse(c=>{if(c.isMesh&&c.material)c.material.wireframe=true;});
+    group.traverse(c=>{if(c.isMesh){c.castShadow=true;c.receiveShadow=true;}});
     scene.add(group);
     meshes.set(o.id,group);
     return group;
@@ -1489,6 +1515,10 @@ export function initModel(env,api){
     }
     const dupBtn=$('modelDupBtn');if(dupBtn)dupBtn.onclick=duplicateSelected;
     const delBtn=$('modelDeleteBtn');if(delBtn)delBtn.onclick=deleteSelected;
+    const gridBtn=$('modelGridBtn');
+    if(gridBtn)gridBtn.onclick=()=>{const on=!(grid&&grid.visible);api.setGrid(on);gridBtn.setAttribute('aria-pressed',String(on));gridBtn.classList.toggle('active',on);};
+    const spinBtn=$('modelSpinBtn');
+    if(spinBtn)spinBtn.onclick=()=>{const on=!(orbit&&orbit.autoRotate);api.setTurntable(on);spinBtn.setAttribute('aria-pressed',String(on));spinBtn.classList.toggle('active',on);};
     const extBtn=$('modelExtrudeBtn');if(extBtn)extBtn.onclick=extrudeSelected;
     const insetBtn=$('modelInsetBtn');if(insetBtn)insetBtn.onclick=insetSelected;
     const delFaceBtn=$('modelDelFaceBtn');if(delFaceBtn)delFaceBtn.onclick=deleteSelectedFaces;
@@ -1541,12 +1571,15 @@ export function initModel(env,api){
   api.panelOpen=()=>!!sheet;
   api.closePanel=closeSheet;
   api.debug=()=>({objects:env.getState().objects.length,selected:selectedId,mode,sheet,active});
+  api.setTurntable=v=>{if(orbit){orbit.autoRotate=!!v;dirty=true;}};
+  api.setGrid=v=>{if(grid){grid.visible=!!v;dirty=true;}};
+  api.viewFlags=()=>({turntable:!!(orbit&&orbit.autoRotate),grid:!!(grid&&grid.visible)});
 }
 
 /* 懒加载入口：app.js 通过动态 import 调用，three 只在进入 3D 时才加载。
  * 旧 WebView 解析不了 three 时，主界面不受影响，仅 3D 不可用。 */
 export function init(env){
-  const api={enter:()=>false,leave:()=>{},status:()=>'',panelOpen:()=>false,closePanel:()=>{},debug:()=>({})};
+  const api={enter:()=>false,leave:()=>{},status:()=>'',panelOpen:()=>false,closePanel:()=>{},debug:()=>({}),setTurntable:()=>{},setGrid:()=>{},viewFlags:()=>({turntable:false,grid:true})};
   initModel(env,api);
   return {
     serialize:()=>modelSanitize(env.getState()),
@@ -1555,6 +1588,9 @@ export function init(env){
     status:()=>api.status(),
     panelOpen:()=>api.panelOpen(),
     closePanel:()=>api.closePanel(),
-    debug:()=>api.debug()
+    debug:()=>api.debug(),
+    setTurntable:v=>api.setTurntable(v),
+    setGrid:v=>api.setGrid(v),
+    viewFlags:()=>api.viewFlags()
   };
 }
