@@ -31,6 +31,7 @@ import {searchProject} from './project-search.js';
 import {renderMarkdown} from './markdown.js';
 import {DEFAULT_FOCUS,focusSanitize,focusToggle,focusReset,focusSkip,focusTick,focusSetMinutes,fmtTime,lastNDays} from './focus.js';
 import {deckSanitize,addCard,removeCard,reviewCard,dueCards,deckStats} from './cards.js';
+import {importCards,importMistakes,exportCards,exportMistakes,updateCard,importSummary} from './transfer.js';
 import {SUBJECTS,MASTERY,bookSanitize,addMistake,updateMistake,setMastery,removeMistake,filterMistakes,bookStats} from './mistakes.js';
 import {habitsSanitize,addHabit,removeHabit,isChecked,toggleCheck,currentStreak,bestStreak,totalChecks,lastNDaysChecks,habitsStats} from './habits.js';
 import {DAYS,PERIODS,COURSE_COLORS,scheduleSanitize,addCourse,updateCourse,removeCourse,coursesOnDay,nowInfo,currentStatus,fmtMin,weeksText} from './schedule.js';
@@ -302,7 +303,12 @@ function setRunning(running){$('runButton').hidden=running;$('stopButton').hidde
    停止按钮、超时、出错都走 kill=true，死循环程序必须能杀掉。 */
 function stop(reason='已停止运行',kill=true){runToken++;if(worker){if(kill||worker!==cppWorker){worker.terminate();if(worker===cppWorker)cppWorker=null;}}worker=null;clearTimeout(timeout);setRunning(false);$('runState').textContent=reason;}
 function applyRunFiles(files){let updated=0;for(const f of files||[]){if(!validPath(f.path)||typeof f.text!=='string'||f.text.length>MAX_FILE)continue;const existing=state.files.find(x=>x.path===f.path);if(existing){if(existing.text===f.text)continue;existing.text=f.text;editorStates.delete(f.path);}else if(state.files.length<160)state.files.push(makeFile(f.path,f.text));else continue;updated++;}if(updated){restoring=true;createEditor();restoring=false;changed();append(`\n[工作区] 已保留 ${updated} 个新增或修改的文件，写回手机文件需点击保存。\n`);}}
+/* 学习/休闲面板里「运行/保存文件」没有意义：顶栏已隐藏这些按钮，
+   这里再兜一层，避免快捷键或旧调用在面板内误跑后台代码文件。 */
+const PANEL_MODES=new Set(['overview','focus','cards','mistakes','habits','schedule','medquiz','exams','medcalc','novel','soundscape','model','pelican','ai','game']);
+function inPanelMode(){return PANEL_MODES.has(workspaceMode);}
 async function run(){
+ if(inPanelMode()){notify('当前面板不需要运行代码，回到「写代码」再运行。');return;}
  if(worker)return;const f=active(),ext=extension(f.path);if(['html','htm'].includes(ext)){preview();return;}if(!['py','js','mjs','c','cc','cpp','cxx'].includes(ext)){notify(language(f.path)[0]+' 只能编辑，不能运行。可运行 .py、.js、.cpp/.c，或预览 .html。');return;}
  const isCpp=['c','cc','cpp','cxx'].includes(ext);
  flush();outputTab(false);$('output').replaceChildren();$('runState').textContent=ext==='py'?'准备 Python…':isCpp?(cppWorker?'编译 C/C++…':'准备 C/C++ 编译器…'):'运行 JavaScript…';runFiles=state.files.map(f=>({path:f.path,text:f.text}));const token=++runToken;
@@ -316,7 +322,7 @@ async function run(){
  worker.postMessage({runId:token,path:f.path,code:f.text,files:runFiles,stdin:$('stdin').value});
 }
 function preview(){flush();if(native){send('preview',{path:active().path,files:state.files.map(f=>({path:f.path,text:f.text}))});return;}const dlg=document.createElement('dialog');dlg.style.cssText='width:96vw;height:90vh;padding:8px;max-width:1100px';const close=document.createElement('button');close.textContent='关闭预览';close.onclick=()=>{dlg.close();dlg.remove();};const frame=document.createElement('iframe');frame.sandbox='allow-scripts';frame.style.cssText='width:100%;height:90%;background:white;border:0';let content=active().text;content=content.replace(/<link\b[^>]*href=["']([^"']+)["'][^>]*>/gi,(tag,path)=>{const f=state.files.find(f=>f.path===path);return f?'<style>'+f.text+'</style>':tag;}).replace(/<script\b[^>]*src=["']([^"']+)["'][^>]*>\s*<\/script>/gi,(tag,path)=>{const f=state.files.find(f=>f.path===path);return f?'<script>'+f.text+'</script>':tag;});frame.srcdoc=content;dlg.append(close,frame);document.body.append(dlg);dlg.showModal();}
-function saveFile(as=false){flush();const f=active(),id=String(Date.now())+'-'+Math.random();if(native){pendingSaves.set(id,{path:f.path,text:f.text});send(as||!f.uri?'export':'save',{id,path:f.path,text:f.text,uri:f.uri,encoding:f.encoding});}else{const blob=new Blob([f.text],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=f.path.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);f.savedText=f.text;changed();notify('已导出文件。');}}
+function saveFile(as=false){if(inPanelMode()){flush();notify('学习数据已自动存本机；要导出请用面板里的「导出 CSV」或设置里的备份。');return;}flush();const f=active(),id=String(Date.now())+'-'+Math.random();if(native){pendingSaves.set(id,{path:f.path,text:f.text});send(as||!f.uri?'export':'save',{id,path:f.path,text:f.text,uri:f.uri,encoding:f.encoding});}else{const blob=new Blob([f.text],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=f.path.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);f.savedText=f.text;changed();notify('已导出文件。');}}
 function importFiles(files){if(worker){notify('请停止运行后再导入。');return null;}let first='',backups=0,accepted=0;for(const file of files){if(!validPath(file.path)||typeof file.text!=='string'||file.text.length>MAX_FILE)continue;let path=file.path;const existing=state.files.find(f=>f.path===path);if(existing&&existing.uri!==file.uri){if(state.files.length>=159){notify('文件过多，请先另存草稿后重试。');break;}const backup='_草稿备份/'+Date.now()+'_'+path.split('/').pop().slice(-140);existing.path=backup;existing.uri='';state.opened=state.opened.map(p=>p===path?backup:p);editorStates.delete(path);backups++;}else if(existing){if(existing.text!==existing.savedText){notify('文件存在未写回的编辑，已保留草稿。');continue;}Object.assign(existing,makeFile(path,file.text,file.uri,file.encoding));accepted++;if(!first)first=path;continue;}if(state.files.length>=160)break;state.files.push(makeFile(path,file.text,file.uri||'',file.encoding||'UTF-8'));accepted++;if(!first)first=path;}if(first)switchFile(first);changed();if(backups)notify('导入文件保留原名；同名旧稿已移到 _草稿备份。');return {accepted,backups};}
 async function browserImport(event){const files=[];let skipped=0;for(const f of [...event.target.files].slice(0,160)){if(f.size>MAX_FILE){skipped++;continue;}try{const bytes=new Uint8Array(await f.arrayBuffer());if(bytes.includes(0))throw Error('binary');const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);files.push({path:f.webkitRelativePath||f.name,text,uri:'browser:'+f.name});}catch(e){skipped++;}}const result=importFiles(files);notify(`已接收 ${result?.accepted||0} / ${files.length} 个文本文件${skipped?'，另跳过 '+skipped+' 个非文本或过大文件':''}`);event.target.value='';}
 window.StudioNative={receive(m){
@@ -1435,9 +1441,11 @@ function renderCards(){
       const row=document.createElement('div');row.className='cards-row';
       const t=document.createElement('span');t.className='t';t.textContent=c.front;
       const d=document.createElement('span');d.className='d';d.textContent=c.due<=Date.now()?'到期':(c.interval?c.interval+'天':'新');
+      const edit=document.createElement('button');edit.type='button';edit.className='edit';edit.textContent='改';
+      edit.onclick=()=>cardsBeginEdit(c);
       const del=document.createElement('button');del.type='button';del.textContent='删';
-      del.onclick=()=>{state.cards=removeCard(state.cards,c.id);cardsResetReview();renderCards();scheduleSave();};
-      row.append(t,d,del);list.append(row);
+      del.onclick=()=>{state.cards=removeCard(state.cards,c.id);if(cardsEditId===c.id)cardsEndEdit();cardsResetReview();renderCards();scheduleSave();};
+      row.append(t,d,edit,del);list.append(row);
     }
     if(!deck.cards.length){const e=document.createElement('p');e.className='cards-face-hint';e.textContent='还没有卡片，点「添加卡片」开始。';list.append(e);}
   }
@@ -1454,10 +1462,39 @@ for(const b of document.querySelectorAll('#cardsRate button')){
     renderCards();scheduleSave();
   });
 }
-on('cardsToggleAdd',()=>{const a=$('cardsAdd');a.hidden=!a.hidden;const l=$('cardsList');if(l)l.hidden=true;renderCards();});
-on('cardsToggleList',()=>{const l=$('cardsList');l.hidden=!l.hidden;const a=$('cardsAdd');if(a)a.hidden=true;renderCards();});
+/* 卡片编辑：复用添加表单，改文字不动复习进度。 */
+let cardsEditId=null;
+function cardsBeginEdit(card){
+  cardsEditId=card.id;
+  const a=$('cardsAdd');if(a){a.hidden=false;a.classList.add('cards-editing');}
+  const l=$('cardsList');if(l)l.hidden=true;
+  $('cardsFront').value=card.front;$('cardsBack').value=card.back;
+  const save=$('cardsSave');if(save)save.textContent='保存修改';
+  const cancel=$('cardsEditCancel');if(cancel)cancel.hidden=false;
+  const lab=$('cardsFrontLabel');if(lab)lab.firstChild.textContent='正面（编辑中）';
+  $('cardsFront').focus();
+}
+function cardsEndEdit(){
+  cardsEditId=null;
+  const a=$('cardsAdd');if(a){a.classList.remove('cards-editing');}
+  $('cardsFront').value='';$('cardsBack').value='';
+  const save=$('cardsSave');if(save)save.textContent='保存卡片';
+  const cancel=$('cardsEditCancel');if(cancel)cancel.hidden=true;
+  const lab=$('cardsFrontLabel');if(lab)lab.firstChild.textContent='正面';
+}
+on('cardsToggleAdd',()=>{const a=$('cardsAdd');const willOpen=a.hidden;cardsEndEdit();a.hidden=!willOpen;const l=$('cardsList');if(l)l.hidden=true;renderCards();});
+on('cardsToggleList',()=>{const l=$('cardsList');l.hidden=!l.hidden;const a=$('cardsAdd');if(a)a.hidden=true;cardsEndEdit();renderCards();});
+on('cardsEditCancel',()=>{cardsEndEdit();const a=$('cardsAdd');if(a)a.hidden=true;const l=$('cardsList');if(l)l.hidden=false;renderCards();});
 on('cardsSave',()=>{
   const f=$('cardsFront').value,b=$('cardsBack').value;
+  if(cardsEditId!=null){
+    const r=updateCard(state.cards,cardsEditId,f,b);
+    if(!r.ok){notify('正面和背面都要填写。');return;}
+    state.cards=r.deck;cardsEndEdit();
+    const a=$('cardsAdd');if(a)a.hidden=true;
+    const l=$('cardsList');if(l)l.hidden=false;
+    notify('卡片已修改，复习进度保留');renderCards();scheduleSave();return;
+  }
   const r=addCard(state.cards,f,b,Date.now());
   if(!r.ok){notify('正面和背面都要填写。');return;}
   state.cards=r.deck;$('cardsFront').value='';$('cardsBack').value='';
@@ -2114,8 +2151,11 @@ function collectNovels(){
   for(const b of shelf.books){try{const t=localStorage.getItem(novelTextKey(b.id));if(t)out[novelTextKey(b.id)]=t;}catch(e){}}
   return out;
 }
-function downloadText(name,text){
-  const blob=new Blob([text],{type:'application/json'});
+function downloadText(name,text,mime){
+  /* CSV 加 BOM，Excel 打开中文不乱码 */
+  const type=mime||'application/json';
+  const parts=/csv/i.test(type)?['\uFEFF',text]:[text];
+  const blob=new Blob(parts,{type:type+';charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download=name;
   document.body.append(a);a.click();a.remove();
@@ -2255,6 +2295,69 @@ function renderOverview(){
   }
   hudMark(panel);
 }
+
+/* 批量导入 / 导出：卡片与错题共用一套交互，导入去重、导出可原样导回。 */
+function ioReport(id,res,extra){
+  const el=$(id);if(!el)return;
+  const msg=importSummary(res)+(extra||'');
+  el.textContent=msg;
+  el.className='io-result '+(res.added>0?(res.errors&&res.errors.length?'warn':'ok'):(res.parsed?'warn':'bad'));
+  if(res.errors&&res.errors.length)el.textContent=msg+'：'+res.errors.slice(0,2).join('；');
+}
+function ioReadFile(input,onText){
+  const f=input.files&&input.files[0];input.value='';
+  if(!f)return;
+  if(f.size>4*1024*1024){notify('文件太大（>4MB），拆分后再导入。');return;}
+  f.text().then(onText).catch(()=>notify('读不了这个文件。'));
+}
+function stampName(prefix,ext){
+  const d=new Date(),p=x=>String(x).padStart(2,'0');
+  return prefix+'-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'.'+ext;
+}
+on('cardsIOInfo',()=>{const h=$('cardsIOHint');if(h)h.hidden=!h.hidden;});
+on('mistIOInfo',()=>{const h=$('mistIOHint');if(h)h.hidden=!h.hidden;});
+on('cardsImportText',()=>{
+  const t=$('cardsIOText').value;
+  if(!t.trim()){notify('先把内容粘进文本框，或点「选择文件」。');return;}
+  const res=importCards(state.cards,t,Date.now());
+  state.cards=res.deck;cardsResetReview();renderCards();scheduleSave();
+  ioReport('cardsIOResult',res);
+  if(res.added){$('cardsIOText').value='';notify('导入 '+res.added+' 张卡片。');}
+});
+on('cardsImportFile',()=>$('cardsFile').click());
+{const inp=$('cardsFile');if(inp)inp.addEventListener('change',()=>ioReadFile(inp,t=>{
+  const res=importCards(state.cards,t,Date.now());
+  state.cards=res.deck;cardsResetReview();renderCards();scheduleSave();
+  ioReport('cardsIOResult',res);
+  if(res.added)notify('从文件导入 '+res.added+' 张卡片。');
+}));}
+on('cardsExport',()=>{
+  const d=deckSanitize(state.cards);
+  if(!d.cards.length){notify('还没有卡片可导出。');return;}
+  downloadText(stampName('tiangong-cards','csv'),exportCards(d),'text/csv');
+  const el=$('cardsIOResult');if(el){el.className='io-result ok';el.textContent='已导出 '+d.cards.length+' 张（含复习进度）到下载目录。';}
+});
+on('mistImportText',()=>{
+  const t=$('mistIOText').value;
+  if(!t.trim()){notify('先把内容粘进文本框，或点「选择文件」。');return;}
+  const res=importMistakes(state.mistakes,t,Date.now());
+  state.mistakes=res.book;renderMistakes();scheduleSave();
+  ioReport('mistIOResult',res);
+  if(res.added){$('mistIOText').value='';notify('导入 '+res.added+' 道错题。');}
+});
+on('mistImportFile',()=>$('mistFile').click());
+{const inp=$('mistFile');if(inp)inp.addEventListener('change',()=>ioReadFile(inp,t=>{
+  const res=importMistakes(state.mistakes,t,Date.now());
+  state.mistakes=res.book;renderMistakes();scheduleSave();
+  ioReport('mistIOResult',res);
+  if(res.added)notify('从文件导入 '+res.added+' 道错题。');
+}));}
+on('mistExport',()=>{
+  const b=bookSanitize(state.mistakes);
+  if(!b.items.length){notify('还没有错题可导出。');return;}
+  downloadText(stampName('tiangong-mistakes','csv'),exportMistakes(b),'text/csv');
+  const el=$('mistIOResult');if(el){el.className='io-result ok';el.textContent='已导出 '+b.items.length+' 道到下载目录。';}
+});
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
   getDrawData:()=>state.drawStrokes||[],

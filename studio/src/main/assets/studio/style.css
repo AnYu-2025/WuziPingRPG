@@ -1065,3 +1065,51 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus
 .ov-empty{font-size:12.5px;color:var(--muted);text-align:center;padding:14px 0}
 body.overviewview .quickkeys,body.overviewview .statusbar #position{display:none}
 @media (max-width:360px){.ov-tasks,.ov-stats{grid-template-columns:1fr}}
+
+/* ===== 批量导入 / 导出 ===== */
+.io-box{display:flex;flex-direction:column;gap:9px;padding:12px 13px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.io-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.io-head strong{font-size:13.5px;color:var(--text-strong)}
+.io-info{flex:none;width:26px;height:26px;min-height:26px;padding:0;border-radius:50%;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:700}
+.io-hint{margin:0;font-size:11.5px;line-height:1.65;color:var(--muted)}
+.io-box textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text-strong);padding:9px 11px;font:12.5px/1.6 ui-monospace,Menlo,Consolas,monospace;resize:vertical}
+.io-box textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.12)}
+.io-actions{display:flex;gap:7px;flex-wrap:wrap}
+.io-actions button{flex:1 1 auto;min-width:92px;min-height:38px;padding:0 12px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);color:var(--text-strong);font-size:12.5px;font-weight:600}
+.io-actions button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.io-result{margin:0;font-size:11.5px;line-height:1.6;color:var(--muted);min-height:16px}
+.io-result.ok{color:var(--accent)}
+.io-result.warn{color:#b7791f}
+.io-result.bad{color:#c2453a}
+.cards-row .edit{color:var(--accent)}
+.cards-editing{border-color:var(--accent)!important;box-shadow:0 0 0 3px rgba(var(--accent-rgb),.12)}
+
+/* 学习 / 休闲面板里，代码编辑器的动作与语言信息没有意义：
+   隐藏运行/停止/保存文件/文件抽屉，以及状态栏的语言与编码，
+   避免在错题本里点「运行」跑掉后台的 main.py。 */
+body.overviewview #runButton,body.overviewview #stopButton,body.overviewview #saveButton,body.overviewview #filesToggle,
+body.focusview #runButton,body.focusview #stopButton,body.focusview #saveButton,body.focusview #filesToggle,
+body.cardsview #runButton,body.cardsview #stopButton,body.cardsview #saveButton,body.cardsview #filesToggle,
+body.mistakesview #runButton,body.mistakesview #stopButton,body.mistakesview #saveButton,body.mistakesview #filesToggle,
+body.habitsview #runButton,body.habitsview #stopButton,body.habitsview #saveButton,body.habitsview #filesToggle,
+body.scheduleview #runButton,body.scheduleview #stopButton,body.scheduleview #saveButton,body.scheduleview #filesToggle,
+body.medquizview #runButton,body.medquizview #stopButton,body.medquizview #saveButton,body.medquizview #filesToggle,
+body.examsview #runButton,body.examsview #stopButton,body.examsview #saveButton,body.examsview #filesToggle,
+body.medcalcview #runButton,body.medcalcview #stopButton,body.medcalcview #saveButton,body.medcalcview #filesToggle,
+body.novelview #runButton,body.novelview #stopButton,body.novelview #saveButton,body.novelview #filesToggle,
+body.soundscapeview #runButton,body.soundscapeview #stopButton,body.soundscapeview #saveButton,body.soundscapeview #filesToggle,
+body.modelview #runButton,body.modelview #stopButton,body.modelview #saveButton,body.modelview #filesToggle,
+body.pelicanview #runButton,body.pelicanview #stopButton,body.pelicanview #saveButton,body.pelicanview #filesToggle{display:none}
+body.overviewview #language,body.overviewview #encoding,
+body.focusview #language,body.focusview #encoding,
+body.cardsview #language,body.cardsview #encoding,
+body.mistakesview #language,body.mistakesview #encoding,
+body.habitsview #language,body.habitsview #encoding,
+body.scheduleview #language,body.scheduleview #encoding,
+body.medquizview #language,body.medquizview #encoding,
+body.examsview #language,body.examsview #encoding,
+body.medcalcview #language,body.medcalcview #encoding,
+body.novelview #language,body.novelview #encoding,
+body.soundscapeview #language,body.soundscapeview #encoding,
+body.modelview #language,body.modelview #encoding,
+body.pelicanview #language,body.pelicanview #encoding{display:none}

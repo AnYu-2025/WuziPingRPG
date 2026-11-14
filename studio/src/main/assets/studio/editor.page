@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.26</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.27</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -289,9 +289,21 @@
    </div>
   </div>
   <div class="cards-add" id="cardsAdd" hidden>
-   <label>正面<input id="cardsFront" type="text" maxlength="500" placeholder="问题 / 单词"></label>
+   <label id="cardsFrontLabel">正面<input id="cardsFront" type="text" maxlength="500" placeholder="问题 / 单词"></label>
    <label>背面<textarea id="cardsBack" rows="3" maxlength="1000" placeholder="答案 / 释义"></textarea></label>
-   <div class="cards-actions"><button id="cardsSave" class="primary" type="button">保存卡片</button></div>
+   <div class="cards-actions"><button id="cardsSave" class="primary" type="button">保存卡片</button><button id="cardsEditCancel" type="button" hidden>取消编辑</button></div>
+  </div>
+  <div class="io-box" id="cardsIO">
+   <div class="io-head"><strong>批量导入 / 导出</strong><button id="cardsIOInfo" class="io-info" type="button" aria-label="格式说明">?</button></div>
+   <p class="io-hint" id="cardsIOHint" hidden>每行「正面,背面」，支持 CSV / TSV / 分号 / 竖线；首行可写表头（正面,背面 或 front,back）。带引号的逗号与换行都能正确解析。按正面去重，已有卡片的复习进度不会被改动。导出含进度列，可原样导回。</p>
+   <textarea id="cardsIOText" rows="4" placeholder="苹果,apple&#10;香蕉,banana"></textarea>
+   <div class="io-actions">
+    <button id="cardsImportText" class="primary" type="button">导入文本</button>
+    <button id="cardsImportFile" type="button">选择文件</button>
+    <button id="cardsExport" type="button">导出 CSV</button>
+   </div>
+   <input id="cardsFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" hidden>
+   <p class="io-result" id="cardsIOResult"></p>
   </div>
   <div class="cards-list" id="cardsList" hidden></div>
  </div>
@@ -323,6 +335,18 @@
     <button id="mistSave" class="primary" type="button">保存</button>
     <button id="mistCancel" type="button">取消</button>
    </div>
+  </div>
+  <div class="io-box" id="mistIO">
+   <div class="io-head"><strong>批量导入 / 导出</strong><button id="mistIOInfo" class="io-info" type="button" aria-label="格式说明">?</button></div>
+   <p class="io-hint" id="mistIOHint" hidden>每行「科目,标题,题目,答案,错因,掌握度」，支持 CSV / TSV / 分号 / 竖线；首行可写表头（科目,标题… 或 subject,title…）。掌握度可写 未掌握/模糊/已掌握 或 0/1/2。科目不在白名单时归入「其他」。按标题+题目去重。</p>
+   <textarea id="mistIOText" rows="4" placeholder="数学,二次函数求根,x^2-5x+6=0,x=2 或 x=3,符号弄反,未掌握"></textarea>
+   <div class="io-actions">
+    <button id="mistImportText" class="primary" type="button">导入文本</button>
+    <button id="mistImportFile" type="button">选择文件</button>
+    <button id="mistExport" type="button">导出 CSV</button>
+   </div>
+   <input id="mistFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" hidden>
+   <p class="io-result" id="mistIOResult"></p>
   </div>
   <div class="mist-list" id="mistList"></div>
  </div>
