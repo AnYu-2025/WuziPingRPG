@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.25</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.26</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -39,6 +39,7 @@
  <section class="home-group" data-group="study" aria-label="学习">
   <div class="home-ghead"><h2>学习</h2><span>上课、背书、刷题，都在这一组</span></div>
   <div class="home-grid">
+   <button class="home-card" type="button" data-mode="overview" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">📊</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>学习总览</strong><small>今天该做什么、这周学了多少，一页看完</small></span></button>
    <button class="home-card" type="button" data-mode="lecture" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🎙</span><span class="home-tag">录音</span></span><span class="home-copy"><strong>上课</strong><small>录音、笔记、PPT 同一条时间轴</small></span></button>
    <button class="home-card" type="button" data-mode="tts" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">EN</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>英文朗读</strong><small>按句子朗读英文，可调语速</small></span></button>
    <button class="home-card" type="button" data-mode="scan" data-kind="native" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">▣</span><span class="home-tag">相机</span></span><span class="home-copy"><strong>扫描文档</strong><small>拍书页和讲义，自动裁边，导出 PDF</small></span></button>
@@ -213,6 +214,30 @@
  </div>
 </section>
 <dialog id="modelRenameDialog"><form method="dialog"><span class="eyebrow">3D 建模</span><h2>重命名物体</h2><label for="modelRenameInput">名称</label><input id="modelRenameInput" autocomplete="off" maxlength="30"><div class="dialogactions"><button value="cancel">取消</button><button value="ok" class="primary">确定</button></div></form></dialog>
+
+<section id="overviewPanel" hidden aria-label="学习总览">
+ <div class="ov-wrap">
+  <div class="ov-hero">
+   <div class="ov-streak"><b id="ovStreak">0</b><small>连续学习天数</small></div>
+   <p class="ov-line" id="ovLine">正在汇总…</p>
+  </div>
+  <div class="ov-tasks" id="ovTasks"></div>
+  <div class="ov-card">
+   <div class="ov-cardhead"><strong>这七天</strong><span id="ovWeekTotal"></span></div>
+   <div class="ov-chart" id="ovChart" aria-label="最近七天学习活跃"></div>
+   <div class="ov-legend"><span><i class="lg-focus"></i>专注段</span><span><i class="lg-check"></i>打卡</span></div>
+  </div>
+  <div class="ov-card">
+   <div class="ov-cardhead"><strong>各科掌握</strong><span id="ovSubMeta"></span></div>
+   <div class="ov-subjects" id="ovSubjects"></div>
+  </div>
+  <div class="ov-card">
+   <div class="ov-cardhead"><strong>临近考试</strong></div>
+   <div class="ov-exams" id="ovExams"></div>
+  </div>
+  <div class="ov-stats" id="ovStats"></div>
+ </div>
+</section>
 
 <section id="focusPanel" hidden aria-label="专注番茄">
  <div class="focus-wrap">

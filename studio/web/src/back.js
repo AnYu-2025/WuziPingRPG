@@ -30,6 +30,7 @@ export const GROUPS=[
 
 /* 顺序即首页顺序。resume 是「接着做」卡片上的标题。 */
 export const MODULES=[
+  {id:'overview',group:'study',kind:'web',title:'学习总览',resume:'继续学习总览',detail:'今天该做什么、这周学了多少，一页看完',icon:'📊',tag:'离线'},
   {id:'lecture',group:'study',kind:'web',title:'上课',resume:'继续上课',detail:'边听边记，录音、笔记、PPT 对着同一条时间轴',icon:'🎙',tag:'录音'},
   {id:'tts',group:'study',kind:'web',title:'英文朗读',resume:'继续英文朗读',detail:'一句一句读英文，语速随你调',icon:'EN',tag:'离线'},
   {id:'scan',group:'study',kind:'native',title:'扫描文档',resume:'继续扫描文档',detail:'拍书页讲义，自动裁边，存成 PDF',icon:'▣',tag:'相机',minSdk:29},

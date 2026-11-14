@@ -44,6 +44,7 @@ import {createSoundscapeAudio} from './soundscape-audio.js';
 import {createSoundscapeVisual} from './soundscape-visual.js';
 import {buildBackup,parseBackup,backupSummary} from './backup.js';
 import {fxBoot,setFx,fxEnabled,fxStored,fxPreferred,warp,materialize,hudMark,homeIn,bootSequence} from './fx.js';
+import {buildOverview} from './overview.js';
 import {init as initPelican} from './pelican3d.js';
 import {pelicanSanitize} from './pelican.js';
 
@@ -381,7 +382,8 @@ function setWorkspaceMode(mode){
   if(mode!=='exams')document.body.classList.remove('examsview');
   if(mode!=='medcalc')document.body.classList.remove('medcalcview');
   if(mode!=='soundscape'){document.body.classList.remove('soundscapeview');ssStop();}
-  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['mistakesPanel','mistakes'],['habitsPanel','habits'],['schedulePanel','schedule'],['novelPanel','novel'],['medquizPanel','medquiz'],['examsPanel','exams'],['medcalcPanel','medcalc'],['soundscapePanel','soundscape'],['modelPanel','model'],['aiPanel','ai']]){
+  if(mode!=='overview')document.body.classList.remove('overviewview');
+  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['mistakesPanel','mistakes'],['habitsPanel','habits'],['schedulePanel','schedule'],['novelPanel','novel'],['medquizPanel','medquiz'],['examsPanel','exams'],['medcalcPanel','medcalc'],['soundscapePanel','soundscape'],['overviewPanel','overview'],['modelPanel','model'],['aiPanel','ai']]){
     const el=$(id);if(el&&mode!==m)el.hidden=true;
   }
 }
@@ -1008,13 +1010,24 @@ function applyMode(mode){
   const fxChanged=workspaceMode!==mode;
   setWorkspaceMode(mode);  const noteEmpty=$('noteEmpty');
   /* 跃迁转场：只在真正换模块时走一次扫描 + 目标面板实体化。 */
-  const FX_STAGGER={focus:'.focus-actions button',cards:'.cards-actions button',mistakes:'.mist-filters>*',habits:'.habit-add>*',schedule:'.sched-head>*',novel:'.novel-head>*',medquiz:'.mq-row>*',exams:'.exam-head>*',medcalc:'.mc-chips button',soundscape:'.ss-presets button',model:'.model-modes button',ai:'.ai-section',python:'.quickkeys button',notepad:'.quickkeys button',lecture:'.lecture-tab',tts:'.tts-main>*',game:'.game-actions button'};
-  const FX_PANEL={focus:'focusPanel',cards:'cardsPanel',mistakes:'mistakesPanel',habits:'habitsPanel',schedule:'schedulePanel',novel:'novelPanel',medquiz:'medquizPanel',exams:'examsPanel',medcalc:'medcalcPanel',soundscape:'soundscapePanel',model:'modelPanel',ai:'aiPanel',python:'workbench',notepad:'workbench',lecture:'workbench',tts:'workbench',game:'lounge'};
+  const FX_STAGGER={overview:'.ov-tasks>*',focus:'.focus-actions button',cards:'.cards-actions button',mistakes:'.mist-filters>*',habits:'.habit-add>*',schedule:'.sched-head>*',novel:'.novel-head>*',medquiz:'.mq-row>*',exams:'.exam-head>*',medcalc:'.mc-chips button',soundscape:'.ss-presets button',model:'.model-modes button',ai:'.ai-section',python:'.quickkeys button',notepad:'.quickkeys button',lecture:'.lecture-tab',tts:'.tts-main>*',game:'.game-actions button'};
+  const FX_PANEL={overview:'overviewPanel',focus:'focusPanel',cards:'cardsPanel',mistakes:'mistakesPanel',habits:'habitsPanel',schedule:'schedulePanel',novel:'novelPanel',medquiz:'medquizPanel',exams:'examsPanel',medcalc:'medcalcPanel',soundscape:'soundscapePanel',model:'modelPanel',ai:'aiPanel',python:'workbench',notepad:'workbench',lecture:'workbench',tts:'workbench',game:'lounge'};
   const fxEnter=()=>{if(!fxChanged)return;warp();const p=FX_PANEL[mode];if(p)materialize(p,FX_STAGGER[mode]);};
   if(noteEmpty)noteEmpty.textContent=mode==='lecture'?'点上方「🎙 开始录音」，边听边记；每一行都会自动带上时间戳。':'从这里开始写点什么…';
   const drawToggle=$('drawToggle');
   if(leavingAI)aiModeLeave();
   const aiPanel=$('aiPanel');
+  if(mode==='overview'){
+    document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('overviewview');
+    lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
+    $('workbench').hidden=true;$('lounge').hidden=true;
+    if(aiPanel)aiPanel.hidden=true;
+    const mp=$('modelPanel');if(mp)mp.hidden=true;
+    const op=$('overviewPanel');if(op)op.hidden=false;
+    $('activePath').textContent='学习总览';$('dirtyFlag').textContent='';
+    renderOverview();fxEnter();
+    return true;
+  }
   if(mode==='focus'){
     document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('focusview');
     lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
@@ -2133,6 +2146,115 @@ on('backupImport',()=>$('backupFile').click());
     notify('备份已恢复。');
   }catch(e){notify('恢复失败：'+(e.message||e));}
 });}
+
+/* 学习总览：汇总各模块真实数据，点卡片直达对应模块。 */
+function ovTask(label,value,mode,zero){
+  const b=document.createElement('button');
+  b.type='button';b.className='ov-task'+(zero?' zero':'');
+  const n=document.createElement('b');n.textContent=String(value);
+  const s=document.createElement('small');s.textContent=label;
+  b.append(n,s);
+  b.onclick=()=>{if(applyMode(mode))selectedMode=mode;};
+  return b;
+}
+function renderOverview(){
+  const panel=$('overviewPanel');if(!panel)return;
+  const sum=buildOverview(state,Date.now());
+  const st=$('ovStreak');if(st)st.textContent=String(sum.streak);
+  const line=$('ovLine');if(line)line.textContent=sum.line;
+  const tasks=$('ovTasks');
+  if(tasks){
+    tasks.replaceChildren(
+      ovTask('张卡片到期',sum.tasks.cardsDue,'cards',sum.tasks.cardsDue===0),
+      ovTask('个习惯待打卡',sum.tasks.habitsLeft,'habits',sum.tasks.habitsLeft===0),
+      ovTask('道错题没吃透',sum.tasks.mistakesOpen,'mistakes',sum.tasks.mistakesOpen===0),
+      ovTask('节今日课程',sum.tasks.coursesToday,'schedule',sum.tasks.coursesToday===0)
+    );
+  }
+  const wt=$('ovWeekTotal');if(wt)wt.textContent='共 '+sum.weekTotal+' 次';
+  const chart=$('ovChart');
+  if(chart){
+    chart.replaceChildren();
+    const max=Math.max(1,...sum.week.map(d=>d.total));
+    const today=sum.today;
+    for(const d of sum.week){
+      const col=document.createElement('div');
+      col.className='col'+(d.total?'':' empty')+(d.date===today?' today':'');
+      const stack=document.createElement('div');stack.className='stack';
+      if(d.total){
+        /* 列向 flex：先 append 的在上。图例顺序是「专注段 → 打卡」，
+           所以专注在上、打卡在下，图例与图形必须一致。 */
+        if(d.focus){const i=document.createElement('i');i.className='f';i.style.height=Math.round(d.focus/max*68)+'px';stack.append(i);}
+        if(d.checks){const i=document.createElement('i');i.className='c';i.style.height=Math.round(d.checks/max*68)+'px';stack.append(i);}
+      }
+      const vv=document.createElement('span');vv.className='vv';vv.textContent=d.total?String(d.total):'';
+      const lb=document.createElement('b');lb.textContent=d.date.slice(8);
+      col.title=d.date+'：专注 '+d.focus+' 段 · 打卡 '+d.checks+' 次';
+      col.append(vv,stack,lb);chart.append(col);
+    }
+  }
+  const subs=$('ovSubjects');
+  const sm=$('ovSubMeta');
+  if(subs){
+    subs.replaceChildren();
+    if(!sum.subjects.length){
+      const e=document.createElement('p');e.className='ov-empty';e.textContent='错题本还没有记录，记几道就有掌握度了。';subs.append(e);
+      if(sm)sm.textContent='';
+    }else{
+      if(sm)sm.textContent=sum.mistakes.mastered+' / '+sum.mistakes.total+' 已掌握';
+      for(const s of sum.subjects.slice(0,8)){
+        const row=document.createElement('div');row.className='ov-sub';
+        const nm=document.createElement('span');nm.className='nm';nm.textContent=s.subject;
+        const bar=document.createElement('span');bar.className='bar';
+        const fill=document.createElement('i');fill.style.width=s.rate+'%';bar.append(fill);
+        const pc=document.createElement('span');pc.className='pc';pc.textContent=s.mastered+'/'+s.total+' · '+s.rate+'%';
+        row.append(nm,bar,pc);subs.append(row);
+      }
+    }
+  }
+  const ex=$('ovExams');
+  if(ex){
+    ex.replaceChildren();
+    if(!sum.exams.length){
+      const e=document.createElement('p');e.className='ov-empty';e.textContent='没有临近的考试，去「考试倒计时」排一个。';ex.append(e);
+    }else{
+      for(const e of sum.exams){
+        const b=document.createElement('button');b.type='button';b.className='ov-exam';
+        const dd=document.createElement('span');dd.className='dd';
+        const db=document.createElement('b');db.textContent=String(e.days);
+        const ds=document.createElement('small');ds.textContent='天后';
+        dd.append(db,ds);
+        const info=document.createElement('span');info.className='info';
+        const nb=document.createElement('b');nb.textContent=e.name;
+        const meta=document.createElement('small');
+        meta.textContent=e.date+(e.total?(' · 里程碑 '+e.done+'/'+e.total):'');
+        info.append(nb,meta);
+        b.append(dd,info);
+        b.onclick=()=>{if(applyMode('exams'))selectedMode='exams';};
+        ex.append(b);
+      }
+    }
+  }
+  const stats=$('ovStats');
+  if(stats){
+    stats.replaceChildren();
+    const items=[
+      ['记忆卡片 · 已学',sum.cards.total?(sum.cards.learned+' / '+sum.cards.total):'0 张','cards'],
+      ['刷题正确率',sum.quiz.answered?(sum.quiz.accuracy+'%'):'—','medquiz'],
+      ['错题本 · 掌握',sum.mistakes.total?(sum.mistakes.rate+'%'):'—','mistakes'],
+      ['习惯 · 今日',sum.tasks.habitsTotal?(sum.tasks.habitsDone+' / '+sum.tasks.habitsTotal):'0 个','habits']
+    ];
+    for(const [label,value,mode] of items){
+      const b=document.createElement('button');b.type='button';b.className='ov-stat';
+      const vb=document.createElement('b');vb.textContent=value;
+      const ls=document.createElement('small');ls.textContent=label;
+      b.append(vb,ls);
+      b.onclick=()=>{if(applyMode(mode))selectedMode=mode;};
+      stats.append(b);
+    }
+  }
+  hudMark(panel);
+}
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
   getDrawData:()=>state.drawStrokes||[],
