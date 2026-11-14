@@ -47,6 +47,7 @@ const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 export function initModel(env,api){
   const $=id=>document.getElementById(id);
   let scene=null,renderer=null,camera=null,perspCamera=null,orthoCamera=null,orbit=null,gizmo=null,grid=null;
+  let lightHemi=null,lightSun=null,lightFill=null,envPreset='studio';
   let orthoHalfH=3,wireframe=false;
   let meshes=new Map(),selectedId=0,mode='object',editSel=null,editDrag=null;
   let active=false,dirty=false,raf=0,sheet='',history=[],redoStack=[],editOverlay=null,mirrorEdit=false;
@@ -71,8 +72,8 @@ export function initModel(env,api){
     orthoCamera=new THREE.OrthographicCamera(-3,3,3,-3,-100,200);
     camera=perspCamera;
     camera.position.set(3.2,2.6,4.2);
-    const hemi=new THREE.HemisphereLight(0xdfeee9,0x2a343c,1.05);scene.add(hemi);
-    const sun=new THREE.DirectionalLight(0xfff4e0,1.6);sun.position.set(4,7,3);
+    const hemi=new THREE.HemisphereLight(0xdfeee9,0x2a343c,1.05);scene.add(hemi);lightHemi=hemi;
+    const sun=new THREE.DirectionalLight(0xfff4e0,1.6);sun.position.set(4,7,3);lightSun=sun;
     sun.castShadow=true;
     sun.shadow.mapSize.set(1024,1024);
     sun.shadow.camera.left=-8;sun.shadow.camera.right=8;
@@ -80,7 +81,7 @@ export function initModel(env,api){
     sun.shadow.camera.near=1;sun.shadow.camera.far=30;
     sun.shadow.bias=-0.0005;
     scene.add(sun);
-    const fill=new THREE.DirectionalLight(0x9fc4d8,.4);fill.position.set(-5,3,-4);scene.add(fill);
+    const fill=new THREE.DirectionalLight(0x9fc4d8,.4);fill.position.set(-5,3,-4);scene.add(fill);lightFill=fill;
     grid=new THREE.GridHelper(20,20,0x2e4a44,0x1c2a30);grid.position.y=0;scene.add(grid);
     /* 接影地面：只显阴影不显颜色，物体落地更真实 */
     const ground=new THREE.Mesh(new THREE.PlaneGeometry(60,60),new THREE.ShadowMaterial({opacity:.32}));
@@ -1519,6 +1520,8 @@ export function initModel(env,api){
     if(gridBtn)gridBtn.onclick=()=>{const on=!(grid&&grid.visible);api.setGrid(on);gridBtn.setAttribute('aria-pressed',String(on));gridBtn.classList.toggle('active',on);};
     const spinBtn=$('modelSpinBtn');
     if(spinBtn)spinBtn.onclick=()=>{const on=!(orbit&&orbit.autoRotate);api.setTurntable(on);spinBtn.setAttribute('aria-pressed',String(on));spinBtn.classList.toggle('active',on);};
+    const envSel=$('modelEnvSelect');
+    if(envSel)envSel.onchange=()=>{api.setEnv(envSel.value);env.notify('环境光：'+({studio:'影棚',sunset:'日落',night:'夜光'})[envSel.value]);};
     const extBtn=$('modelExtrudeBtn');if(extBtn)extBtn.onclick=extrudeSelected;
     const insetBtn=$('modelInsetBtn');if(insetBtn)insetBtn.onclick=insetSelected;
     const delFaceBtn=$('modelDelFaceBtn');if(delFaceBtn)delFaceBtn.onclick=deleteSelectedFaces;
@@ -1574,12 +1577,34 @@ export function initModel(env,api){
   api.setTurntable=v=>{if(orbit){orbit.autoRotate=!!v;dirty=true;}};
   api.setGrid=v=>{if(grid){grid.visible=!!v;dirty=true;}};
   api.viewFlags=()=>({turntable:!!(orbit&&orbit.autoRotate),grid:!!(grid&&grid.visible)});
+  api.setEnv=name=>{
+    envPreset=['studio','sunset','night'].includes(name)?name:'studio';
+    if(!lightSun||!lightHemi||!lightFill)return;
+    if(envPreset==='sunset'){
+      lightHemi.color.setHex(0xffd9b0);lightHemi.groundColor.setHex(0x3a2a20);lightHemi.intensity=.8;
+      lightSun.color.setHex(0xff9a50);lightSun.intensity=1.7;lightSun.position.set(-6,2.5,3);
+      lightFill.color.setHex(0x7f9fd8);lightFill.intensity=.35;
+      renderer.setClearColor(0x241a12);scene.fog.color.setHex(0x241a12);
+    }else if(envPreset==='night'){
+      lightHemi.color.setHex(0x9fb4d8);lightHemi.groundColor.setHex(0x1a2030);lightHemi.intensity=.7;
+      lightSun.color.setHex(0x8fb0ff);lightSun.intensity=.9;lightSun.position.set(4,7,3);
+      lightFill.color.setHex(0x40507f);lightFill.intensity=.3;
+      renderer.setClearColor(0x0b1020);scene.fog.color.setHex(0x0b1020);
+    }else{
+      lightHemi.color.setHex(0xdfeee9);lightHemi.groundColor.setHex(0x2a343c);lightHemi.intensity=1.05;
+      lightSun.color.setHex(0xfff4e0);lightSun.intensity=1.6;lightSun.position.set(4,7,3);
+      lightFill.color.setHex(0x9fc4d8);lightFill.intensity=.4;
+      renderer.setClearColor(0x101820);scene.fog.color.setHex(0x101820);
+    }
+    dirty=true;
+  };
+  api.envPreset=()=>envPreset;
 }
 
 /* 懒加载入口：app.js 通过动态 import 调用，three 只在进入 3D 时才加载。
  * 旧 WebView 解析不了 three 时，主界面不受影响，仅 3D 不可用。 */
 export function init(env){
-  const api={enter:()=>false,leave:()=>{},status:()=>'',panelOpen:()=>false,closePanel:()=>{},debug:()=>({}),setTurntable:()=>{},setGrid:()=>{},viewFlags:()=>({turntable:false,grid:true})};
+  const api={enter:()=>false,leave:()=>{},status:()=>'',panelOpen:()=>false,closePanel:()=>{},debug:()=>({}),setTurntable:()=>{},setGrid:()=>{},viewFlags:()=>({turntable:false,grid:true}),setEnv:()=>{},envPreset:()=>'studio'};
   initModel(env,api);
   return {
     serialize:()=>modelSanitize(env.getState()),
@@ -1591,6 +1616,8 @@ export function init(env){
     debug:()=>api.debug(),
     setTurntable:v=>api.setTurntable(v),
     setGrid:v=>api.setGrid(v),
-    viewFlags:()=>api.viewFlags()
+    viewFlags:()=>api.viewFlags(),
+    setEnv:n=>api.setEnv(n),
+    envPreset:()=>api.envPreset()
   };
 }

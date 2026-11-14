@@ -42,6 +42,7 @@ import {CALCULATORS,calcById,runCalc} from './medcalc.js';
 import {LAYERS,PRESETS,defaultSoundscape,soundscapeSanitize,setLayer,setMaster,applyPreset,startTimer,clearTimer,timerRemaining,fadeGain,activeLayers} from './soundscape.js';
 import {createSoundscapeAudio} from './soundscape-audio.js';
 import {createSoundscapeVisual} from './soundscape-visual.js';
+import {buildBackup,parseBackup,backupSummary} from './backup.js';
 import {init as initPelican} from './pelican3d.js';
 import {pelicanSanitize} from './pelican.js';
 
@@ -2071,6 +2072,46 @@ function ssStop(){
 }
 /* 切后台/锁屏自动停声音与画布，避免后台偷跑耗电。 */
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&workspaceMode==='soundscape')ssStop();});
+
+/* 数据备份/恢复：导出全部草稿+学习记录+小说+导入题库为一个 JSON。 */
+function collectNovels(){
+  const out={};
+  const shelf=shelfSanitize(state.novel);
+  for(const b of shelf.books){try{const t=localStorage.getItem(novelTextKey(b.id));if(t)out[novelTextKey(b.id)]=t;}catch(e){}}
+  return out;
+}
+function downloadText(name,text){
+  const blob=new Blob([text],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=name;
+  document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+on('backupExport',()=>{
+  flush();
+  const data=buildBackup(snapshot(),{novels:collectNovels(),medquizCustom:mqLoadCustom()},Date.now());
+  const d=new Date();const p=x=>String(x).padStart(2,'0');
+  downloadText('tiangong-backup-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'.json',JSON.stringify(data));
+  notify('备份已导出到下载目录。');
+});
+on('backupImport',()=>$('backupFile').click());
+{const f=$('backupFile');if(f)f.addEventListener('change',async()=>{
+  const file=f.files&&f.files[0];f.value='';if(!file)return;
+  let text='';try{text=await file.text();}catch(e){notify('读不了这个文件。');return;}
+  const parsed=parseBackup(text);
+  if(!parsed){notify('不是有效的天工备份文件。');return;}
+  const s=backupSummary(parsed);
+  if(!confirm('导入将覆盖当前全部草稿与学习记录。\n备份含：'+s.files+' 个文件、'+s.cards+' 卡片、'+s.mistakes+' 错题、'+s.habits+' 习惯、'+s.courses+' 课程、'+s.exams+' 考试、'+s.novels+' 小说、'+s.customQuiz+' 导入题。\n确定恢复？'))return;
+  try{
+    loadState(parsed.snapshot);
+    for(const [k,v] of Object.entries(parsed.novels)){try{localStorage.setItem(k,v);}catch(e){}}
+    try{localStorage.setItem(MQ_CUSTOM_KEY,JSON.stringify(parsed.medquizCustom));}catch(e){}
+    ready=true;renderFiles();openTab(state.active);applySettings();
+    $('settingsDialog').close();
+    flush();openLanding(true);
+    notify('备份已恢复。');
+  }catch(e){notify('恢复失败：'+(e.message||e));}
+});}
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
   getDrawData:()=>state.drawStrokes||[],

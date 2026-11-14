@@ -14,6 +14,7 @@
 .model-chipbtn{flex:none;width:36px;height:36px;min-height:36px;padding:0;border-radius:999px;background:rgba(16,24,32,.72);color:#cfe0da;font-size:16px;backdrop-filter:blur(8px)}
 .model-chipbtn:active{background:rgba(15,118,110,.55)}
 .model-chipbtn:disabled{opacity:.35}
+.model-envselect{flex:none;width:44px;height:36px;min-height:36px;border-radius:999px;background:rgba(16,24,32,.72);color:#cfe0da;border:1px solid rgba(207,224,218,.25);font-size:12px;padding:0 4px;backdrop-filter:blur(8px);appearance:auto}
 
 /* 变换模式分段控件 */
 .model-modes{position:absolute;left:10px;bottom:10px;display:flex;gap:4px;padding:4px;border-radius:14px;background:rgba(16,24,32,.72);backdrop-filter:blur(8px)}
