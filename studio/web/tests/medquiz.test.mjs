@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {QUIZ_BANK,QUIZ_SUBJECTS,bankCount,getBank,parseBankText,mergeBank,qKey} from '../src/quiz-data.js';
-import {buildQuiz,answerQuiz,nextQuiz,gradeQuiz,accuracy,sessionSummary,quizStatsSanitize,shuffle,displayOptions} from '../src/medquiz.js';
+import {buildQuiz,answerQuiz,nextQuiz,gradeQuiz,accuracy,sessionSummary,quizStatsSanitize,shuffle,displayOptions,chosenDisplay} from '../src/medquiz.js';
 
-test('bank integrity: >=500 questions, unique ids & stems, valid answers',()=>{
-  assert.ok(QUIZ_BANK.length>=500);
+test('bank integrity: >=600 questions, unique ids & stems, valid answers',()=>{
+  assert.ok(QUIZ_BANK.length>=600);
   const ids=new Set(QUIZ_BANK.map(q=>q.id));
   assert.equal(ids.size,QUIZ_BANK.length);
   const stems=new Set(QUIZ_BANK.map(q=>qKey(q.q)));
@@ -13,9 +13,13 @@ test('bank integrity: >=500 questions, unique ids & stems, valid answers',()=>{
     assert.ok(q.options.length>=2);
     assert.ok(q.answer>=0&&q.answer<q.options.length);
     assert.ok(QUIZ_SUBJECTS.includes(q.subject));
-    assert.ok([1,2,3].includes(q.difficulty));
+    assert.ok([1,2,3,4].includes(q.difficulty));
   }
-  assert.equal(bankCount('解剖'),65);
+  assert.equal(bankCount('解剖'),77);
+  // 挑战层：8 科各 12 道
+  const ch=QUIZ_BANK.filter(q=>q.difficulty===4);
+  assert.equal(ch.length,96);
+  for(const s of QUIZ_SUBJECTS)assert.equal(ch.filter(q=>q.subject===s).length,12);
 });
 
 test('mergeBank dedupes by normalized stem',()=>{
@@ -106,4 +110,43 @@ test('answer via displayed index grades correctly',()=>{
   const after=answerQuiz(s,q.id,d.perm[d.answer]);
   const st=gradeQuiz(quizStatsSanitize(null),q.id,after.answers[q.id]);
   assert.equal(st.right,1);
+});
+
+/* 回归：答对时只能标绿正确项，绝不能把别的选项标红。
+   历史 bug：渲染用原始下标与展示下标比较，导致答对也标红。 */
+test('correct answer marks only the right option (no stray red)',()=>{
+  // 用固定 rnd 产生非恒等置换，确保展示下标≠原始下标
+  const s=buildQuiz(quizStatsSanitize(null),'全部','order',()=>0.5);
+  let checked=0;
+  for(const q of QUIZ_BANK.slice(0,120)){
+    const d=displayOptions(s,q);
+    const after=answerQuiz(s,q.id,d.perm[d.answer]); // 选正确项
+    const chosen=chosenDisplay(after,q);
+    assert.equal(chosen,d.answer); // 已选展示下标==正确展示下标
+    // 渲染逻辑：right 当 i===d.answer；wrong 当 i===chosen 且 i!==d.answer
+    const reds=d.options.map((_,i)=>i).filter(i=>i!==d.answer&&i===chosen);
+    assert.equal(reds.length,0);
+    checked++;
+  }
+  assert.ok(checked>0);
+});
+
+test('wrong answer marks exactly one red (the chosen) plus green right',()=>{
+  const s=buildQuiz(quizStatsSanitize(null),'全部','order',()=>0.5);
+  for(const q of QUIZ_BANK.slice(0,120)){
+    const d=displayOptions(s,q);
+    const wrongOriginal=d.perm[(d.answer+1)%d.perm.length];
+    const after=answerQuiz(s,q.id,wrongOriginal);
+    const chosen=chosenDisplay(after,q);
+    assert.notEqual(chosen,d.answer);
+    const reds=d.options.map((_,i)=>i).filter(i=>i!==d.answer&&i===chosen);
+    assert.equal(reds.length,1);
+    assert.equal(reds[0],chosen);
+  }
+});
+
+test('challenge difficulty filter returns only difficulty 4',()=>{
+  const ch=buildQuiz(quizStatsSanitize(null),'全部','order',undefined,QUIZ_BANK,4);
+  assert.equal(ch.ids.length,96);
+  assert.ok(ch.ids.every(id=>QUIZ_BANK.find(q=>q.id===id).difficulty===4));
 });

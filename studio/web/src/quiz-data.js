@@ -11,9 +11,10 @@ import {BANK_PHARM} from './quiz-bank-pharm.js';
 import {BANK_MICRO} from './quiz-bank-micro.js';
 import {BANK_IMMUNO} from './quiz-bank-immuno.js';
 import {BANK_DIAG} from './quiz-bank-diag.js';
+import {BANK_CHALLENGE} from './quiz-bank-challenge.js';
 
 export const QUIZ_SUBJECTS=['解剖','生理','生化','病理','药理','微生物','免疫','诊断'];
-export const DIFF_LABELS={1:'基础',2:'进阶',3:'偏难'};
+export const DIFF_LABELS={1:'基础',2:'进阶',3:'偏难',4:'挑战'};
 
 const norm=s=>String(s||'').toLowerCase().replace(/[\s　]/g,'').replace(/[，。？！、；：,.?!;:"'’‘“”()（）【】\[\]<>《》\-—_·]/g,'');
 export function qKey(q){return norm(q);}
@@ -30,7 +31,7 @@ export function qSanitize(raw,fallbackId){
     subject:QUIZ_SUBJECTS.includes(r.subject)?r.subject:'诊断',
     q,options,answer,
     explain:typeof r.explain==='string'?r.explain.slice(0,600):'',
-    difficulty:[1,2,3].includes(+r.difficulty)?+r.difficulty:2,
+    difficulty:[1,2,3,4].includes(+r.difficulty)?+r.difficulty:2,
     tag:['重点','偏','难'].includes(r.tag)?r.tag:''
   };
 }
@@ -53,7 +54,7 @@ export function mergeBank(builtin,custom){
   return out;
 }
 
-const BUILTIN=[...BANK_ANATOMY,...BANK_PHYSIO,...BANK_BIOCHEM,...BANK_PATHO,...BANK_PHARM,...BANK_MICRO,...BANK_IMMUNO,...BANK_DIAG];
+const BUILTIN=[...BANK_ANATOMY,...BANK_PHYSIO,...BANK_BIOCHEM,...BANK_PATHO,...BANK_PHARM,...BANK_MICRO,...BANK_IMMUNO,...BANK_DIAG,...BANK_CHALLENGE];
 let CACHE=null,CACHE_KEY='';
 export function getBank(custom){
   const key=(custom||[]).length+':'+((custom||[])[0]&& (custom||[])[0].id||'');

@@ -37,7 +37,7 @@ import {habitsSanitize,addHabit,removeHabit,isChecked,toggleCheck,currentStreak,
 import {DAYS,PERIODS,COURSE_COLORS,scheduleSanitize,addCourse,updateCourse,removeCourse,coursesOnDay,nowInfo,currentStatus,fmtMin,weeksText} from './schedule.js';
 import {splitChapters,shelfSanitize,novelSettingsSanitize,progressText} from './novel.js';
 import {QUIZ_SUBJECTS,bankCount,quizById,getBank,parseBankText,DIFF_LABELS} from './quiz-data.js';
-import {quizStatsSanitize,buildQuiz as mqBuild,answerQuiz as mqAnswerFn,nextQuiz as mqNextFn,gradeQuiz as mqGrade,accuracy as mqAccuracy,sessionSummary as mqSummary,displayOptions} from './medquiz.js';
+import {quizStatsSanitize,buildQuiz as mqBuild,answerQuiz as mqAnswerFn,nextQuiz as mqNextFn,gradeQuiz as mqGrade,accuracy as mqAccuracy,sessionSummary as mqSummary,displayOptions,chosenDisplay} from './medquiz.js';
 import {examsSanitize,addExam,removeExam,addMilestone,toggleMilestone,removeMilestone,sortExams,examProgress,countdownText,daysUntil} from './exams.js';
 import {CALCULATORS,calcById,runCalc} from './medcalc.js';
 import {LAYERS,PRESETS,defaultSoundscape,soundscapeSanitize,setLayer,setMaster,applyPreset,startTimer,clearTimer,timerRemaining,fadeGain,activeLayers} from './soundscape.js';
@@ -103,7 +103,35 @@ const langConfig=new Compartment(),wrapConfig=new Compartment(),editConfig=new C
 let editorStates=new Map();
 function active(){return state.files.find(f=>f.path===state.active)||state.files[0];}
 function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
-function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
+function hideToast(){
+  const t=$('toast');if(!t)return;
+  t.hidden=true;t.replaceChildren();t.classList.remove('toast-undo');
+}
+function notify(text){
+  const t=$('toast');if(!t)return;
+  t.classList.remove('toast-undo');
+  t.textContent=text;t.hidden=false;
+  clearTimeout(toastTimer);toastTimer=setTimeout(hideToast,3500);
+}
+/* 带撤销的通知：删除类操作给 6 秒反悔窗口。
+   同一时刻只保留一个撤销动作，新通知会顶掉旧的，避免误撤销到上一条。 */
+let undoAction=null;
+function notifyUndo(text,onUndo,ms=6000){
+  const t=$('toast');if(!t)return;
+  clearTimeout(toastTimer);
+  undoAction=typeof onUndo==='function'?onUndo:null;
+  t.replaceChildren();
+  t.classList.add('toast-undo');
+  const span=document.createElement('span');span.className='toast-text';span.textContent=text;
+  const btn=document.createElement('button');btn.type='button';btn.className='toast-btn';btn.textContent='撤销';
+  btn.onclick=()=>{
+    const act=undoAction;undoAction=null;
+    hideToast();clearTimeout(toastTimer);
+    if(act)act();
+  };
+  t.append(span,btn);t.hidden=false;
+  toastTimer=setTimeout(()=>{undoAction=null;hideToast();},ms);
+}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
 function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule),novel:shelfSanitize(state.novel),medquiz:quizStatsSanitize(state.medquiz),exams:examsSanitize(state.exams),soundscape:soundscapeSanitize(state.soundscape)};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
@@ -1014,7 +1042,7 @@ function applyMode(mode){
   if(workspaceMode==='pelican'&&mode!=='pelican'&&pelicanApi)pelicanApi.leave();
   const leavingAI=workspaceMode==='ai'&&mode!=='ai';
   const fxChanged=workspaceMode!==mode;
-  setWorkspaceMode(mode);  const noteEmpty=$('noteEmpty');
+  setWorkspaceMode(mode);restorePanelScroll(mode);  const noteEmpty=$('noteEmpty');
   /* 跃迁转场：只在真正换模块时走一次扫描 + 目标面板实体化。 */
   const FX_STAGGER={overview:'.ov-tasks>*',focus:'.focus-actions button',cards:'.cards-actions button',mistakes:'.mist-filters>*',habits:'.habit-add>*',schedule:'.sched-head>*',novel:'.novel-head>*',medquiz:'.mq-row>*',exams:'.exam-head>*',medcalc:'.mc-chips button',soundscape:'.ss-presets button',model:'.model-modes button',ai:'.ai-section',python:'.quickkeys button',notepad:'.quickkeys button',lecture:'.lecture-tab',tts:'.tts-main>*',game:'.game-actions button'};
   const FX_PANEL={overview:'overviewPanel',focus:'focusPanel',cards:'cardsPanel',mistakes:'mistakesPanel',habits:'habitsPanel',schedule:'schedulePanel',novel:'novelPanel',medquiz:'medquizPanel',exams:'examsPanel',medcalc:'medcalcPanel',soundscape:'soundscapePanel',model:'modelPanel',ai:'aiPanel',python:'workbench',notepad:'workbench',lecture:'workbench',tts:'workbench',game:'lounge'};
@@ -1404,16 +1432,28 @@ function renderFocus(){
     }
   }
 }
+/* 专注时把倒计时写进标题栏：切到别的标签/最小化也能瞥见剩余时间。 */
+const BASE_TITLE=document.title||'天工';
+function syncFocusTitle(){
+  const s=state.focus;
+  if(s&&s.running){
+    const tag=s.phase==='work'?'专注':s.phase==='short'?'短休':'长休';
+    document.title=fmtTime(s.remaining)+' · '+tag+' — '+BASE_TITLE;
+  }else if(document.title!==BASE_TITLE){
+    document.title=BASE_TITLE;
+  }
+}
 setInterval(()=>{
-  if(!state.focus||!state.focus.running)return;
+  if(!state.focus||!state.focus.running){syncFocusTitle();return;}
   const r=focusTick(state.focus,todayStr());
   state.focus=r.state;
   if(r.finished){notify(state.focus.phase==='work'?'休息结束，开始新一轮专注。':'一个专注段完成，休息一下。');scheduleSave();}
   if(workspaceMode==='focus')renderFocus();
+  syncFocusTitle();
 },1000);
-on('focusStart',()=>{state.focus=focusToggle(state.focus);renderFocus();scheduleSave();});
-on('focusReset',()=>{state.focus=focusReset(state.focus);renderFocus();scheduleSave();});
-on('focusSkip',()=>{state.focus=focusSkip(state.focus);renderFocus();scheduleSave();});
+on('focusStart',()=>{state.focus=focusToggle(state.focus);renderFocus();syncFocusTitle();scheduleSave();});
+on('focusReset',()=>{state.focus=focusReset(state.focus);renderFocus();syncFocusTitle();scheduleSave();});
+on('focusSkip',()=>{state.focus=focusSkip(state.focus);renderFocus();syncFocusTitle();scheduleSave();});
 for(const [id,key] of [['focusWorkMin','workMin'],['focusShortMin','shortMin'],['focusLongMin','longMin']]){
   const el=$(id);if(el)el.onchange=()=>{state.focus=focusSetMinutes(state.focus,key,+el.value);renderFocus();scheduleSave();};
 }
@@ -1435,22 +1475,39 @@ function renderCards(){
     hint.textContent='';rate.hidden=true;
   }
   const list=$('cardsList');
+  const fw=$('cardsFilterWrap');if(fw)fw.hidden=list?list.hidden:true;
   if(list&&!list.hidden){
     list.replaceChildren();
-    for(const c of deck.cards){
+    const q=($('cardsFilter')?$('cardsFilter').value:'').trim().toLowerCase();
+    const shown=q?deck.cards.filter(c=>(c.front+' '+c.back).toLowerCase().includes(q)):deck.cards;
+    for(const c of shown){
       const row=document.createElement('div');row.className='cards-row';
       const t=document.createElement('span');t.className='t';t.textContent=c.front;
       const d=document.createElement('span');d.className='d';d.textContent=c.due<=Date.now()?'到期':(c.interval?c.interval+'天':'新');
       const edit=document.createElement('button');edit.type='button';edit.className='edit';edit.textContent='改';
       edit.onclick=()=>cardsBeginEdit(c);
       const del=document.createElement('button');del.type='button';del.textContent='删';
-      del.onclick=()=>{state.cards=removeCard(state.cards,c.id);if(cardsEditId===c.id)cardsEndEdit();cardsResetReview();renderCards();scheduleSave();};
+      del.onclick=()=>{
+        const removed=c;
+        state.cards=removeCard(state.cards,c.id);
+        if(cardsEditId===c.id)cardsEndEdit();
+        cardsResetReview();renderCards();scheduleSave();
+        notifyUndo('已删除「'+removed.front.slice(0,14)+'」',()=>{
+          const d=deckSanitize(state.cards);
+          if(d.cards.some(x=>x.id===removed.id))return;
+          const nextId=Math.max(d.nextId,removed.id+1);
+          state.cards={nextId,cards:[...d.cards,removed]};
+          cardsResetReview();renderCards();scheduleSave();notify('卡片已恢复，复习进度保留。');
+        });
+      };
       row.append(t,d,edit,del);list.append(row);
     }
     if(!deck.cards.length){const e=document.createElement('p');e.className='cards-face-hint';e.textContent='还没有卡片，点「添加卡片」开始。';list.append(e);}
+    else if(!shown.length){const e=document.createElement('p');e.className='cards-face-hint';e.textContent='没有匹配「'+q+'」的卡片。';list.append(e);}
   }
   hudMark(document.querySelector('#cardsPanel'));
 }
+{const cf=$('cardsFilter');if(cf)cf.addEventListener('input',()=>renderCards());}
 on('cardsStart',()=>{cardsQueue=dueCards(state.cards,Date.now());cardsShown=false;cardsCurrent=cardsQueue.shift()||null;renderCards();});
 on('cardsFace',()=>{if(!cardsCurrent)return;cardsShown=!cardsShown;renderCards();});
 for(const b of document.querySelectorAll('#cardsRate button')){
@@ -1530,9 +1587,11 @@ function renderMistakes(){
   const subject=$('mistSubject')?$('mistSubject').value:'全部';
   const mastery=$('mistMastery')?+$('mistMastery').value:-1;
   const list=$('mistList');if(!list)return;
-  const items=filterMistakes(book,subject,mastery);
+  let items=filterMistakes(book,subject,mastery);
+  const mq=($('mistFilter')?$('mistFilter').value:'').trim().toLowerCase();
+  if(mq)items=items.filter(it=>(it.title+' '+it.question+' '+it.answer+' '+it.reason).toLowerCase().includes(mq));
   list.replaceChildren();
-  if(!items.length){const e=document.createElement('p');e.className='mist-empty';e.textContent=book.items.length?'这个筛选下没有错题。':'还没有错题，点「＋ 记错题」开始。';list.append(e);return;}
+  if(!items.length){const e=document.createElement('p');e.className='mist-empty';e.textContent=book.items.length?(mq?'没有匹配「'+mq+'」的错题。':'这个筛选下没有错题。'):'还没有错题，点「＋ 记错题」开始。';list.append(e);return;}
   for(const it of items){
     const card=document.createElement('div');card.className='mist-item';
     const head=document.createElement('div');head.className='mist-item-head';
@@ -1561,7 +1620,17 @@ function renderMistakes(){
       const edit=document.createElement('button');edit.type='button';edit.textContent='编辑';
       edit.onclick=e=>{e.stopPropagation();mistOpenForm(it);};
       const del=document.createElement('button');del.type='button';del.className='del';del.textContent='删除';
-      del.onclick=e=>{e.stopPropagation();state.mistakes=removeMistake(state.mistakes,it.id);mistOpen.delete(it.id);renderMistakes();scheduleSave();};
+      del.onclick=e=>{
+        e.stopPropagation();
+        const removed=it;
+        state.mistakes=removeMistake(state.mistakes,it.id);mistOpen.delete(it.id);renderMistakes();scheduleSave();
+        notifyUndo('已删除「'+(removed.title||'错题').slice(0,14)+'」',()=>{
+          const b=bookSanitize(state.mistakes);
+          if(b.items.some(x=>x.id===removed.id))return;
+          state.mistakes={nextId:Math.max(b.nextId,removed.id+1),items:[...b.items,removed]};
+          renderMistakes();scheduleSave();notify('错题已恢复。');
+        });
+      };
       act.append(edit,del);card.append(act);
     }
     list.append(card);
@@ -1571,7 +1640,8 @@ function renderMistakes(){
 on('mistAddBtn',()=>mistOpenForm(null));
 on('mistCancel',()=>mistCloseForm());
 {const ms=$('mistSubject');if(ms)ms.addEventListener('change',()=>renderMistakes());
- const mm=$('mistMastery');if(mm)mm.addEventListener('change',()=>renderMistakes());}
+ const mm=$('mistMastery');if(mm)mm.addEventListener('change',()=>renderMistakes());
+ const mf=$('mistFilter');if(mf)mf.addEventListener('input',()=>renderMistakes());}
 on('mistSave',()=>{
   const fields={title:$('mistTitle').value,subject:$('mistFormSubject').value,question:$('mistQuestion').value,answer:$('mistAnswer').value,reason:$('mistReason').value};
   if(!fields.title.trim()&&!fields.question.trim()){notify('至少填写标题或题目。');return;}
@@ -1610,7 +1680,16 @@ function renderHabits(){
     item.append(week);
     const foot=document.createElement('div');foot.className='habit-item-foot';
     const del=document.createElement('button');del.type='button';del.textContent='删除';
-    del.onclick=()=>{state.habits=removeHabit(state.habits,h.id);renderHabits();scheduleSave();};
+    del.onclick=()=>{
+      const removed=h;
+      state.habits=removeHabit(state.habits,h.id);renderHabits();scheduleSave();
+      notifyUndo('已删除习惯「'+removed.name.slice(0,12)+'」',()=>{
+        const b=habitsSanitize(state.habits);
+        if(b.habits.some(x=>x.id===removed.id))return;
+        state.habits={nextId:Math.max(b.nextId,removed.id+1),habits:[...b.habits,removed]};
+        renderHabits();scheduleSave();notify('习惯已恢复，打卡记录保留。');
+      });
+    };
     foot.append(del);item.append(foot);
     list.append(item);
   }
@@ -1877,12 +1956,19 @@ function mqRenderQuestion(){
   const opts=$('mqOptions');opts.replaceChildren();
   const answered=s.answers[qid]!=null;
   const disp=displayOptions(s,q);
+  /* 已选答案存的是原始下标，必须换算成展示下标再标红，
+     否则答对时也会把别的选项误标红。 */
+  const chosen=chosenDisplay(s,q);
   disp.options.forEach((opt,i)=>{
     const b=document.createElement('button');b.type='button';
     const k=document.createElement('span');k.className='k';k.textContent='ABCDEF'[i];
     const txt=document.createElement('span');txt.textContent=opt;
     b.append(k,txt);
-    if(answered){b.disabled=true;if(i===disp.answer)b.classList.add('right');else if(i===s.answers[qid])b.classList.add('wrong');}
+    if(answered){
+      b.disabled=true;
+      if(i===disp.answer)b.classList.add('right');
+      else if(i===chosen)b.classList.add('wrong');
+    }
     else b.onclick=()=>mqAnswer(disp.perm[i]);
     opts.append(b);
   });
@@ -1968,7 +2054,16 @@ function renderExams(){
     const meta=document.createElement('small');meta.textContent=ex.date+' · '+countdownText(ex,now);
     info.append(nb,meta);
     const del=document.createElement('button');del.type='button';del.className='exam-del';del.textContent='删';
-    del.onclick=()=>{state.exams=removeExam(state.exams,ex.id);renderExams();scheduleSave();};
+    del.onclick=()=>{
+      const removed=ex;
+      state.exams=removeExam(state.exams,ex.id);renderExams();scheduleSave();
+      notifyUndo('已删除考试「'+removed.name.slice(0,12)+'」',()=>{
+        const s=examsSanitize(state.exams);
+        if(s.exams.some(x=>x.id===removed.id))return;
+        state.exams={nextId:Math.max(s.nextId,removed.id+1),exams:[...s.exams,removed]};
+        renderExams();scheduleSave();notify('考试已恢复，里程碑保留。');
+      });
+    };
     top.append(days,info,del);card.append(top);
     const prog=examProgress(ex);
     if(prog.total){
@@ -2358,6 +2453,45 @@ on('mistExport',()=>{
   downloadText(stampName('tiangong-mistakes','csv'),exportMistakes(b),'text/csv');
   const el=$('mistIOResult');if(el){el.className='io-result ok';el.textContent='已导出 '+b.items.length+' 道到下载目录。';}
 });
+/* 导入区支持拖放文件：拖入高亮，落下即解析导入。 */
+function bindDrop(boxId,handler){
+  const box=$(boxId);if(!box)return;
+  const over=e=>{e.preventDefault();box.classList.add('dragover');};
+  const leave=()=>box.classList.remove('dragover');
+  box.addEventListener('dragover',over);
+  box.addEventListener('dragenter',over);
+  box.addEventListener('dragleave',leave);
+  box.addEventListener('drop',e=>{
+    e.preventDefault();leave();
+    const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+    if(!f){notify('请拖入 CSV/TSV/TXT 文件。');return;}
+    if(f.size>4*1024*1024){notify('文件太大（>4MB）。');return;}
+    f.text().then(handler).catch(()=>notify('读不了这个文件。'));
+  });
+}
+bindDrop('cardsIO',t=>{
+  const res=importCards(state.cards,t,Date.now());
+  state.cards=res.deck;cardsResetReview();renderCards();scheduleSave();
+  ioReport('cardsIOResult',res);
+  if(res.added)notify('拖入导入 '+res.added+' 张卡片。');
+});
+bindDrop('mistIO',t=>{
+  const res=importMistakes(state.mistakes,t,Date.now());
+  state.mistakes=res.book;renderMistakes();scheduleSave();
+  ioReport('mistIOResult',res);
+  if(res.added)notify('拖入导入 '+res.added+' 道错题。');
+});
+/* 面板滚动位置记忆：切走再回来不丢阅读/浏览位置。 */
+const panelScroll={};
+const PANEL_SCROLL_MAP={overview:'overviewPanel',focus:'focusPanel',cards:'cardsPanel',mistakes:'mistakesPanel',habits:'habitsPanel',schedule:'schedulePanel',medquiz:'medquizPanel',exams:'examsPanel',medcalc:'medcalcPanel',novel:'novelPanel',soundscape:'soundscapePanel'};
+for(const id of Object.values(PANEL_SCROLL_MAP)){
+  const el=$(id);if(!el)continue;
+  el.addEventListener('scroll',()=>{panelScroll[id]=el.scrollTop;},{passive:true});
+}
+function restorePanelScroll(mode){
+  const pid=PANEL_SCROLL_MAP[mode];
+  if(pid&&panelScroll[pid]!=null){const el=$(pid);if(el)requestAnimationFrame(()=>{el.scrollTop=panelScroll[pid];});}
+}
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
   getDrawData:()=>state.drawStrokes||[],

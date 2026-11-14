@@ -24,7 +24,7 @@ export function quizStatsSanitize(raw){
     wrong,
     lastSubject:typeof r.lastSubject==='string'&&(r.lastSubject==='全部'||QUIZ_SUBJECTS.includes(r.lastSubject))?r.lastSubject:'全部',
     lastMode:QUIZ_MODES.includes(r.lastMode)?r.lastMode:'order',
-    lastDifficulty:[0,1,2,3].includes(+r.lastDifficulty)?+r.lastDifficulty:0
+    lastDifficulty:[0,1,2,3,4].includes(+r.lastDifficulty)?+r.lastDifficulty:0
   };
 }
 
@@ -44,7 +44,7 @@ export function buildQuiz(stats,subject,mode,rnd,bank,difficulty){
   const s=quizStatsSanitize(stats);
   const subj=(subject==='全部'||QUIZ_SUBJECTS.includes(subject))?subject:'全部';
   const md=QUIZ_MODES.includes(mode)?mode:'order';
-  const diff=[1,2,3].includes(+difficulty)?+difficulty:0;
+  const diff=[1,2,3,4].includes(+difficulty)?+difficulty:0;
   let pool=b.filter(q=>subj==='全部'||q.subject===subj);
   if(diff)pool=pool.filter(q=>q.difficulty===diff);
   if(md==='wrong')pool=pool.filter(q=>s.wrong[q.id]);
@@ -65,6 +65,16 @@ export function buildQuiz(stats,subject,mode,rnd,bank,difficulty){
 export function displayOptions(session,q){
   const p=(session&&session.perm&&session.perm[q.id])||q.options.map((_,i)=>i);
   return {options:p.map(i=>q.options[i]),answer:p.indexOf(q.answer),perm:p};
+}
+
+/* 用户已选答案对应的「展示下标」。
+   注意：answers 里存的是原始下标，渲染标红/标绿必须换算回展示下标，
+   否则答对时也会把另一个选项误标红。未作答返回 -1。 */
+export function chosenDisplay(session,q){
+  const a=session&&session.answers?session.answers[q.id]:null;
+  if(a==null)return -1;
+  const d=displayOptions(session,q);
+  return d.perm.indexOf(a);
 }
 
 export function answerQuiz(session,qid,choice,bank){
