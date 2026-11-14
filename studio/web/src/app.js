@@ -39,6 +39,9 @@ import {QUIZ_SUBJECTS,bankCount,quizById,getBank,parseBankText,DIFF_LABELS} from
 import {quizStatsSanitize,buildQuiz as mqBuild,answerQuiz as mqAnswerFn,nextQuiz as mqNextFn,gradeQuiz as mqGrade,accuracy as mqAccuracy,sessionSummary as mqSummary} from './medquiz.js';
 import {examsSanitize,addExam,removeExam,addMilestone,toggleMilestone,removeMilestone,sortExams,examProgress,countdownText,daysUntil} from './exams.js';
 import {CALCULATORS,calcById,runCalc} from './medcalc.js';
+import {LAYERS,PRESETS,defaultSoundscape,soundscapeSanitize,setLayer,setMaster,applyPreset,startTimer,clearTimer,timerRemaining,fadeGain,activeLayers} from './soundscape.js';
+import {createSoundscapeAudio} from './soundscape-audio.js';
+import {createSoundscapeVisual} from './soundscape-visual.js';
 import {init as initPelican} from './pelican3d.js';
 import {pelicanSanitize} from './pelican.js';
 
@@ -79,7 +82,7 @@ const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript'
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null),mistakes:bookSanitize(null),habits:habitsSanitize(null),schedule:scheduleSanitize(null),novel:shelfSanitize(null),medquiz:quizStatsSanitize(null),exams:examsSanitize(null)});
+const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null),mistakes:bookSanitize(null),habits:habitsSanitize(null),schedule:scheduleSanitize(null),novel:shelfSanitize(null),medquiz:quizStatsSanitize(null),exams:examsSanitize(null),soundscape:defaultSoundscape()});
 let state=defaults(),view,restoring=false,worker=null,cppWorker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 /* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
 const micWaiters=new Map();let micSeq=0;
@@ -98,7 +101,7 @@ function active(){return state.files.find(f=>f.path===state.active)||state.files
 function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function notify(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,3500);}
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule),novel:shelfSanitize(state.novel),medquiz:quizStatsSanitize(state.medquiz),exams:examsSanitize(state.exams)};}
+function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule),novel:shelfSanitize(state.novel),medquiz:quizStatsSanitize(state.medquiz),exams:examsSanitize(state.exams),soundscape:soundscapeSanitize(state.soundscape)};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
 function mb(bytes){return (bytes/1048576).toFixed(1);}
@@ -149,6 +152,8 @@ function loadState(data){
   state.novel=shelfSanitize(data.novel);
   state.medquiz=quizStatsSanitize(data.medquiz);
   state.exams=examsSanitize(data.exams);
+  state.soundscape=soundscapeSanitize(data.soundscape);
+  state.soundscape.timerEnd=0; /* 后台不续跑定时 */
   state.settings.fontSize=Math.max(12,Math.min(24,Number(state.settings.fontSize)||15));state.settings.timeLimit=[15,30,60].includes(+state.settings.timeLimit)?+state.settings.timeLimit:15;if(window.innerWidth<700)state.settings.wrap=true;
   adoptTheme(data.settings);
   state.active=files.some(f=>f.path===state.active)?state.active:files[0].path;state.opened=Array.isArray(state.opened)?state.opened.filter(p=>files.some(f=>f.path===p)):[];if(!state.opened.includes(state.active))state.opened.push(state.active);
@@ -370,7 +375,8 @@ function setWorkspaceMode(mode){
   if(mode!=='medquiz')document.body.classList.remove('medquizview');
   if(mode!=='exams')document.body.classList.remove('examsview');
   if(mode!=='medcalc')document.body.classList.remove('medcalcview');
-  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['mistakesPanel','mistakes'],['habitsPanel','habits'],['schedulePanel','schedule'],['novelPanel','novel'],['medquizPanel','medquiz'],['examsPanel','exams'],['medcalcPanel','medcalc'],['modelPanel','model'],['aiPanel','ai']]){
+  if(mode!=='soundscape'){document.body.classList.remove('soundscapeview');ssStop();}
+  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['mistakesPanel','mistakes'],['habitsPanel','habits'],['schedulePanel','schedule'],['novelPanel','novel'],['medquizPanel','medquiz'],['examsPanel','exams'],['medcalcPanel','medcalc'],['soundscapePanel','soundscape'],['modelPanel','model'],['aiPanel','ai']]){
     const el=$(id);if(el&&mode!==m)el.hidden=true;
   }
 }
@@ -1130,6 +1136,26 @@ function applyMode(mode){
     const cp2=$('medcalcPanel');if(cp2)cp2.hidden=false;
     $('activePath').textContent='临床计算';$('dirtyFlag').textContent='';
     mcSelect(mcCurrent||'bmi');
+    return true;
+  }
+  if(mode==='soundscape'){
+    document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('soundscapeview');
+    lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
+    $('workbench').hidden=true;$('lounge').hidden=true;
+    if(aiPanel)aiPanel.hidden=true;
+    const mp=$('modelPanel');if(mp)mp.hidden=true;
+    const fp=$('focusPanel');if(fp)fp.hidden=true;
+    const cp=$('cardsPanel');if(cp)cp.hidden=true;
+    const mip=$('mistakesPanel');if(mip)mip.hidden=true;
+    const hp=$('habitsPanel');if(hp)hp.hidden=true;
+    const sp=$('schedulePanel');if(sp)sp.hidden=true;
+    const np=$('novelPanel');if(np)np.hidden=true;
+    const qp=$('medquizPanel');if(qp)qp.hidden=true;
+    const ep=$('examsPanel');if(ep)ep.hidden=true;
+    const cp2=$('medcalcPanel');if(cp2)cp2.hidden=true;
+    const ssp=$('soundscapePanel');if(ssp)ssp.hidden=false;
+    $('activePath').textContent='潮声 · 白噪音景';$('dirtyFlag').textContent='';
+    ssEnter();
     return true;
   }
   if(mode==='pelican'){
@@ -1937,6 +1963,96 @@ function mcUpdate(){
   $('mcValue').textContent=r.rounded;
   $('mcUnit').textContent=r.unit;
   const lab=$('mcLabel');lab.textContent=r.label;lab.className='mc-label '+r.tone;
+}
+
+/* 潮声 · 白噪音景：混音台 + 预设 + 睡眠定时 + 粒子画布。 */
+let ssAudio=null,ssVisual=null,ssTimerInt=0,ssBuilt=false;
+function ssState(){return state.soundscape||(state.soundscape=defaultSoundscape());}
+function ssEnsureAudio(){if(!ssAudio)ssAudio=createSoundscapeAudio();return ssAudio;}
+function ssBuildUI(){
+  if(ssBuilt)return;ssBuilt=true;
+  const pr=$('ssPresets');
+  for(const p of PRESETS){
+    const b=document.createElement('button');b.type='button';b.textContent=p.icon+' '+p.name;b.dataset.id=p.id;
+    b.onclick=()=>{state.soundscape=applyPreset(ssState(),p.id);ssSync();scheduleSave();};
+    pr.append(b);
+  }
+  const ly=$('ssLayers');
+  for(const l of LAYERS){
+    const row=document.createElement('div');row.className='ss-layer';row.dataset.id=l.id;
+    const ic=document.createElement('span');ic.className='ic';ic.textContent=l.icon;
+    const nm=document.createElement('span');nm.className='nm';nm.textContent=l.name;
+    const rg=document.createElement('input');rg.type='range';rg.min=0;rg.max=100;rg.value=50;
+    rg.oninput=()=>{state.soundscape=setLayer(ssState(),l.id,undefined,+rg.value/100);ssSync();scheduleSave();};
+    const tg=document.createElement('button');tg.type='button';tg.className='tg';tg.textContent='关';
+    tg.onclick=()=>{const cur=ssState().layers[l.id].on;state.soundscape=setLayer(ssState(),l.id,!cur);ssSync();scheduleSave();};
+    row.append(ic,nm,rg,tg);ly.append(row);
+  }
+  const ms=$('ssMaster');
+  ms.oninput=()=>{state.soundscape=setMaster(ssState(),+ms.value/100);ssSync();scheduleSave();};
+  for(const b of document.querySelectorAll('.ss-timer button')){
+    b.onclick=()=>{const m=+b.dataset.min;state.soundscape=m>0?startTimer(ssState(),m,Date.now()):clearTimer(ssState());ssSync();scheduleSave();};
+  }
+}
+function ssSync(){
+  const s=ssState();
+  ssBuildUI();
+  for(const b of $('ssPresets').children)b.classList.toggle('on',b.dataset.id===s.preset);
+  for(const row of $('ssLayers').children){
+    const id=row.dataset.id;const L=s.layers[id];
+    row.classList.toggle('on',L.on);
+    row.querySelector('input').value=Math.round(L.vol*100);
+    row.querySelector('.tg').textContent=L.on?'开':'关';
+  }
+  $('ssMaster').value=Math.round(s.master*100);
+  const act=activeLayers(s);
+  const names=LAYERS.filter(l=>s.layers[l.id].on).map(l=>l.name);
+  $('ssNow').textContent=names.length?('正在播放 · '+names.join(' + ')):'点一个声音开始';
+  if(ssVisual)ssVisual.setActive(act);
+  /* 音频同步 */
+  const a=ssEnsureAudio();
+  if(act.length){
+    if(!a.ensure()){notify('当前环境不支持音频合成。');}
+    else{
+      a.resume();
+      for(const id of act){const L=s.layers[id];a.startLayer(id,L.vol);a.setLayerVol(id,L.vol);}
+      for(const l of LAYERS)if(!s.layers[l.id].on)a.stopLayer(l.id);
+      a.setMaster(s.master);
+    }
+  }else{a.stopAll();}
+  ssTickTimer();
+}
+function ssTickTimer(){
+  const s=ssState();
+  const rem=timerRemaining(s,Date.now());
+  const el=$('ssRemain');
+  if(rem>0){
+    const m=Math.floor(rem/60),sec=rem%60;
+    el.textContent=m+':'+String(sec).padStart(2,'0');
+    if(ssAudio)ssAudio.setFade(fadeGain(rem));
+  }else{
+    el.textContent='';
+    if(s.timerEnd){ /* 定时到：停全部 */
+      state.soundscape=clearTimer(s);
+      for(const id of LAYER_IDS_ON())state.soundscape=setLayer(state.soundscape,id,false);
+      if(ssAudio)ssAudio.stopAll();
+      ssSync();scheduleSave();
+    }else if(ssAudio)ssAudio.setFade(1);
+  }
+}
+function LAYER_IDS_ON(){return LAYERS.map(l=>l.id);}
+function ssEnter(){
+  ssBuildUI();
+  const cv=$('ssCanvas');
+  if(cv&&!ssVisual)ssVisual=createSoundscapeVisual(cv);
+  if(ssVisual)ssVisual.start();
+  ssSync();
+  if(!ssTimerInt)ssTimerInt=setInterval(ssTickTimer,1000);
+}
+function ssStop(){
+  if(ssAudio)ssAudio.stopAll();
+  if(ssVisual)ssVisual.stop();
+  if(ssTimerInt){clearInterval(ssTimerInt);ssTimerInt=0;}
 }
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},

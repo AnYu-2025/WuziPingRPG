@@ -48,7 +48,8 @@ export const MODULES=[
   {id:'novel',group:'more',kind:'web',title:'小说阅读器',resume:'继续看小说',detail:'导入 TXT 自动分章，进度记得住，护眼夜间都有',icon:'📖',tag:'离线'},
   {id:'ai',group:'more',kind:'web',title:'AI 助手',resume:'继续 AI 助手',detail:'有事问它；要动你手机里的东西，会先问你',icon:'✧',tag:'联网'},
   {id:'game',group:'more',kind:'web',title:'星火远征',resume:'继续星火远征',detail:'之前的存档都还在，接着玩',icon:'✦',tag:'游戏'},
-  {id:'pelican',group:'more',kind:'web',title:'鹈鹕骑车',resume:'继续鹈鹕骑车',detail:'点一下跳一下，别撞上就行',icon:'🚲',tag:'3D'}
+  {id:'pelican',group:'more',kind:'web',title:'鹈鹕骑车',resume:'继续鹈鹕骑车',detail:'点一下跳一下，别撞上就行',icon:'🚲',tag:'3D'},
+  {id:'soundscape',group:'more',kind:'web',title:'潮声 · 白噪音景',resume:'继续潮声',detail:'雨声海浪篝火现场合成，混音助眠专注',icon:'🎧',tag:'离线'}
 ];
 /* 旧名字保留给已有调用方。 */
 export const HOME_ACTIONS=MODULES;

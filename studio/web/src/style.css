@@ -916,3 +916,28 @@ body.examsview .quickkeys,body.examsview .statusbar #position{display:none}
 .mc-label.bad{background:#f6e0de;color:#c2453a}
 .mc-label.info{background:var(--surface-2);color:var(--muted)}
 body.medcalcview .quickkeys,body.medcalcview .statusbar #position{display:none}
+
+/* 潮声 · 白噪音景 */
+#soundscapePanel{flex:1;min-height:0;overflow-y:auto;background:var(--bg)}
+.ss-wrap{max-width:640px;margin:0 auto;padding:14px 14px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
+.ss-stage{position:relative;height:180px;border-radius:18px;overflow:hidden;background:linear-gradient(180deg,#0b1020,#101a2c);border:1px solid var(--line)}
+.ss-stage canvas{position:absolute;inset:0;width:100%;height:100%}
+.ss-now{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-size:12px;color:rgba(220,235,255,.75);letter-spacing:.05em;pointer-events:none}
+.ss-presets{display:flex;gap:6px;flex-wrap:wrap}
+.ss-presets button{min-height:36px;padding:0 13px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:12.5px;font-weight:600}
+.ss-presets button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.ss-layers{display:flex;flex-direction:column;gap:8px}
+.ss-layer{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.ss-layer.on{border-color:var(--accent);background:linear-gradient(135deg,rgba(47,212,191,.1),rgba(91,140,255,.08))}
+.ss-layer .ic{flex:none;font-size:20px}
+.ss-layer .nm{flex:none;width:64px;font-size:13px;font-weight:600;color:var(--text-strong)}
+.ss-layer input[type=range]{flex:1;accent-color:var(--accent)}
+.ss-layer .tg{flex:none;min-width:44px;min-height:32px;border-radius:9px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:700}
+.ss-layer.on .tg{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.ss-master{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+.ss-master input{flex:1;accent-color:var(--accent)}
+.ss-timer{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.ss-timer button{min-height:32px;padding:0 12px;border-radius:9px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:12px;font-weight:600}
+.ss-remain{margin-left:auto;font-weight:700;color:var(--accent)}
+.ss-note{font-size:11px;color:var(--muted);margin:0}
+body.soundscapeview .quickkeys,body.soundscapeview .statusbar{display:none}

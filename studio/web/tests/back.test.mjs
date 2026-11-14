@@ -12,7 +12,7 @@ test('modules are grouped for the hub and every module has a Chinese name',()=>{
   assert.deepEqual(GROUPS.map(g=>g.id),['study','create','more']);
   assert.deepEqual(modulesInGroup('study').map(item=>item.id),['lecture','tts','scan','focus','cards','mistakes','habits','schedule','medquiz','exams','medcalc']);
   assert.deepEqual(modulesInGroup('create').map(item=>item.id),['python','notepad','photo','model']);
-  assert.deepEqual(modulesInGroup('more').map(item=>item.id),['novel','ai','game','pelican']);
+  assert.deepEqual(modulesInGroup('more').map(item=>item.id),['novel','ai','game','pelican','soundscape']);
   assert.equal(HOME_ACTIONS,MODULES);
   for(const item of MODULES){
     assert.ok(item.title.length>=2,item.id);
