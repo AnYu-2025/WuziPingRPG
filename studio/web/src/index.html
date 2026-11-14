@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.28</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.29</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -447,6 +447,7 @@
      <option value="order">顺序刷</option>
      <option value="random">随机刷</option>
      <option value="wrong">只刷错题</option>
+     <option value="star">只刷收藏</option>
     </select>
     <select id="mqDifficulty" aria-label="难度">
      <option value="0">全部难度</option>
@@ -457,6 +458,7 @@
     </select>
    </div>
    <button id="mqStart" class="primary" type="button">开始刷题</button>
+   <button id="mqResume" class="mq-resume" type="button" hidden>继续上次刷题</button>
    <div class="mq-import">
     <p class="mq-import-info" id="mqImportInfo"></p>
     <div class="mq-import-actions">
@@ -468,7 +470,7 @@
    </div>
   </div>
   <div class="mq-run" id="mqRun" hidden>
-   <div class="mq-runhead"><span id="mqProgress"></span><button id="mqQuit" type="button">退出</button></div>
+   <div class="mq-runhead"><span id="mqProgress"></span><span class="mq-runhead-actions"><button id="mqStar" type="button" aria-pressed="false" title="收藏本题">☆ 收藏</button><button id="mqQuit" type="button">退出</button></span></div>
    <div class="mq-bar"><i id="mqBarFill"></i></div>
    <div class="mq-q" id="mqQuestion"></div>
    <div class="mq-options" id="mqOptions"></div>
@@ -479,8 +481,10 @@
    <div class="mq-score" id="mqScore"></div>
    <div class="mq-result-actions">
     <button id="mqRetryWrong" class="primary" type="button">刷错题</button>
+    <button id="mqReview" type="button" hidden>回顾错题</button>
     <button id="mqBackSetup" type="button">返回</button>
    </div>
+   <div class="mq-review" id="mqReviewList" hidden></div>
   </div>
  </div>
 </section>

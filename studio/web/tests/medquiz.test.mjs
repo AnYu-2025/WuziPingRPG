@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {QUIZ_BANK,QUIZ_SUBJECTS,bankCount,getBank,parseBankText,mergeBank,qKey} from '../src/quiz-data.js';
-import {buildQuiz,answerQuiz,nextQuiz,gradeQuiz,accuracy,sessionSummary,quizStatsSanitize,shuffle,displayOptions,chosenDisplay} from '../src/medquiz.js';
+import {buildQuiz,answerQuiz,nextQuiz,gradeQuiz,accuracy,sessionSummary,quizStatsSanitize,shuffle,displayOptions,chosenDisplay,toggleStar,sanitizeSession,sessionWrongList} from '../src/medquiz.js';
 
 test('bank integrity: >=600 questions, unique ids & stems, valid answers',()=>{
   assert.ok(QUIZ_BANK.length>=600);
@@ -149,4 +149,62 @@ test('challenge difficulty filter returns only difficulty 4',()=>{
   const ch=buildQuiz(quizStatsSanitize(null),'全部','order',undefined,QUIZ_BANK,4);
   assert.equal(ch.ids.length,96);
   assert.ok(ch.ids.every(id=>QUIZ_BANK.find(q=>q.id===id).difficulty===4));
+});
+
+test('toggleStar adds/removes and star mode filters',()=>{
+  const id=QUIZ_BANK[0].id;
+  let st=quizStatsSanitize(null);
+  st=toggleStar(st,id);
+  assert.equal(st.star[id],1);
+  const s=buildQuiz(st,'全部','star');
+  assert.deepEqual(s.ids,[id]);
+  st=toggleStar(st,id);
+  assert.equal(st.star[id],undefined);
+  assert.equal(buildQuiz(st,'全部','star').ids.length,0);
+});
+
+test('sanitizeSession restores valid unfinished session',()=>{
+  const s=buildQuiz(quizStatsSanitize(null),'解剖','order');
+  const q=QUIZ_BANK.find(x=>x.subject==='解剖');
+  const answered=answerQuiz(s,q.id,0);
+  const moved={...answered,pos:1};
+  const r=sanitizeSession(JSON.parse(JSON.stringify(moved)),QUIZ_BANK);
+  assert.ok(r);
+  assert.equal(r.pos,1);
+  assert.equal(r.ids.length,s.ids.length);
+  assert.equal(r.answers[q.id],0);
+  assert.equal(r.finished,false);
+});
+
+test('sanitizeSession rejects finished/empty/garbage',()=>{
+  assert.equal(sanitizeSession(null,QUIZ_BANK),null);
+  assert.equal(sanitizeSession({ids:[]},QUIZ_BANK),null);
+  assert.equal(sanitizeSession({ids:['nope']},QUIZ_BANK),null);
+  const s=buildQuiz(quizStatsSanitize(null),'解剖','order');
+  const fin={...s,pos:s.ids.length,finished:true};
+  const r=sanitizeSession(fin,QUIZ_BANK);
+  assert.ok(r.finished); // 已完成会话恢复后 finished=true，UI 不续刷
+});
+
+test('sanitizeSession drops unknown ids and clamps pos',()=>{
+  const s=buildQuiz(quizStatsSanitize(null),'解剖','order');
+  const raw={...s,ids:['ghost',...s.ids],pos:9999};
+  const r=sanitizeSession(raw,QUIZ_BANK);
+  assert.ok(!r.ids.includes('ghost'));
+  assert.equal(r.pos,r.ids.length);
+});
+
+test('sessionWrongList returns only wrong with chosen/answer',()=>{
+  const s=buildQuiz(quizStatsSanitize(null),'解剖','order');
+  const q=QUIZ_BANK.find(x=>x.subject==='解剖');
+  const wrongChoice=(q.answer+1)%q.options.length;
+  const a=answerQuiz(s,q.id,wrongChoice);
+  const list=sessionWrongList(a,QUIZ_BANK);
+  assert.equal(list.length,1);
+  assert.equal(list[0].id,q.id);
+  assert.equal(list[0].chosen,wrongChoice);
+  assert.equal(list[0].answer,q.answer);
+  // 答对则不入回顾
+  const right=answerQuiz(s,q.id,q.answer);
+  assert.equal(sessionWrongList(right,QUIZ_BANK).length,0);
 });

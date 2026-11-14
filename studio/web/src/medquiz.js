@@ -5,7 +5,7 @@
 
 import {QUIZ_BANK,QUIZ_SUBJECTS} from './quiz-data.js';
 
-export const QUIZ_MODES=['order','random','wrong'];
+export const QUIZ_MODES=['order','random','wrong','star'];
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 const num=(v,f)=>Number.isFinite(+v)?+v:f;
 const byId=(bank,id)=>bank.find(q=>q.id===id)||null;
@@ -18,14 +18,28 @@ export function quizStatsSanitize(raw){
       wrong[k]=clamp(Math.round(num(r.wrong[k],1)),1,99);
     }
   }
+  const star={};
+  if(r.star&&typeof r.star==='object'){
+    for(const k of Object.keys(r.star).slice(0,5000)){
+      if(r.star[k])star[k]=1;
+    }
+  }
   return {
     answered:clamp(Math.round(num(r.answered,0)),0,999999),
     right:clamp(Math.round(num(r.right,0)),0,999999),
-    wrong,
+    wrong,star,
     lastSubject:typeof r.lastSubject==='string'&&(r.lastSubject==='全部'||QUIZ_SUBJECTS.includes(r.lastSubject))?r.lastSubject:'全部',
     lastMode:QUIZ_MODES.includes(r.lastMode)?r.lastMode:'order',
     lastDifficulty:[0,1,2,3,4].includes(+r.lastDifficulty)?+r.lastDifficulty:0
   };
+}
+
+/* 收藏切换（不改其它字段）。 */
+export function toggleStar(stats,qid){
+  const s=quizStatsSanitize(stats);
+  const star={...s.star};
+  if(star[qid])delete star[qid];else star[qid]=1;
+  return {...s,star};
 }
 
 /* 洗牌（可注入随机源便于测试）。 */
@@ -48,6 +62,7 @@ export function buildQuiz(stats,subject,mode,rnd,bank,difficulty){
   let pool=b.filter(q=>subj==='全部'||q.subject===subj);
   if(diff)pool=pool.filter(q=>q.difficulty===diff);
   if(md==='wrong')pool=pool.filter(q=>s.wrong[q.id]);
+  if(md==='star')pool=pool.filter(q=>s.star[q.id]);
   let ids=pool.map(q=>q.id);
   if(md==='random')ids=shuffle(ids,rnd);
   /* 选项顺序打散，消除"正确答案总在A"的位置偏置；perm 按题固定于本会话。 */
@@ -121,4 +136,49 @@ export function sessionSummary(session,bank){
     if(q&&a===q.answer)right++;else wrong++;
   }
   return {total:session.ids.length,right,wrong};
+}
+
+/* 会话恢复：中断后续刷。只接受结构合法的未完成会话；
+   过滤掉已不在题库的 id，pos 收敛到有效范围。返回 null 表示无可恢复会话。 */
+export function sanitizeSession(raw,bank){
+  const b=(bank&&bank.length)?bank:QUIZ_BANK;
+  if(!raw||typeof raw!=='object')return null;
+  if(!Array.isArray(raw.ids)||!raw.ids.length)return null;
+  const ids=raw.ids.filter(id=>byId(b,id));
+  if(!ids.length)return null;
+  const answers={};
+  if(raw.answers&&typeof raw.answers==='object'){
+    for(const id of ids){
+      const a=raw.answers[id];
+      const q=byId(b,id);
+      if(q&&Number.isFinite(+a)&&+a>=0&&+a<q.options.length)answers[id]=Math.round(+a);
+    }
+  }
+  const perm={};
+  for(const id of ids){
+    const q=byId(b,id);
+    const p=raw.perm&&Array.isArray(raw.perm[id])?raw.perm[id]:null;
+    const valid=p&&p.length===q.options.length&&p.every(i=>Number.isInteger(i)&&i>=0&&i<q.options.length)&&new Set(p).size===p.length;
+    perm[id]=valid?p:q.options.map((_,i)=>i);
+  }
+  const pos=clamp(Math.round(num(raw.pos,0)),0,ids.length);
+  const mode=QUIZ_MODES.includes(raw.mode)?raw.mode:'order';
+  const subject=typeof raw.subject==='string'&&(raw.subject==='全部'||QUIZ_SUBJECTS.includes(raw.subject))?raw.subject:'全部';
+  const difficulty=[0,1,2,3,4].includes(+raw.difficulty)?+raw.difficulty:0;
+  return {mode,subject,difficulty,ids,pos,answers,perm,finished:pos>=ids.length};
+}
+
+/* 交卷后错题回顾：返回本会话答错的题（含用户选择与正确项，原始下标）。 */
+export function sessionWrongList(session,bank){
+  const b=(bank&&bank.length)?bank:QUIZ_BANK;
+  if(!session)return [];
+  const out=[];
+  for(const qid of session.ids){
+    const a=session.answers[qid];
+    if(a==null)continue;
+    const q=byId(b,qid);
+    if(!q||a===q.answer)continue;
+    out.push({id:qid,q:q.q,subject:q.subject,options:q.options,chosen:a,answer:q.answer,explain:q.explain||''});
+  }
+  return out;
 }

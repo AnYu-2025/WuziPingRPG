@@ -7,6 +7,10 @@ await mkdir(out,{recursive:true});
    three 静态包含；初始化不依赖 WebGL，仅 enter() 建渲染器，WebGL 不可用降级。 */
 await build({entryPoints:['src/app.js'],bundle:true,outfile:out+'/app.js',format:'iife',target:['chrome64'],minify:true,legalComments:'eof'});
 for(const file of ['index.html','meteor-sky.webp','sky-ripple.js','boot.js','theme-boot.js','style.css','lecture.css','tts.css','ai.css','model.css','star-home.css','shell.css','theme.css','fx.css','python-worker.js','cpp-worker.js','javascript-worker.js','worker-output.js'])await copyFile('src/'+file,out+'/'+file);
+/* editor.page 是 index.html 的壳降级副本（PackedAssets 回退用），必须随构建同步，
+   否则壳副本会停在旧版本，缺新增的面板元素。两处副本保持一致。 */
+await copyFile(out+'/index.html',out+'/editor.page');
+await copyFile(out+'/index.html','../src/main/assets/editor.page');
 
 /* 内联安全转义（关键）：原生壳把 app.js/boot.js 直接塞进 <script>…</script>。
    HTML 分词器在脚本里遇到 "<!--" 会进入 escaped 态，再遇到 "<script" 进入
