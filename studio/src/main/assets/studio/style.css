@@ -941,3 +941,32 @@ body.medcalcview .quickkeys,body.medcalcview .statusbar #position{display:none}
 .ss-remain{margin-left:auto;font-weight:700;color:var(--accent)}
 .ss-note{font-size:11px;color:var(--muted);margin:0}
 body.soundscapeview .quickkeys,body.soundscapeview .statusbar{display:none}
+
+/* ===== 细节精修：滚动条 / 焦点 / 减弱动效 / 安全区 ===== */
+/* 统一细滚动条，跟随主题，不再露出系统灰条 */
+*{scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent}
+*::-webkit-scrollbar{width:8px;height:8px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px;border:2px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-thumb:hover{background:var(--faint);background-clip:content-box}
+*::-webkit-scrollbar-corner{background:transparent}
+/* 键盘/读屏焦点环覆盖所有可交互元素 */
+input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* 全局选中色 */
+::selection{background:rgba(var(--accent-rgb),.22)}
+/* 数字输入用等宽数字，结果不跳动 */
+.mc-value,.exam-days b,.focus-time,.mq-score b{font-variant-numeric:tabular-nums}
+/* 底部安全区：各滚动面板留足 home indicator 空间 */
+#novelPanel .novel-shelf,.mq-wrap,.exam-wrap,.mc-wrap,.ss-wrap,.cards-wrap,.mist-wrap,.habit-wrap,.sched-wrap{padding-bottom:calc(20px + env(safe-area-inset-bottom))}
+/* 减弱动效：全站装饰动画与过渡收敛（保留必要状态变化） */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .meteor-field i,#landing::before,.pelican-pop{animation:none!important}
+}
+/* 小屏触控目标不小于 40px，滑杆拇指加大 */
+@media (pointer:coarse){
+  .ss-layer .tg,.exam-ms .ms-del,.cards-row button,.mist-item-actions button,.novel-book .del{min-height:40px}
+  input[type=range]{height:28px}
+}
+/* 长文本防溢出：标题/课名/书名统一省略 */
+.exam-info b,.novel-book .info b,.mc-name,.mq-q{overflow-wrap:anywhere}

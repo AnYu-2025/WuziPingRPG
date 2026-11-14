@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {QUIZ_BANK,QUIZ_SUBJECTS,bankCount,getBank,parseBankText,mergeBank,qKey} from '../src/quiz-data.js';
-import {buildQuiz,answerQuiz,nextQuiz,gradeQuiz,accuracy,sessionSummary,quizStatsSanitize,shuffle} from '../src/medquiz.js';
+import {buildQuiz,answerQuiz,nextQuiz,gradeQuiz,accuracy,sessionSummary,quizStatsSanitize,shuffle,displayOptions} from '../src/medquiz.js';
 
 test('bank integrity: >=500 questions, unique ids & stems, valid answers',()=>{
   assert.ok(QUIZ_BANK.length>=500);
@@ -84,4 +84,26 @@ test('sessionSummary with custom bank',()=>{
   s=answerQuiz(s,cid,1,bank);
   const sum=sessionSummary(s,bank);
   assert.equal(sum.right,1);
+});
+
+test('option permutation keeps correct answer and is a true shuffle',()=>{
+  const s=buildQuiz(quizStatsSanitize(null),'全部','order');
+  let moved=0;
+  for(const q of QUIZ_BANK){
+    const d=displayOptions(s,q);
+    assert.equal(d.options.length,q.options.length);
+    assert.equal(d.options[d.answer],q.options[q.answer]);
+    assert.deepEqual(d.perm.slice().sort((a,b)=>a-b),q.options.map((_,i)=>i));
+    if(d.answer!==q.answer)moved++;
+  }
+  assert.ok(moved>QUIZ_BANK.length*0.5); // 大多数题正确项不再原位
+});
+
+test('answer via displayed index grades correctly',()=>{
+  const s=buildQuiz(quizStatsSanitize(null),'解剖','order');
+  const q=QUIZ_BANK.find(x=>x.subject==='解剖');
+  const d=displayOptions(s,q);
+  const after=answerQuiz(s,q.id,d.perm[d.answer]);
+  const st=gradeQuiz(quizStatsSanitize(null),q.id,after.answers[q.id]);
+  assert.equal(st.right,1);
 });

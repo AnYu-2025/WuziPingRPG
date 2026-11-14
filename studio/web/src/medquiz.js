@@ -50,7 +50,21 @@ export function buildQuiz(stats,subject,mode,rnd,bank,difficulty){
   if(md==='wrong')pool=pool.filter(q=>s.wrong[q.id]);
   let ids=pool.map(q=>q.id);
   if(md==='random')ids=shuffle(ids,rnd);
-  return {mode:md,subject:subj,difficulty:diff,ids,pos:0,answers:{},finished:ids.length===0};
+  /* 选项顺序打散，消除"正确答案总在A"的位置偏置；perm 按题固定于本会话。 */
+  const perm={};
+  const rand=typeof rnd==='function'?rnd:Math.random;
+  for(const q of pool){
+    const idx=q.options.map((_,i)=>i);
+    for(let i=idx.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+    perm[q.id]=idx;
+  }
+  return {mode:md,subject:subj,difficulty:diff,ids,pos:0,answers:{},perm,finished:ids.length===0};
+}
+
+/* 本会话中某题的展示选项与正确选项的展示下标。 */
+export function displayOptions(session,q){
+  const p=(session&&session.perm&&session.perm[q.id])||q.options.map((_,i)=>i);
+  return {options:p.map(i=>q.options[i]),answer:p.indexOf(q.answer),perm:p};
 }
 
 export function answerQuiz(session,qid,choice,bank){

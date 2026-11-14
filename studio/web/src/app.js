@@ -36,7 +36,7 @@ import {habitsSanitize,addHabit,removeHabit,isChecked,toggleCheck,currentStreak,
 import {DAYS,PERIODS,COURSE_COLORS,scheduleSanitize,addCourse,updateCourse,removeCourse,coursesOnDay,nowInfo,currentStatus,fmtMin,weeksText} from './schedule.js';
 import {splitChapters,shelfSanitize,novelSettingsSanitize,progressText} from './novel.js';
 import {QUIZ_SUBJECTS,bankCount,quizById,getBank,parseBankText,DIFF_LABELS} from './quiz-data.js';
-import {quizStatsSanitize,buildQuiz as mqBuild,answerQuiz as mqAnswerFn,nextQuiz as mqNextFn,gradeQuiz as mqGrade,accuracy as mqAccuracy,sessionSummary as mqSummary} from './medquiz.js';
+import {quizStatsSanitize,buildQuiz as mqBuild,answerQuiz as mqAnswerFn,nextQuiz as mqNextFn,gradeQuiz as mqGrade,accuracy as mqAccuracy,sessionSummary as mqSummary,displayOptions} from './medquiz.js';
 import {examsSanitize,addExam,removeExam,addMilestone,toggleMilestone,removeMilestone,sortExams,examProgress,countdownText,daysUntil} from './exams.js';
 import {CALCULATORS,calcById,runCalc} from './medcalc.js';
 import {LAYERS,PRESETS,defaultSoundscape,soundscapeSanitize,setLayer,setMaster,applyPreset,startTimer,clearTimer,timerRemaining,fadeGain,activeLayers} from './soundscape.js';
@@ -1744,6 +1744,8 @@ on('novelImportBtn',()=>$('novelFile').click());
   if(shelf.books.length>=20){notify('书架满了（20 本），先删几本。');return;}
   const id=shelf.nextId;
   const title=(file.name||'未命名').replace(/\.txt$/i,'').slice(0,60);
+  const exist=shelf.books.find(b=>b.title===title);
+  if(exist){notify('《'+title+'》已在书架，直接打开继续读。');novelOpen(exist.id);return;}
   const book={id,title,author:'',addedAt:Date.now(),chapterCount:chapters.length,chars:text.length,ch:0};
   try{localStorage.setItem(novelTextKey(id),text);}catch(e){notify('本机存储放不下这本书，先删几本。');return;}
   state.novel={...shelf,nextId:id+1,current:id,books:[...shelf.books,book]};
@@ -1792,13 +1794,14 @@ function mqRenderQuestion(){
   $('mqQuestion').textContent=q.q;
   const opts=$('mqOptions');opts.replaceChildren();
   const answered=s.answers[qid]!=null;
-  q.options.forEach((opt,i)=>{
+  const disp=displayOptions(s,q);
+  disp.options.forEach((opt,i)=>{
     const b=document.createElement('button');b.type='button';
     const k=document.createElement('span');k.className='k';k.textContent='ABCDEF'[i];
     const txt=document.createElement('span');txt.textContent=opt;
     b.append(k,txt);
-    if(answered){b.disabled=true;if(i===q.answer)b.classList.add('right');else if(i===s.answers[qid])b.classList.add('wrong');}
-    else b.onclick=()=>mqAnswer(i);
+    if(answered){b.disabled=true;if(i===disp.answer)b.classList.add('right');else if(i===s.answers[qid])b.classList.add('wrong');}
+    else b.onclick=()=>mqAnswer(disp.perm[i]);
     opts.append(b);
   });
   const ex=$('mqExplain');
@@ -2054,6 +2057,8 @@ function ssStop(){
   if(ssVisual)ssVisual.stop();
   if(ssTimerInt){clearInterval(ssTimerInt);ssTimerInt=0;}
 }
+/* 切后台/锁屏自动停声音与画布，避免后台偷跑耗电。 */
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&workspaceMode==='soundscape')ssStop();});
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
   getDrawData:()=>state.drawStrokes||[],
