@@ -38,6 +38,7 @@ import {splitChapters,shelfSanitize,novelSettingsSanitize,progressText} from './
 import {QUIZ_SUBJECTS,bankCount,quizById,getBank,parseBankText,DIFF_LABELS} from './quiz-data.js';
 import {quizStatsSanitize,buildQuiz as mqBuild,answerQuiz as mqAnswerFn,nextQuiz as mqNextFn,gradeQuiz as mqGrade,accuracy as mqAccuracy,sessionSummary as mqSummary} from './medquiz.js';
 import {examsSanitize,addExam,removeExam,addMilestone,toggleMilestone,removeMilestone,sortExams,examProgress,countdownText,daysUntil} from './exams.js';
+import {CALCULATORS,calcById,runCalc} from './medcalc.js';
 import {init as initPelican} from './pelican3d.js';
 import {pelicanSanitize} from './pelican.js';
 
@@ -368,7 +369,8 @@ function setWorkspaceMode(mode){
   if(mode!=='novel')document.body.classList.remove('novelview');
   if(mode!=='medquiz')document.body.classList.remove('medquizview');
   if(mode!=='exams')document.body.classList.remove('examsview');
-  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['mistakesPanel','mistakes'],['habitsPanel','habits'],['schedulePanel','schedule'],['novelPanel','novel'],['medquizPanel','medquiz'],['examsPanel','exams'],['modelPanel','model'],['aiPanel','ai']]){
+  if(mode!=='medcalc')document.body.classList.remove('medcalcview');
+  for(const [id,m] of [['focusPanel','focus'],['pelicanPanel','pelican'],['cardsPanel','cards'],['mistakesPanel','mistakes'],['habitsPanel','habits'],['schedulePanel','schedule'],['novelPanel','novel'],['medquizPanel','medquiz'],['examsPanel','exams'],['medcalcPanel','medcalc'],['modelPanel','model'],['aiPanel','ai']]){
     const el=$(id);if(el&&mode!==m)el.hidden=true;
   }
 }
@@ -1109,6 +1111,25 @@ function applyMode(mode){
     const ep=$('examsPanel');if(ep)ep.hidden=false;
     $('activePath').textContent='考试倒计时';$('dirtyFlag').textContent='';
     examCloseForm();renderExams();
+    return true;
+  }
+  if(mode==='medcalc'){
+    document.body.classList.remove('notepad','lecture','tts');document.body.classList.add('medcalcview');
+    lectureModeLeave();if(drawToggle)drawToggle.hidden=true;if(isDrawMode())exitDrawMode();
+    $('workbench').hidden=true;$('lounge').hidden=true;
+    if(aiPanel)aiPanel.hidden=true;
+    const mp=$('modelPanel');if(mp)mp.hidden=true;
+    const fp=$('focusPanel');if(fp)fp.hidden=true;
+    const cp=$('cardsPanel');if(cp)cp.hidden=true;
+    const mip=$('mistakesPanel');if(mip)mip.hidden=true;
+    const hp=$('habitsPanel');if(hp)hp.hidden=true;
+    const sp=$('schedulePanel');if(sp)sp.hidden=true;
+    const np=$('novelPanel');if(np)np.hidden=true;
+    const qp=$('medquizPanel');if(qp)qp.hidden=true;
+    const ep=$('examsPanel');if(ep)ep.hidden=true;
+    const cp2=$('medcalcPanel');if(cp2)cp2.hidden=false;
+    $('activePath').textContent='临床计算';$('dirtyFlag').textContent='';
+    mcSelect(mcCurrent||'bmi');
     return true;
   }
   if(mode==='pelican'){
@@ -1870,6 +1891,53 @@ on('examSave',()=>{
   if(!r.ok){notify(r.dup?'这个考试已经排过了。':'填好考试名和日期。');return;}
   state.exams=r.store;examCloseForm();renderExams();scheduleSave();
 });
+
+/* 临床计算：选择公式 + 输入即算 + 参考判读。 */
+let mcCurrent=null,mcVals={};
+function mcBuildChips(){
+  const box=$('mcChips');if(!box||box.children.length)return;
+  for(const c of CALCULATORS){
+    const b=document.createElement('button');b.type='button';b.textContent=c.name;b.dataset.id=c.id;
+    b.onclick=()=>mcSelect(c.id);
+    box.append(b);
+  }
+}
+function mcSelect(id){
+  const c=calcById(id);if(!c)return;
+  mcCurrent=id;mcVals={};
+  mcBuildChips();
+  for(const b of $('mcChips').children)b.classList.toggle('on',b.dataset.id===id);
+  $('mcName').textContent=c.name;
+  $('mcDesc').textContent=c.desc;
+  $('mcFormula').textContent=c.formula;
+  const box=$('mcInputs');box.replaceChildren();
+  for(const inp of c.inputs){
+    const lab=document.createElement('label');
+    const lt=document.createElement('span');lt.className='lab';lt.textContent=inp.label;
+    let field;
+    if(inp.key==='female'){
+      field=document.createElement('input');field.type='checkbox';field.checked=false;
+      field.onchange=()=>{mcVals[inp.key]=field.checked?1:0;mcUpdate();};
+    }else{
+      field=document.createElement('input');field.type='number';field.step=inp.step;field.min=inp.min;field.max=inp.max;field.value=inp.def;field.inputMode='decimal';
+      mcVals[inp.key]=inp.def;
+      field.oninput=()=>{mcVals[inp.key]=field.value;mcUpdate();};
+    }
+    const u=document.createElement('span');u.className='u';u.textContent=inp.unit||'';
+    lab.append(lt,field,u);box.append(lab);
+  }
+  mcUpdate();
+}
+function mcUpdate(){
+  const c=calcById(mcCurrent);if(!c)return;
+  const r=runCalc(mcCurrent,mcVals);
+  const res=$('mcResult');
+  if(!r){res.hidden=true;return;}
+  res.hidden=false;
+  $('mcValue').textContent=r.rounded;
+  $('mcUnit').textContent=r.unit;
+  const lab=$('mcLabel');lab.textContent=r.label;lab.className='mc-label '+r.tone;
+}
 initDraw({
   scheduleSave:()=>{state.drawStrokes=getDrawStrokes();flush();},
   getDrawData:()=>state.drawStrokes||[],

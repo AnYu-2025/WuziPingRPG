@@ -40,6 +40,7 @@ export const MODULES=[
   {id:'schedule',group:'study',kind:'web',title:'课程表',resume:'继续课程表',detail:'这周上什么课、在哪上、还有几分钟',icon:'📅',tag:'离线'},
   {id:'medquiz',group:'study',kind:'web',title:'医学生刷题',resume:'继续刷题',detail:'基础医学 8 科，答完马上看解析，错题自动收',icon:'🩺',tag:'离线'},
   {id:'exams',group:'study',kind:'web',title:'考试倒计时',resume:'继续考试倒计时',detail:'大考小考排一排，复习进度勾一勾',icon:'⏳',tag:'离线'},
+  {id:'medcalc',group:'study',kind:'web',title:'临床计算',resume:'继续临床计算',detail:'BMI、肌酐清除率、滴速剂量，输入就出结果',icon:'🧮',tag:'离线'},
   {id:'python',group:'create',kind:'web',title:'写代码',resume:'继续写代码',detail:'Python、C++、网页，没网也能跑',icon:'</>',tag:'离线'},
   {id:'notepad',group:'create',kind:'web',title:'记事本',resume:'继续记事本',detail:'想到什么写什么，关掉也不丢',icon:'✎',tag:'草稿'},
   {id:'photo',group:'create',kind:'native',title:'修图',resume:'继续修图',detail:'调色、裁剪、拼图、加水印',icon:'◐',tag:'照片'},
