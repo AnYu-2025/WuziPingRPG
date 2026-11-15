@@ -5,6 +5,24 @@ body.starhome .home-scroll{display:none}
 body.starhome.listview .home-scroll{display:block}
 body.starhome.listview #starStage{display:none}
 #starCanvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+/* 科幻叠层：扫描线 + 边缘渐晕 + 左上遥测，全部 pointer-events:none 不挡交互。 */
+.bh-scanlines{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:.5;
+  background:repeating-linear-gradient(0deg,rgba(120,200,255,.028) 0 1px,transparent 1px 3px);
+  mix-blend-mode:screen}
+.bh-vignette{position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 42%,transparent 52%,rgba(2,4,12,.55) 100%)}
+.bh-telemetry{position:absolute;left:12px;top:calc(60px + env(safe-area-inset-top));z-index:3;
+  display:flex;flex-direction:column;gap:3px;pointer-events:none;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:10px;letter-spacing:.04em;color:#8fd8ff;
+  text-shadow:0 0 8px rgba(80,200,255,.45)}
+.bh-telemetry .bh-desig{font-size:11px;font-weight:700;color:#bfeaff;letter-spacing:.08em}
+.bh-telemetry .bh-coord{color:#6fb6d8;font-size:9.5px}
+.bh-telemetry .bh-stat{display:flex;align-items:center;gap:5px;color:#7fcbe8}
+.bh-dot{width:5px;height:5px;border-radius:50%;background:#5fe6a0;box-shadow:0 0 6px #5fe6a0;animation:bh-blink 2.4s infinite}
+@keyframes bh-blink{0%,100%{opacity:1}50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.bh-dot{animation:none}.bh-scanlines{opacity:.3}}
+body.starhome.listview .bh-scanlines,body.starhome.listview .bh-vignette,body.starhome.listview .bh-telemetry{display:none}
 #starLabels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .star-label{
   position:absolute;left:0;top:0;pointer-events:auto;
@@ -16,34 +34,33 @@ body.starhome.listview #starStage{display:none}
   text-shadow:0 1px 8px rgba(0,0,0,.65);
 }
 .star-label:active{background:rgba(47,212,191,.35)}
-.star-hud{
-  position:absolute;left:0;right:0;bottom:0;
-  display:flex;flex-direction:column;align-items:center;gap:8px;
-  padding:22px 14px calc(12px + env(safe-area-inset-bottom));
+/* 底部坞：收纳 + 提示 + 视图按钮，常驻最底，控制台叠在其上。 */
+.bh-dock{
+  position:absolute;left:0;right:0;bottom:0;z-index:10;
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  padding:18px 12px calc(10px + env(safe-area-inset-bottom));
   pointer-events:none;
-  background:linear-gradient(180deg,rgba(6,8,24,0),rgba(6,8,24,.72) 45%,rgba(6,8,24,.9));
+  background:linear-gradient(180deg,rgba(6,8,24,0),rgba(6,8,24,.78) 40%,rgba(6,8,24,.94));
 }
-.star-hud>*{pointer-events:auto}
+.bh-dock>*{pointer-events:auto}
 .star-hud-actions{display:flex;gap:10px}
 .star-hint{
-  max-width:100%;font-size:11.5px;color:#c6d8f5;text-align:center;
+  max-width:100%;font-size:11px;color:#c6d8f5;text-align:center;
   text-shadow:0 1px 6px rgba(0,0,0,.8);
 }
-.star-hud button{
+.bh-dock .star-hud-actions button{
   flex:none;height:36px;min-height:36px;padding:0 14px;border-radius:999px;
   background:rgba(10,16,32,.6);border:1px solid rgba(159,184,255,.3);
   color:#cfe0ff;font-size:12px;font-weight:600;
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
 }
-.star-hud button.active{background:rgba(47,212,191,.25);border-color:#2fd4bf;color:#b8fff2}
+.bh-dock .star-hud-actions button.active{background:rgba(47,212,191,.25);border-color:#2fd4bf;color:#b8fff2}
 .star-hole-chip{
-  position:absolute;right:12px;top:calc(64px + env(safe-area-inset-top));
-  display:flex;align-items:center;justify-content:center;gap:6px;height:36px;min-width:36px;padding:0 10px;
+  display:flex;align-items:center;justify-content:center;gap:6px;height:32px;min-width:36px;padding:0 12px;
   border-radius:999px;background:rgba(5,8,16,.7);border:1px solid rgba(255,154,61,.45);
   color:#ffd9ae;font-size:12px;font-weight:600;
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
 }
-.star-hole-chip:empty{display:none}
 .star-hole-chip #starHoleBadge{
   min-width:18px;height:18px;border-radius:999px;background:#ff9a3d;color:#241305;
   font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px;
@@ -53,6 +70,36 @@ body.starhome.listview #starStage{display:none}
   background:rgba(159,160,237,.2);border:1px solid rgba(191,172,255,.4);
   color:#e6e4ff;font-size:11px;font-weight:600;
 }
+/* 黑洞观测台：常驻底部控制台，横向滚动，自带滚动条语言 */
+.bh-console{
+  position:absolute;left:0;right:0;bottom:calc(140px + env(safe-area-inset-bottom));z-index:20;
+  display:flex;flex-direction:column;gap:7px;padding:9px 12px 8px;
+  background:linear-gradient(180deg,rgba(5,9,20,.55),rgba(4,7,16,.92) 30%);
+  border-top:1px solid rgba(111,224,255,.22);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+}
+/* 折叠规则放在基础 display 之后，保证覆盖生效 */
+.bh-console-head{display:flex;align-items:center;gap:8px;min-width:0}
+.bh-console-head strong{flex:none;color:#bfeaff;font-size:12px;letter-spacing:.08em;white-space:nowrap}
+.bh-console-sub{flex:1;min-width:0;color:#5f8fb0;font-size:9.5px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bh-console-actions{flex:none;display:flex;gap:5px}
+.bh-console-actions button{height:24px;min-height:24px;padding:0 9px;border-radius:7px;background:rgba(111,224,255,.12);border:1px solid rgba(111,224,255,.3);color:#bfeaff;font-size:10px;font-weight:600}
+.bh-console-actions button:active{background:rgba(111,224,255,.3)}
+.bh-console-strip{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:thin;scrollbar-color:rgba(111,224,255,.45) rgba(10,16,32,.5)}
+.bh-console-strip::-webkit-scrollbar{height:5px}
+.bh-console-strip::-webkit-scrollbar-track{background:rgba(10,16,32,.5);border-radius:3px}
+.bh-console-strip::-webkit-scrollbar-thumb{background:rgba(111,224,255,.45);border-radius:3px}
+.bh-console-strip::-webkit-scrollbar-thumb:hover{background:rgba(111,224,255,.7)}
+.bh-ctl{flex:none;width:104px;display:flex;flex-direction:column;gap:3px;padding:6px 8px;border-radius:10px;background:rgba(10,18,36,.6);border:1px solid rgba(111,224,255,.16)}
+.bh-ctl span{font-size:9.5px;color:#7fcbe8;letter-spacing:.02em;white-space:nowrap}
+.bh-ctl input{width:100%;accent-color:#6fe0ff;height:18px;margin:0}
+.bh-ctl output{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10px;color:#bfeaff;text-align:right}
+.bh-console-presets{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.bh-console-presets::-webkit-scrollbar{display:none}
+.bh-console-presets button{flex:none;height:26px;min-height:26px;padding:0 11px;border-radius:999px;background:rgba(111,224,255,.1);border:1px solid rgba(111,224,255,.28);color:#9fdcf5;font-size:10.5px;font-weight:600;white-space:nowrap}
+.bh-console-presets button:active{background:rgba(111,224,255,.3)}
+.bh-console.bh-collapsed .bh-console-strip,.bh-console.bh-collapsed .bh-console-presets{display:none}
+body.starhome.listview .bh-console,body.starhome.listview .bh-dock{display:none}
 /* 黑洞面板 */
 .star-hole-sheet{
   position:absolute;left:0;right:0;bottom:0;z-index:40;max-height:60%;

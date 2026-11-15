@@ -5,20 +5,60 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.29</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.30</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
  <canvas id="starCanvas"></canvas>
+ <div class="bh-scanlines" aria-hidden="true"></div>
+ <div class="bh-vignette" aria-hidden="true"></div>
+ <div class="bh-telemetry" aria-hidden="true">
+  <span class="bh-desig">SGR A* · 人马座 A*</span>
+  <span class="bh-coord" id="bhCoord">RA 17h45m40s · DEC −29°00′28″</span>
+  <span class="bh-stat"><i class="bh-dot"></i><span id="bhSpin">a* 0.998</span></span>
+  <span class="bh-stat" id="bhTemp">T 1.2×10⁷ K</span>
+ </div>
  <div id="starLabels"></div>
- <div class="star-hud">
+ <div class="bh-console" id="bhObs">
+  <div class="bh-console-head">
+   <strong>黑洞观测台</strong>
+   <span class="bh-console-sub">实时引力透镜 · 拖动即渲染</span>
+   <span class="bh-console-actions">
+    <button id="obsRandom" type="button">随机</button>
+    <button id="obsReset" type="button">重置</button>
+    <button id="obsExport" type="button">导出</button>
+    <button id="bhObsClose" type="button" aria-label="收起观测台">收起</button>
+   </span>
+  </div>
+  <div class="bh-console-strip" id="bhStrip">
+   <label class="bh-ctl"><span>吸积转速</span><input id="obsSpeed" type="range" min="0" max="3" step="0.05" value="1"><output id="obsSpeedV">1.0</output></label>
+   <label class="bh-ctl"><span>盘倾角</span><input id="obsIncl" type="range" min="0.05" max="0.8" step="0.01" value="0.3"><output id="obsInclV">0.3</output></label>
+   <label class="bh-ctl"><span>湍流强度</span><input id="obsTurb" type="range" min="0" max="2" step="0.05" value="1"><output id="obsTurbV">1.0</output></label>
+   <label class="bh-ctl"><span>多普勒束流</span><input id="obsBeam" type="range" min="0" max="1.6" step="0.05" value="0.9"><output id="obsBeamV">0.9</output></label>
+   <label class="bh-ctl"><span>盘色相移</span><input id="obsHue" type="range" min="0" max="1" step="0.02" value="0"><output id="obsHueV">0.0</output></label>
+   <label class="bh-ctl"><span>环境辉光</span><input id="obsGlow" type="range" min="0" max="2.5" step="0.05" value="1"><output id="obsGlowV">1.0</output></label>
+   <label class="bh-ctl"><span>粒子密度</span><input id="obsDensity" type="range" min="0" max="1" step="0.02" value="1"><output id="obsDensityV">1.0</output></label>
+   <label class="bh-ctl"><span>喷流强度</span><input id="obsJet" type="range" min="0" max="2" step="0.05" value="1"><output id="obsJetV">1.0</output></label>
+   <label class="bh-ctl"><span>时间流速</span><input id="obsTime" type="range" min="0" max="3" step="0.05" value="1"><output id="obsTimeV">1.0</output></label>
+   <label class="bh-ctl"><span>视距推拉</span><input id="obsZoom" type="range" min="0.55" max="1.7" step="0.01" value="1"><output id="obsZoomV">1.0</output></label>
+  </div>
+  <div class="bh-console-presets">
+   <button type="button" data-preset="eht">EHT 实拍</button>
+   <button type="button" data-preset="garg">卡冈都雅</button>
+   <button type="button" data-preset="blue">蓝移冷盘</button>
+   <button type="button" data-preset="quiet">静默视界</button>
+   <button type="button" data-preset="edge">侧视薄盘</button>
+  </div>
+ </div>
+ <div class="bh-dock">
+  <button id="starHoleBtn" class="star-hole-chip" type="button" aria-label="黑洞收纳">收纳<span id="starHoleBadge" hidden>0</span></button>
   <span class="star-hint">拨转星空 · 点星打开 · 长按拖进黑洞收纳</span>
   <div class="star-hud-actions">
    <button id="starMotionBtn" type="button" aria-label="切换晃动">晃动</button>
+   <button id="starObsBtn" type="button" aria-label="黑洞观测台">观测台</button>
    <button id="starListBtn" type="button" aria-label="列表视图">列表</button>
   </div>
  </div>
- <button id="starHoleBtn" class="star-hole-chip" type="button" aria-label="黑洞收纳"><span id="starHoleBadge" hidden>0</span></button>
 </div>
 <div class="home-scroll" id="homeScroll">
  <div class="home-hero">
