@@ -38,7 +38,7 @@ import {DAYS,PERIODS,COURSE_COLORS,scheduleSanitize,addCourse,updateCourse,remov
 import {splitChapters,shelfSanitize,novelSettingsSanitize,progressText} from './novel.js';
 import {QUIZ_SUBJECTS,bankCount,quizById,getBank,parseBankText,DIFF_LABELS} from './quiz-data.js';
 import {quizStatsSanitize,buildQuiz as mqBuild,answerQuiz as mqAnswerFn,nextQuiz as mqNextFn,prevQuiz as mqPrevFn,skipQuiz as mqSkipFn,gradeQuiz as mqGrade,accuracy as mqAccuracy,sessionSummary as mqSummary,displayOptions,chosenDisplay,toggleStar as mqToggleStar,sanitizeSession as mqSanitizeSession,sessionWrongList as mqWrongList} from './medquiz.js';
-import {examsSanitize,addExam,removeExam,addMilestone,toggleMilestone,removeMilestone,sortExams,examProgress,countdownText,daysUntil} from './exams.js';
+import {examsSanitize,addExam,removeExam,updateExam,addMilestone,toggleMilestone,removeMilestone,sortExams,examProgress,countdownText,daysUntil} from './exams.js';
 import {CALCULATORS,calcById,runCalc} from './medcalc.js';
 import {LAYERS,PRESETS,defaultSoundscape,soundscapeSanitize,setLayer,setMaster,applyPreset,startTimer,clearTimer,timerRemaining,fadeGain,activeLayers} from './soundscape.js';
 import {createSoundscapeAudio} from './soundscape-audio.js';
@@ -2005,7 +2005,8 @@ function mqRenderQuestion(){
   const bank=mqBank();
   const qid=s.ids[s.pos];const q=bank.find(x=>x.id===qid);
   if(!q){mqShowSetup();renderMqSetup();return;}
-  $('mqProgress').textContent=(s.pos+1)+' / '+s.ids.length+' · '+q.subject+' · '+(DIFF_LABELS[q.difficulty]||'')+(q.tag?' · '+q.tag:'');
+  const sess=mqSummary(s,bank);
+  $('mqProgress').textContent=(s.pos+1)+' / '+s.ids.length+' · 对 '+sess.right+' 错 '+sess.wrong+(sess.skipped?' 跳 '+sess.skipped:'')+' · '+q.subject+' · '+(DIFF_LABELS[q.difficulty]||'')+(q.tag?' · '+q.tag:'');
   const barFill=$('mqBarFill');if(barFill)barFill.style.width=Math.round((s.pos+1)/s.ids.length*100)+'%';
   $('mqQuestion').textContent=q.q;
   const opts=$('mqOptions');opts.replaceChildren();
@@ -2162,12 +2163,31 @@ document.addEventListener('keydown',e=>{
   if(k==='s'||k==='S'){e.preventDefault();$('mqStar').click();}
 });
 
-/* 任务 DDL：加任务 + 倒数天数 + 里程碑勾选。 */
-function examCloseForm(){const f=$('examForm');if(f)f.hidden=true;}
+/* 任务 DDL：加任务 + 倒数天数 + 里程碑勾选 + 编辑。 */
+let examEditId=null;
+function examCloseForm(){const f=$('examForm');if(f)f.hidden=true;examEditId=null;const sb=$('examSave');if(sb)sb.textContent='保存';}
+function examOpenForm(ex){
+  const f=$('examForm');if(!f)return;
+  f.hidden=false;
+  examEditId=ex?ex.id:null;
+  $('examName').value=ex?ex.name:'';
+  $('examDate').value=ex?ex.date:'';
+  const sb=$('examSave');if(sb)sb.textContent=ex?'保存修改':'保存';
+  $('examName').focus();
+}
 function renderExams(){
   const list=$('examList');if(!list)return;
   const now=Date.now();
   const exams=sortExams(state.exams,now);
+  const stats=$('examStats');
+  if(stats){
+    if(!exams.length)stats.textContent='';
+    else{
+      const soon=exams.filter(e=>{const d=daysUntil(e.date,now);return d>=0&&d<=7;}).length;
+      const over=exams.filter(e=>daysUntil(e.date,now)<0).length;
+      stats.textContent='共 '+exams.length+' 个任务 · 7 天内 '+soon+' · 已过期 '+over;
+    }
+  }
   list.replaceChildren();
   if(!exams.length){const e=document.createElement('p');e.className='exam-empty';e.textContent='还没有任务，点「＋ 加任务」排一个截止日。';list.append(e);return;}
   for(const ex of exams){
@@ -2182,6 +2202,8 @@ function renderExams(){
     const nb=document.createElement('b');nb.textContent=ex.name;
     const meta=document.createElement('small');meta.textContent=ex.date+' · '+countdownText(ex,now);
     info.append(nb,meta);
+    const edit=document.createElement('button');edit.type='button';edit.className='exam-edit';edit.textContent='改';
+    edit.onclick=()=>examOpenForm(ex);
     const del=document.createElement('button');del.type='button';del.className='exam-del';del.textContent='删';
     del.onclick=()=>{
       const removed=ex;
@@ -2193,7 +2215,7 @@ function renderExams(){
         renderExams();scheduleSave();notify('任务已恢复，里程碑保留。');
       });
     };
-    top.append(days,info,del);card.append(top);
+    top.append(days,info,edit,del);card.append(top);
     const prog=examProgress(ex);
     if(prog.total){
       const bar=document.createElement('div');bar.className='exam-progress';
@@ -2221,10 +2243,11 @@ function renderExams(){
   }
   hudMark(document.querySelector('#examsPanel'));
 }
-on('examAddToggle',()=>{const f=$('examForm');f.hidden=!f.hidden;if(!f.hidden){$('examName').value='';$('examDate').value='';$('examName').focus();}});
+on('examAddToggle',()=>{const f=$('examForm');if(f&&!f.hidden){examCloseForm();}else{examOpenForm(null);}});
 on('examCancel',()=>examCloseForm());
 on('examSave',()=>{
-  const r=addExam(state.exams,$('examName').value,$('examDate').value);
+  const name=$('examName').value,date=$('examDate').value;
+  const r=examEditId!=null?updateExam(state.exams,examEditId,name,date):addExam(state.exams,name,date);
   if(!r.ok){notify(r.dup?'这个任务已经排过了。':'填好任务名和日期。');return;}
   state.exams=r.store;examCloseForm();renderExams();scheduleSave();
 });

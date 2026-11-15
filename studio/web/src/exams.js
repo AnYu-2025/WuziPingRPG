@@ -69,6 +69,16 @@ export function removeExam(store,id){
   const s=examsSanitize(store);
   return {nextId:s.nextId,exams:s.exams.filter(e=>e.id!==id)};
 }
+/* 编辑任务：改名称/日期，保留里程碑与 id。重名重日期（除自身）视为冲突。 */
+export function updateExam(store,id,name,date){
+  const s=examsSanitize(store);
+  const n=String(name||'').trim().slice(0,40);
+  if(!n||!Number.isFinite(parseDay(date)))return {store:s,ok:false};
+  if(!s.exams.some(e=>e.id===id))return {store:s,ok:false};
+  if(s.exams.some(e=>e.id!==id&&e.name===n&&e.date===date))return {store:s,ok:false,dup:true};
+  const exams=s.exams.map(e=>e.id===id?{...e,name:n,date}:e);
+  return {store:{nextId:s.nextId,exams},ok:true};
+}
 export function addMilestone(store,examId,label){
   const s=examsSanitize(store);
   const l=String(label||'').trim().slice(0,60);

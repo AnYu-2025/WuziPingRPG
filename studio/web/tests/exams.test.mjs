@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {daysUntil,todayStr,examsSanitize,addExam,removeExam,addMilestone,toggleMilestone,removeMilestone,sortExams,examProgress,countdownText} from '../src/exams.js';
+import {daysUntil,todayStr,examsSanitize,addExam,removeExam,updateExam,addMilestone,toggleMilestone,removeMilestone,sortExams,examProgress,countdownText} from '../src/exams.js';
 
 const NOW=new Date(2026,10,14,12,0,0); // 2026-11-14 本地
 
@@ -67,4 +67,31 @@ test('countdownText',()=>{
   assert.equal(countdownText(e,NOW),'还有 6 天');
   assert.equal(countdownText({date:'2026-11-14'},NOW),'就是今天');
   assert.equal(countdownText({date:'2026-11-10'},NOW),'已过 4 天');
+});
+
+test('updateExam renames/reschedules keeping milestones and id',()=>{
+  let s=examsSanitize(null);
+  const added=addExam(s,'旧名','2026-11-20');
+  s=added.store;
+  const id=added.exam.id;
+  s=addMilestone(s,id,'一轮').store;
+  const r=updateExam(s,id,'新名','2026-12-01');
+  assert.ok(r.ok);
+  const e=r.store.exams.find(x=>x.id===id);
+  assert.equal(e.name,'新名');
+  assert.equal(e.date,'2026-12-01');
+  assert.equal(e.milestones.length,1); // 里程碑保留
+  assert.equal(e.id,id);
+});
+
+test('updateExam rejects invalid and duplicate',()=>{
+  let s=examsSanitize(null);
+  const a=addExam(s,'A','2026-11-20').store;
+  const b=addExam(a,'B','2026-11-25').store;
+  const idA=b.exams[0].id,idB=b.exams[1].id;
+  assert.equal(updateExam(b,idA,'','2026-11-20').ok,false); // 空名
+  assert.equal(updateExam(b,idA,'X','bad').ok,false); // 坏日期
+  assert.equal(updateExam(b,idA,'B','2026-11-25').dup,true); // 撞B
+  assert.equal(updateExam(b,idA,'A','2026-11-20').ok,true); // 自身同名同日期允许
+  assert.equal(updateExam(b,999,'C','2026-11-20').ok,false); // 不存在
 });
