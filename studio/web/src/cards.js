@@ -71,6 +71,13 @@ export function reviewCard(card,rating,now){
   return {...c,ease,interval,reps,due:now+interval*DAY};
 }
 
+/* 评分按钮上的「下次间隔」预览：复用 reviewCard 的真实算法，保证所见即所得。 */
+export function previewInterval(card,rating,now){
+  const r=reviewCard(card,rating,now);
+  if(!r)return '';
+  return r.interval===0?'10分钟':r.interval+'天';
+}
+
 /* 到期队列：due<=now，按 due 升序、再按 id。 */
 export function dueCards(deck,now){
   const d=deckSanitize(deck);

@@ -30,7 +30,7 @@ import {snippetsFor,snippetById} from './snippets.js';
 import {searchProject} from './project-search.js';
 import {renderMarkdown} from './markdown.js';
 import {DEFAULT_FOCUS,focusSanitize,focusToggle,focusReset,focusSkip,focusTick,focusSetMinutes,fmtTime,lastNDays} from './focus.js';
-import {deckSanitize,addCard,removeCard,reviewCard,dueCards,deckStats} from './cards.js';
+import {deckSanitize,addCard,removeCard,reviewCard,previewInterval,dueCards,deckStats} from './cards.js';
 import {importCards,importMistakes,exportCards,exportMistakes,updateCard,importSummary} from './transfer.js';
 import {SUBJECTS,MASTERY,bookSanitize,addMistake,updateMistake,setMastery,removeMistake,filterMistakes,bookStats} from './mistakes.js';
 import {habitsSanitize,addHabit,removeHabit,isChecked,toggleCheck,currentStreak,bestStreak,totalChecks,lastNDaysChecks,habitsStats} from './habits.js';
@@ -1489,6 +1489,8 @@ function renderCards(){
     face.textContent=cardsShown?cardsCurrent.back:cardsCurrent.front;
     hint.textContent=cardsShown?'回忆一下，再给自己打分':'点卡片看背面';
     rate.hidden=!cardsShown;
+    /* 评分按钮显示真实下次间隔，打分前心里有数。 */
+    if(cardsShown){for(const b of rate.querySelectorAll('button')){const iv=previewInterval(cardsCurrent,+b.dataset.rate,Date.now());const lab=b.querySelector('.iv');if(lab)lab.textContent=iv;}}
   }else{
     face.textContent=cardsQueue.length?'共 '+cardsQueue.length+' 张待复习，点「开始复习」':'没有到期的卡片，去添加或稍后再来';
     hint.textContent='';rate.hidden=true;
@@ -2172,6 +2174,7 @@ function examOpenForm(ex){
   examEditId=ex?ex.id:null;
   $('examName').value=ex?ex.name:'';
   $('examDate').value=ex?ex.date:'';
+  const q=$('examDateQuick');if(q)for(const x of q.children)x.classList.remove('on');
   const sb=$('examSave');if(sb)sb.textContent=ex?'保存修改':'保存';
   $('examName').focus();
 }
@@ -2245,6 +2248,14 @@ function renderExams(){
 }
 on('examAddToggle',()=>{const f=$('examForm');if(f&&!f.hidden){examCloseForm();}else{examOpenForm(null);}});
 on('examCancel',()=>examCloseForm());
+/* 日期快捷：今天/明天/3天/1周/1月，点一下填好日期。 */
+{const q=$('examDateQuick');if(q)q.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-days]');if(!b)return;
+  const d=new Date();d.setDate(d.getDate()+(+b.dataset.days||0));
+  const p=x=>String(x).padStart(2,'0');
+  $('examDate').value=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+  for(const x of q.children)x.classList.toggle('on',x===b);
+});}
 on('examSave',()=>{
   const name=$('examName').value,date=$('examDate').value;
   const r=examEditId!=null?updateExam(state.exams,examEditId,name,date):addExam(state.exams,name,date);
@@ -2297,6 +2308,20 @@ function mcUpdate(){
   $('mcValue').textContent=r.rounded;
   $('mcUnit').textContent=r.unit;
   const lab=$('mcLabel');lab.textContent=r.label;lab.className='mc-label '+r.tone;
+}
+on('mcCopy',()=>{
+  const c=calcById(mcCurrent);if(!c)return;
+  const r=runCalc(mcCurrent,mcVals);if(!r){notify('先填好输入再复制。');return;}
+  const txt=c.name+'：'+r.rounded+' '+r.unit+'（'+r.label+'）';
+  const done=()=>notify('已复制：'+txt);
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done).catch(()=>fallbackCopy(txt,done));}
+  else fallbackCopy(txt,done);
+});
+function fallbackCopy(txt,done){
+  const ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.append(ta);ta.select();
+  try{document.execCommand('copy');done();}catch(e){notify('复制失败，请手动选择结果。');}
+  ta.remove();
 }
 
 /* 潮声 · 白噪音景：混音台 + 预设 + 睡眠定时 + 粒子画布。 */

@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.35</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.36</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -324,10 +324,10 @@
     <span class="cards-face-hint" id="cardsFaceHint"></span>
    </button>
    <div class="cards-rate" id="cardsRate" hidden>
-    <button type="button" data-rate="0" class="r0">忘了</button>
-    <button type="button" data-rate="1" class="r1">困难</button>
-    <button type="button" data-rate="2" class="r2">良好</button>
-    <button type="button" data-rate="3" class="r3">轻松</button>
+    <button type="button" data-rate="0" class="r0">忘了<small class="iv"></small></button>
+    <button type="button" data-rate="1" class="r1">困难<small class="iv"></small></button>
+    <button type="button" data-rate="2" class="r2">良好<small class="iv"></small></button>
+    <button type="button" data-rate="3" class="r3">轻松<small class="iv"></small></button>
    </div>
    <div class="cards-actions">
     <button id="cardsStart" class="primary" type="button">开始复习</button>
@@ -547,6 +547,13 @@
   <div class="exam-form" id="examForm" hidden>
    <input id="examName" type="text" maxlength="40" placeholder="任务名（如：生化作业 / 执业医考 / 实验报告）">
    <input id="examDate" type="date">
+   <div class="exam-datequick" id="examDateQuick">
+    <button type="button" data-days="0">今天</button>
+    <button type="button" data-days="1">明天</button>
+    <button type="button" data-days="3">3天后</button>
+    <button type="button" data-days="7">1周后</button>
+    <button type="button" data-days="30">1月后</button>
+   </div>
    <div class="exam-form-actions"><button id="examSave" class="primary" type="button">保存</button><button id="examCancel" type="button">取消</button></div>
   </div>
   <div class="exam-list" id="examList"></div>
@@ -566,6 +573,7 @@
     <span class="mc-value" id="mcValue"></span>
     <span class="mc-unit" id="mcUnit"></span>
     <span class="mc-label" id="mcLabel"></span>
+    <button id="mcCopy" class="mc-copy" type="button">复制结果</button>
    </div>
   </div>
  </div>

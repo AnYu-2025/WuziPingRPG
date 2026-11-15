@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {DAY,cardSanitize,deckSanitize,addCard,removeCard,reviewCard,dueCards,deckStats,MIN_EASE,MAX_EASE} from '../src/cards.js';
+import {DAY,cardSanitize,deckSanitize,addCard,removeCard,reviewCard,previewInterval,dueCards,deckStats,MIN_EASE,MAX_EASE} from '../src/cards.js';
 
 const NOW=1_700_000_000_000;
 
@@ -92,4 +92,15 @@ test('review does not mutate input',()=>{
   const before=JSON.stringify(c);
   reviewCard(c,2,NOW);
   assert.equal(JSON.stringify(c),before);
+});
+
+test('previewInterval matches reviewCard for every rating',()=>{
+  const c=cardSanitize({front:'q',back:'a',reps:2,interval:3,ease:2.5},1);
+  for(let r=0;r<=3;r++){
+    const got=reviewCard(c,r,NOW);
+    const want=got.interval===0?'10分钟':got.interval+'天';
+    assert.equal(previewInterval(c,r,NOW),want);
+  }
+  assert.equal(previewInterval(c,0,NOW),'10分钟');
+  assert.equal(previewInterval(null,2,NOW),'');
 });
