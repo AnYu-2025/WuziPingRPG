@@ -52,6 +52,15 @@ import {pelicanSanitize} from './pelican.js';
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
 /* 输入防抖：列表快筛逐键重渲染会卡，停顿 120ms 再渲染。 */
 function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+/* 列表分页：长列表一次全量建 DOM 是点开/滑动卡顿源之一。
+   首屏只渲染 PAGE 条，点「显示更多」增量追加，不重建已有行。 */
+const PAGE=60;
+function appendMore(list,total,shown,onMore){
+  if(shown>=total)return;
+  const b=document.createElement('button');b.type='button';b.className='list-more';
+  b.textContent='显示更多（还有 '+(total-shown)+' 条）';
+  b.onclick=onMore;list.append(b);
+}
 /* 原生工作区快照的硬上限（EditorActivity 里是同一个数）。
    以前超限是静默丢弃整份草稿，现在先在页面里算清楚再明确报错。 */
 const WORKSPACE_LIMIT=30*1024*1024;
@@ -1490,7 +1499,7 @@ function renderCards(){
     list.replaceChildren();
     const q=($('cardsFilter')?$('cardsFilter').value:'').trim().toLowerCase();
     const shown=q?deck.cards.filter(c=>(c.front+' '+c.back).toLowerCase().includes(q)):deck.cards;
-    for(const c of shown){
+    const buildRow=c=>{
       const row=document.createElement('div');row.className='cards-row';
       const t=document.createElement('span');t.className='t';t.textContent=c.front;
       const d=document.createElement('span');d.className='d';d.textContent=c.due<=Date.now()?'到期':(c.interval?c.interval+'天':'新');
@@ -1510,8 +1519,17 @@ function renderCards(){
           cardsResetReview();renderCards();scheduleSave();notify('卡片已恢复，复习进度保留。');
         });
       };
-      row.append(t,d,edit,del);list.append(row);
-    }
+      row.append(t,d,edit,del);return row;
+    };
+    let shownCount=Math.min(PAGE,shown.length);
+    for(const c of shown.slice(0,shownCount))list.append(buildRow(c));
+    const moreCards=()=>{
+      const next=Math.min(shown.length,shownCount+PAGE);
+      const more=list.querySelector('.list-more');if(more)more.remove();
+      for(const c of shown.slice(shownCount,next))list.append(buildRow(c));
+      shownCount=next;appendMore(list,shown.length,shownCount,moreCards);
+    };
+    appendMore(list,shown.length,shownCount,moreCards);
     if(!deck.cards.length){const e=document.createElement('p');e.className='cards-face-hint';e.textContent='还没有卡片，点「添加卡片」开始。';list.append(e);}
     else if(!shown.length){const e=document.createElement('p');e.className='cards-face-hint';e.textContent='没有匹配「'+q+'」的卡片。';list.append(e);}
   }
@@ -1602,7 +1620,7 @@ function renderMistakes(){
   if(mq)items=items.filter(it=>(it.title+' '+it.question+' '+it.answer+' '+it.reason).toLowerCase().includes(mq));
   list.replaceChildren();
   if(!items.length){const e=document.createElement('p');e.className='mist-empty';e.textContent=book.items.length?(mq?'没有匹配「'+mq+'」的错题。':'这个筛选下没有错题。'):'还没有错题，点「＋ 记错题」开始。';list.append(e);return;}
-  for(const it of items){
+  const buildMist=it=>{
     const card=document.createElement('div');card.className='mist-item';
     const head=document.createElement('div');head.className='mist-item-head';
     const t=document.createElement('span');t.className='t';t.textContent=it.title;
@@ -1643,8 +1661,17 @@ function renderMistakes(){
       };
       act.append(edit,del);card.append(act);
     }
-    list.append(card);
-  }
+    return card;
+  };
+  let shownCount=Math.min(PAGE,items.length);
+  for(const it of items.slice(0,shownCount))list.append(buildMist(it));
+  const moreMist=()=>{
+    const next=Math.min(items.length,shownCount+PAGE);
+    const more=list.querySelector('.list-more');if(more)more.remove();
+    for(const it of items.slice(shownCount,next))list.append(buildMist(it));
+    shownCount=next;appendMore(list,items.length,shownCount,moreMist);
+  };
+  appendMore(list,items.length,shownCount,moreMist);
   hudMark(document.querySelector('#mistakesPanel'));
 }
 on('mistAddBtn',()=>mistOpenForm(null));
@@ -1670,7 +1697,7 @@ function renderHabits(){
   const list=$('habitList');if(!list)return;
   list.replaceChildren();
   if(!book.habits.length){const e=document.createElement('p');e.className='habit-empty';e.textContent='还没有习惯，输入名称点「添加」开始。';list.append(e);return;}
-  for(const h of book.habits){
+  const buildHabit=h=>{
     const item=document.createElement('div');item.className='habit-item';
     const top=document.createElement('div');top.className='habit-item-top';
     const t=document.createElement('span');t.className='t';t.textContent=h.name;
@@ -1701,8 +1728,17 @@ function renderHabits(){
       });
     };
     foot.append(del);item.append(foot);
-    list.append(item);
-  }
+    return item;
+  };
+  let shownCount=Math.min(PAGE,book.habits.length);
+  for(const h of book.habits.slice(0,shownCount))list.append(buildHabit(h));
+  const moreHabit=()=>{
+    const next=Math.min(book.habits.length,shownCount+PAGE);
+    const more=list.querySelector('.list-more');if(more)more.remove();
+    for(const h of book.habits.slice(shownCount,next))list.append(buildHabit(h));
+    shownCount=next;appendMore(list,book.habits.length,shownCount,moreHabit);
+  };
+  appendMore(list,book.habits.length,shownCount,moreHabit);
   hudMark(document.querySelector('#habitsPanel'));
 }
 on('habitAddBtn',()=>{

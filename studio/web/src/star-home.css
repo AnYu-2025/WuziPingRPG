@@ -29,7 +29,6 @@ body.starhome.listview .bh-scanlines,body.starhome.listview .bh-vignette,body.st
   padding:4px 11px;border-radius:999px;
   background:rgba(8,12,28,.82);border:1px solid rgba(159,184,255,.34);
   color:#f2f7ff;font-size:12px;font-weight:600;letter-spacing:.02em;
-  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
   white-space:nowrap;transition:opacity .2s;
   text-shadow:0 1px 8px rgba(0,0,0,.65);
 }
@@ -50,16 +49,14 @@ body.starhome.listview .bh-scanlines,body.starhome.listview .bh-vignette,body.st
 }
 .bh-dock .star-hud-actions button{
   flex:none;height:36px;min-height:36px;padding:0 14px;border-radius:999px;
-  background:rgba(10,16,32,.6);border:1px solid rgba(159,184,255,.3);
+  background:rgba(10,16,32,.88);border:1px solid rgba(159,184,255,.3);
   color:#cfe0ff;font-size:12px;font-weight:600;
-  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
 }
 .bh-dock .star-hud-actions button.active{background:rgba(47,212,191,.25);border-color:#2fd4bf;color:#b8fff2}
 .star-hole-chip{
   display:flex;align-items:center;justify-content:center;gap:6px;height:32px;min-width:36px;padding:0 12px;
-  border-radius:999px;background:rgba(5,8,16,.7);border:1px solid rgba(255,154,61,.45);
+  border-radius:999px;background:rgba(5,8,16,.88);border:1px solid rgba(255,154,61,.45);
   color:#ffd9ae;font-size:12px;font-weight:600;
-  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
 }
 .star-hole-chip #starHoleBadge{
   min-width:18px;height:18px;border-radius:999px;background:#ff9a3d;color:#241305;
@@ -74,9 +71,8 @@ body.starhome.listview .bh-scanlines,body.starhome.listview .bh-vignette,body.st
 .bh-console{
   position:absolute;left:0;right:0;bottom:calc(140px + env(safe-area-inset-bottom));z-index:20;
   display:flex;flex-direction:column;gap:7px;padding:9px 12px 8px;
-  background:linear-gradient(180deg,rgba(5,9,20,.55),rgba(4,7,16,.92) 30%);
+  background:linear-gradient(180deg,rgba(5,9,20,.9),rgba(4,7,16,.97) 30%);
   border-top:1px solid rgba(111,224,255,.22);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
 }
 /* 折叠规则放在基础 display 之后，保证覆盖生效 */
 .bh-console-head{display:flex;align-items:center;gap:8px;min-width:0}
@@ -108,9 +104,8 @@ body.starhome.listview .bh-console,body.starhome.listview .bh-dock{display:none}
 .star-hole-sheet{
   position:absolute;left:0;right:0;bottom:0;z-index:40;max-height:60%;
   display:flex;flex-direction:column;
-  background:rgba(8,11,22,.92);border-radius:18px 18px 0 0;
+  background:rgba(8,11,22,.97);border-radius:18px 18px 0 0;
   border-top:1px solid rgba(255,154,61,.35);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   padding-bottom:env(safe-area-inset-bottom);
 }
 .star-hole-head{display:flex;align-items:center;padding:14px 16px 8px}
