@@ -36,8 +36,8 @@ export function initStarHome(env,api){
   const $=id=>document.getElementById(id);
   let renderer=null,scene=null,camera=null,group=null,stars=new Map();
   let hole=null,holeShock=null,holeHud=[],labels=new Map(),constellation=null;
-  let holePlane=null,holeUniforms=null,holeParticles=null,holeJets=[],holeFlares=[];
-  let holePulse=0,holeAttract=0,shockT=1,lastTelem=0;
+  let holePlane=null,holeUniforms=null,holeParticles=null,holeJets=[],holeFlares=[],holeRig=null;
+  let holePulse=0,holeAttract=0,shockT=1,lastTelem=0,lastDiskPx=240;
   const reduceMotion=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const mScale=reduceMotion?.25:1;
   const buzz=ms=>{try{if(navigator.vibrate)navigator.vibrate(ms);}catch(e){}};
@@ -294,6 +294,9 @@ export function initStarHome(env,api){
     holePlane.renderOrder=-1;
     hole.add(holePlane);
     holeAdvanced=true;
+    /* 子对象组：粒子/喷流/HUD/耀斑/冲击波都挂在这里，
+       随盘径整体缩放，避免盘收小后它们还按原尺寸散落。 */
+    holeRig=new THREE.Group();hole.add(holeRig);
     /* 内流粒子：GPU 顶点着色器驱动螺旋坠入，零 CPU 逐帧开销。 */
     const PN=420;
     const pGeo=new THREE.BufferGeometry();
@@ -340,7 +343,7 @@ export function initStarHome(env,api){
     holeParticles=new THREE.Points(pGeo,pMat);
     holeParticles.rotation.x=1.28; /* 与着色器盘倾角呼应 */
     holeParticles.renderOrder=2;
-    hole.add(holeParticles);
+    holeRig.add(holeParticles);
     /* 极喷流：上下两道淡蓝能量柱。 */
     const jetMat=new THREE.ShaderMaterial({vertexShader:JET_VERT,fragmentShader:JET_FRAG,uniforms:{uTime:{value:0},uMotion:{value:mScale},uPulse:{value:0},uJet:{value:1}},transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
     for(const sgn of [1,-1]){
@@ -348,23 +351,23 @@ export function initStarHome(env,api){
       jet.position.y=sgn*2.1;
       if(sgn<0)jet.rotation.z=Math.PI;
       jet.renderOrder=1;
-      holeJets.push(jet);hole.add(jet);
+      holeJets.push(jet);holeRig.add(jet);
     }
     /* 冲击波（收纳时扩散） */
     holeShock=new THREE.Mesh(new THREE.RingGeometry(.6,.66,48),new THREE.MeshBasicMaterial({color:0xffc07a,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
-    holeShock.renderOrder=3;hole.add(holeShock);
+    holeShock.renderOrder=3;holeRig.add(holeShock);
     /* 环境辉光改由着色器 uGlow 承担，不再叠不透明平面前的精灵（会染灰阴影）。 */
     /* 科幻 HUD：分段刻度环 + 旋转扫描弧 + 十字准星，青色冷光。 */
     const hudMat=new THREE.MeshBasicMaterial({color:0x6fe0ff,transparent:true,opacity:.20,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide});
-    const hud1=new THREE.Mesh(new THREE.RingGeometry(2.35,2.37,96),hudMat);hole.add(hud1);
-    const hud2=new THREE.Mesh(new THREE.RingGeometry(2.62,2.635,96,1,0,Math.PI*1.35),hudMat.clone());hud2.material.opacity=.16;hole.add(hud2);
-    const hud3=new THREE.Mesh(new THREE.RingGeometry(2.05,2.06,64,1,0,Math.PI*.5),hudMat.clone());hud3.material.opacity=.22;hole.add(hud3);
+    const hud1=new THREE.Mesh(new THREE.RingGeometry(2.35,2.37,96),hudMat);holeRig.add(hud1);
+    const hud2=new THREE.Mesh(new THREE.RingGeometry(2.62,2.635,96,1,0,Math.PI*1.35),hudMat.clone());hud2.material.opacity=.16;holeRig.add(hud2);
+    const hud3=new THREE.Mesh(new THREE.RingGeometry(2.05,2.06,64,1,0,Math.PI*.5),hudMat.clone());hud3.material.opacity=.22;holeRig.add(hud3);
     holeHud=[hud1,hud2,hud3];
     /* 轨道耀斑：两团热斑沿内盘开普勒轨道绕行（Sgr A* 耀斑的写意），
        加色混合、不写深度，叠在透镜盘上像盘内亮斑。 */
     holeFlares=[0,1].map(i=>{
       const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture('rgba(255,244,214,.95)','rgba(255,150,60,.4)'),transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending}));
-      sp.renderOrder=2;sp.userData.phase=i*Math.PI;hole.add(sp);return sp;
+      sp.renderOrder=2;sp.userData.phase=i*Math.PI;holeRig.add(sp);return sp;
     });
     hole.position.set(0,.5,3.5);
     hole.scale.setScalar(1.0);
@@ -675,8 +678,8 @@ export function initStarHome(env,api){
     proj.sort((a,b)=>a.depth-b.depth);
     /* 黑洞在屏幕上的排斥区：标签落进去会被吸积盘盖住，必须让开。 */
     const hp=hole.position.clone().project(camera);
-    const hpe=hole.position.clone().add(new THREE.Vector3(2.3*hole.scale.x*(holeUniforms?holeUniforms.uZoom.value/1.45:1),0,0)).project(camera);
-    const hr=Math.max(70,Math.abs((hpe.x-hp.x)*.5*w));
+    /* 排斥区直接取实际盘径像素（上一帧 wantPx），不再用与 uZoom 脱节的换算。 */
+    const hr=Math.max(60,lastDiskPx*.5+18);
     const holeRect={x:(hp.x*.5+.5)*w-hr,y:(-hp.y*.5+.5)*h-hr,w:hr*2,h:hr*2};
     /* 左上遥测也是排斥区：星标签落进去会和坐标文字叠在一起。 */
     const telem=document.querySelector('.bh-telemetry');
@@ -768,12 +771,15 @@ export function initStarHome(env,api){
     const worldH=2*Math.tan(camera.fov*Math.PI/360)*dist;
     const worldW=worldH*(sh>0?sw/sh:1);
     const planePx=(6.4/worldH)*sh;              /* 平面在屏幕上的像素高 */
-    const wantPx=Math.min(sw*.92,sh*.58)*obsZoom; /* 期望盘径 */
+    const wantPx=Math.min(sw*.64,sh*.44)*obsZoom; /* 期望盘径：默认约 64% 屏宽，留白更舒服 */
+    lastDiskPx=wantPx;
     const target=1+holeAttract*.05+holePulse*.06;
     hole.scale.setScalar(hole.scale.x+(target-hole.scale.x)*.15);
     /* 可见亮盘半径约 1.05（p 空间，外缘 1.58 已淡出），直径 2.1；
        像素直径 = 1.05*planePx*scale/uZoom，令其等于 wantPx。 */
     if(holeUniforms)holeUniforms.uZoom.value=clamp(1.05*planePx*hole.scale.x/Math.max(wantPx,1),.6,6);
+    /* 子组（粒子/喷流/HUD/耀斑）按盘径比例整体缩放，与盘保持同一视觉尺度。 */
+    if(holeRig)holeRig.scale.setScalar(clamp(2.1*planePx*hole.scale.x/(Math.max(wantPx,1)*4.4),.25,1.6));
     if(shockT<1){shockT=Math.min(1,shockT+.03);const sc=.7+shockT*2.4;holeShock.scale.set(sc,sc,1);holeShock.material.opacity=(1-shockT)*.55;}
     else holeShock.material.opacity=0;
     /* 遥测 HUD：自旋/温度/FPS 随状态实时跳动，约 8Hz 节流。 */
