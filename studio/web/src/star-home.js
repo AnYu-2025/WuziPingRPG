@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three';
 import {starSanitize} from './star-data.js';
+import {QUALITY_TIERS,qualitySanitize,tierIndexOf,autoTierStep} from './render-quality.js';
 
 const R=5;
 const STAR_COLORS={
@@ -35,7 +36,7 @@ export function initStarHome(env,api){
   const $=id=>document.getElementById(id);
   let renderer=null,scene=null,camera=null,group=null,stars=new Map();
   let hole=null,holeShock=null,holeHud=[],labels=new Map(),constellation=null;
-  let holePlane=null,holeUniforms=null,holeParticles=null,holeJets=[];
+  let holePlane=null,holeUniforms=null,holeParticles=null,holeJets=[],holeFlares=[];
   let holePulse=0,holeAttract=0,shockT=1,lastTelem=0;
   const reduceMotion=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const mScale=reduceMotion?.25:1;
@@ -85,6 +86,36 @@ export function initStarHome(env,api){
     const tex=new THREE.CanvasTexture(c);
     return tex;
   }
+  /* 恒星贴图：锐利星核 + 四向星芒 + 极淡晕，取代大团模糊光球。 */
+  function starTexture(color){
+    const S=128,c=document.createElement('canvas');c.width=c.height=S;
+    const g=c.getContext('2d'),cx=S/2,cy=S/2;
+    const r=(color>>16)&255,gg=(color>>8)&255,b=color&255;
+    const rgb=r+','+gg+','+b;
+    /* 极淡外晕 */
+    let grad=g.createRadialGradient(cx,cy,0,cx,cy,S*.5);
+    grad.addColorStop(0,'rgba('+rgb+',.30)');
+    grad.addColorStop(.28,'rgba('+rgb+',.10)');
+    grad.addColorStop(1,'rgba('+rgb+',0)');
+    g.fillStyle=grad;g.fillRect(0,0,S,S);
+    /* 四向星芒 */
+    g.globalCompositeOperation='lighter';
+    for(const [dx,dy] of [[1,0],[0,1]]){
+      const lg=g.createLinearGradient(cx-dx*S*.46,cy-dy*S*.46,cx+dx*S*.46,cy+dy*S*.46);
+      lg.addColorStop(0,'rgba('+rgb+',0)');
+      lg.addColorStop(.5,'rgba(255,255,255,.55)');
+      lg.addColorStop(1,'rgba('+rgb+',0)');
+      g.strokeStyle=lg;g.lineWidth=1.6;
+      g.beginPath();g.moveTo(cx-dx*S*.46,cy-dy*S*.46);g.lineTo(cx+dx*S*.46,cy+dy*S*.46);g.stroke();
+    }
+    /* 锐利星核 */
+    grad=g.createRadialGradient(cx,cy,0,cx,cy,S*.11);
+    grad.addColorStop(0,'rgba(255,255,255,1)');
+    grad.addColorStop(.45,'rgba('+rgb+',.95)');
+    grad.addColorStop(1,'rgba('+rgb+',0)');
+    g.fillStyle=grad;g.beginPath();g.arc(cx,cy,S*.11,0,7);g.fill();
+    return new THREE.CanvasTexture(c);
+  }
 
   /* ---------- 引力透镜黑洞着色器（Gargantua 风格） ----------
      沿视线做弱场光线偏折（引力积分），吸积盘在 XZ 平面、近侧倾角。
@@ -94,7 +125,7 @@ export function initStarHome(env,api){
   const BH_FRAG=`
     precision highp float;
     varying vec2 vUv;
-    uniform float uTime,uPulse,uAttract,uMotion,uZoom,uDiskSpeed,uTurb,uBeam,uHue,uGlow,uIncl;
+    uniform float uTime,uPulse,uAttract,uMotion,uZoom,uDiskSpeed,uTurb,uBeam,uHue,uGlow,uIncl,uSpin,uSteps;
     uniform vec2 uTilt;
     const float RH=0.30;
     const float PI=3.14159265359;
@@ -168,11 +199,16 @@ export function initStarHome(env,api){
       float minR=100.0;
       bool captured=false;
       float dt=0.16;
+      /* 步数由质量档驱动：弱机 32 步、强机 72 步，循环上界恒定、内部 break。 */
       for(int i=0;i<72;i++){
+        if(float(i)>=uSteps)break;
         float r=length(pos);
         minR=min(minR,r);
         if(r<RH*0.98){captured=true;break;}
         if(r>18.0)break;
+        /* 参考系拖曳（Lense–Thirring 近似）：自旋越高，光线绕极轴扭转越强。 */
+        float sw=uSpin*0.22/(r*r+0.35);
+        dir=normalize(dir+cross(vec3(0.0,1.0,0.0),pos)*(sw*dt/max(r,0.001)));
         vec3 acc=-pos*(0.40/(r*r*r));
         dir=normalize(dir+acc*dt);
         vec3 npos=pos+dir*dt;
@@ -197,7 +233,8 @@ export function initStarHome(env,api){
       /* 事件视界：被捕获的光线直接纯黑，边界即真实阴影轮廓，
          不再用屏幕空间圆罩（圆罩与投影边界错位会产生缺口）。 */
       if(captured){gl_FragColor=vec4(0.0,0.0,0.0,1.0);return;}
-      float ringR=RH*1.55;
+      /* 自旋越高，光子环越贴近视界（Kerr 阴影收缩的近似）。 */
+      float ringR=RH*(1.55-0.25*uSpin);
       float ring=exp(-pow((minR-ringR)/(RH*0.11),2.0));
       col+=vec3(1.0,0.86,0.62)*ring*(0.85+uPulse*1.6);
       float ph=exp(-pow((r0-ringR*0.80)/0.013,2.0));
@@ -250,7 +287,7 @@ export function initStarHome(env,api){
     /* 黑洞（首页视觉中心）：引力透镜着色器 + 内流粒子 + 极喷流 + 科幻 HUD。
        着色器平面永远面向相机（billboard），内部自带倾角与透镜，避免双重投影。 */
     hole=new THREE.Group();
-    holeUniforms={uTime:{value:0},uPulse:{value:0},uAttract:{value:0},uMotion:{value:mScale},uZoom:{value:1.45},uDiskSpeed:{value:1},uTurb:{value:1},uBeam:{value:.9},uHue:{value:0},uGlow:{value:1},uIncl:{value:.30},uTilt:{value:new THREE.Vector2(0,0)}};
+    holeUniforms={uTime:{value:0},uPulse:{value:0},uAttract:{value:0},uMotion:{value:mScale},uZoom:{value:1.45},uDiskSpeed:{value:1},uTurb:{value:1},uBeam:{value:.9},uHue:{value:0},uGlow:{value:1},uIncl:{value:.42},uSpin:{value:.6},uSteps:{value:72},uTilt:{value:new THREE.Vector2(0,0)}};
     const bhMat=new THREE.ShaderMaterial({vertexShader:BH_VERT,fragmentShader:BH_FRAG,uniforms:holeUniforms,transparent:false,depthWrite:true});
     holePlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1),bhMat);
     holePlane.scale.set(6.4,6.4,1);
@@ -323,7 +360,13 @@ export function initStarHome(env,api){
     const hud2=new THREE.Mesh(new THREE.RingGeometry(2.62,2.635,96,1,0,Math.PI*1.35),hudMat.clone());hud2.material.opacity=.16;hole.add(hud2);
     const hud3=new THREE.Mesh(new THREE.RingGeometry(2.05,2.06,64,1,0,Math.PI*.5),hudMat.clone());hud3.material.opacity=.22;hole.add(hud3);
     holeHud=[hud1,hud2,hud3];
-    hole.position.set(0,0,3.5);
+    /* 轨道耀斑：两团热斑沿内盘开普勒轨道绕行（Sgr A* 耀斑的写意），
+       加色混合、不写深度，叠在透镜盘上像盘内亮斑。 */
+    holeFlares=[0,1].map(i=>{
+      const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture('rgba(255,244,214,.95)','rgba(255,150,60,.4)'),transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending}));
+      sp.renderOrder=2;sp.userData.phase=i*Math.PI;hole.add(sp);return sp;
+    });
+    hole.position.set(0,.5,3.5);
     hole.scale.setScalar(1.0);
     scene.add(hole);
     /* 启动时 obsApply 先于着色器创建跑过，uniform 没拿到记忆值；
@@ -343,9 +386,10 @@ export function initStarHome(env,api){
        它会被 CSS 拉伸铺满整屏，把背后的夜空糊成一片浅色。 */
     const w=stage.clientWidth,h=stage.clientHeight;
     if(w<2||h<2)return;
-    if(w===lastW&&h===lastH)return;
+    const pr=Math.min(window.devicePixelRatio||1,QUALITY_TIERS[qualityTier].px);
+    if(w===lastW&&h===lastH&&Math.abs(renderer.getPixelRatio()-pr)<.01)return;
     lastW=w;lastH=h;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+    renderer.setPixelRatio(pr);
     renderer.setSize(w,h,false);
     camera.aspect=w/h;camera.updateProjectionMatrix();
     dirty=true;
@@ -361,10 +405,10 @@ export function initStarHome(env,api){
     const layer=$('starLabels');
     mods.forEach((m,i)=>{
       const color=STAR_COLORS[m.id]||0xffffff;
-      const mat=new THREE.SpriteMaterial({map:glowTexture('rgba(255,255,255,1)','rgba('+((color>>16)&255)+','+((color>>8)&255)+','+(color&255)+',.5)'),transparent:true,depthWrite:false});
+      const mat=new THREE.SpriteMaterial({map:starTexture(color),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
       const sprite=new THREE.Sprite(mat);
       sprite.position.fromArray(pos[i]);
-      sprite.scale.set(.9,.9,1);
+      sprite.scale.set(.62,.62,1);
       sprite.userData.moduleId=m.id;
       group.add(sprite);
       stars.set(m.id,{sprite,base:new THREE.Vector3().fromArray(pos[i]),color,phase:Math.random()*Math.PI*2});
@@ -571,7 +615,7 @@ export function initStarHome(env,api){
   }
 
   /* ---------- 渲染循环 ---------- */
-  let lastT=0,lastInteract=0,lastLabel=0;
+  let lastT=0,lastInteract=0,lastLabel=0,fpsFrames=0,fpsT0=0,fpsNow=60;
   function loop(t){
     if(!active)return;
     raf=requestAnimationFrame(loop);
@@ -588,7 +632,7 @@ export function initStarHome(env,api){
       if(s){
         const target=group.worldToLocal(hole.position.clone());
         s.sprite.position.lerpVectors(sucking.from,target,k*k);
-        const sc=.9*(1-k*.9);
+        const sc=.62*(1-k*.9);
         s.sprite.scale.set(sc,sc,1);
       }
       if(k>=1){const id=sucking.id;sucking=null;finishStar(id);}
@@ -620,7 +664,7 @@ export function initStarHome(env,api){
       if(!s.sprite.visible)continue;
       if(!sucking||sucking.id!==id){
         const pulse=1+Math.sin(t*.0016+s.phase)*.12;
-        s.sprite.scale.set(.9*pulse,.9*pulse,1);
+        s.sprite.scale.set(.62*pulse,.62*pulse,1);
       }
       const wp=s.sprite.getWorldPosition(new THREE.Vector3());
       const depth=wp.distanceTo(camera.position);
@@ -631,7 +675,7 @@ export function initStarHome(env,api){
     proj.sort((a,b)=>a.depth-b.depth);
     /* 黑洞在屏幕上的排斥区：标签落进去会被吸积盘盖住，必须让开。 */
     const hp=hole.position.clone().project(camera);
-    const hpe=hole.position.clone().add(new THREE.Vector3(1.7*hole.scale.x,0,0)).project(camera);
+    const hpe=hole.position.clone().add(new THREE.Vector3(2.3*hole.scale.x*(holeUniforms?holeUniforms.uZoom.value/1.45:1),0,0)).project(camera);
     const hr=Math.max(70,Math.abs((hpe.x-hp.x)*.5*w));
     const holeRect={x:(hp.x*.5+.5)*w-hr,y:(-hp.y*.5+.5)*h-hr,w:hr*2,h:hr*2};
     /* 左上遥测也是排斥区：星标签落进去会和坐标文字叠在一起。 */
@@ -673,7 +717,19 @@ export function initStarHome(env,api){
         rect={x:lx-lw/2,y:ly,w:lw,h:lh};
         if(hit(telemRect)){ly=clamp(telemRect.h+6,topSafe,h-bottomSafe-lh);rect={x:lx-lw/2,y:ly,w:lw,h:lh};}
       }
-      if(placed.some(hit)){label.style.opacity='0';label.style.pointerEvents='none';continue;}
+      /* 标签互撞不再直接隐藏：先试着上/下/左/右挪一格，
+         挪不开才让位，保证尽量多的模块首屏可点。 */
+      if(placed.some(hit)){
+        const tries=[[0,-lh-8],[0,lh+8],[-(lw/2+14),0],[lw/2+14,0]];
+        let ok=false;
+        for(const [ox,oy] of tries){
+          const nx=clamp(lx+ox,lw/2+pad,w-lw/2-pad);
+          const ny=clamp(ly+oy,topSafe,h-bottomSafe-lh);
+          const nr={x:nx-lw/2,y:ny,w:lw,h:lh};
+          if(!placed.some(r=>nr.x<r.x+r.w&&nr.x+nr.w>r.x&&nr.y<r.y+r.h&&nr.y+nr.h>r.y)&&!(telemRect&&nr.x<telemRect.w&&nr.x+nr.w>telemRect.x&&nr.y<telemRect.h&&nr.y+nr.h>telemRect.y)){lx=nx;ly=ny;rect=nr;ok=true;break;}
+        }
+        if(!ok){label.style.opacity='0';label.style.pointerEvents='none';continue;}
+      }
       placed.push(rect);
       /* 越靠边越淡，但始终可读；被收敛过的标签不再额外压暗。 */
       label.style.opacity=String(clamp(1.15-Math.abs(item.p.x)*.35,.55,1));
@@ -691,19 +747,45 @@ export function initStarHome(env,api){
     }
     if(holeParticles)holeParticles.material.uniforms.uTime.value=ht;
     for(const j of holeJets){j.material.uniforms.uTime.value=ht;j.material.uniforms.uPulse.value=holePulse;j.quaternion.copy(camera.quaternion);}
+    /* 耀斑沿内盘轨道：角速度开普勒式，亮度随脉冲与吸引呼吸。 */
+    for(let i=0;i<holeFlares.length;i++){
+      const f=holeFlares[i];
+      const a=ht*.9+i*Math.PI;
+      const r=1.05+.12*Math.sin(ht*.7+i*2.1);
+      f.position.set(Math.cos(a)*r,.06,Math.sin(a)*r);
+      const s=(.2+.06*Math.sin(ht*2.3+i)+holePulse*.14)*(.6+obsFlare*.6);
+      f.scale.set(s,s,1);
+      f.material.opacity=obsFlare*(.38+holePulse*.35+holeAttract*.2);
+    }
     holeHud[0].rotation.z-=.0016*mScale;holeHud[1].rotation.z+=.0026*mScale;holeHud[2].rotation.z-=.004*mScale;
     const breathe=1+Math.sin(t*.0012)*.025*mScale;
     if(holeUniforms)holeUniforms.uGlow.value=obsGlowBase*breathe*(1+holePulse*.3);
-    const target=obsZoom*(1+holeAttract*.07+holePulse*.09);
+    /* 盘径按相机视域精确计算：整盘稳定占屏宽约 80%，窄屏/横屏都不裁不缩成点。
+       平面尺寸恒定（避免方形裁切），视距推拉改由采样域 uZoom 承担。 */
+    const stage2=host();
+    const sw=stage2?stage2.clientWidth:1,sh=stage2?stage2.clientHeight:1;
+    const dist=Math.max(2,camera.position.distanceTo(hole.position));
+    const worldH=2*Math.tan(camera.fov*Math.PI/360)*dist;
+    const worldW=worldH*(sh>0?sw/sh:1);
+    const planePx=(6.4/worldH)*sh;              /* 平面在屏幕上的像素高 */
+    const wantPx=Math.min(sw*.92,sh*.58)*obsZoom; /* 期望盘径 */
+    const target=1+holeAttract*.05+holePulse*.06;
     hole.scale.setScalar(hole.scale.x+(target-hole.scale.x)*.15);
+    /* 可见亮盘半径约 1.05（p 空间，外缘 1.58 已淡出），直径 2.1；
+       像素直径 = 1.05*planePx*scale/uZoom，令其等于 wantPx。 */
+    if(holeUniforms)holeUniforms.uZoom.value=clamp(1.05*planePx*hole.scale.x/Math.max(wantPx,1),.6,6);
     if(shockT<1){shockT=Math.min(1,shockT+.03);const sc=.7+shockT*2.4;holeShock.scale.set(sc,sc,1);holeShock.material.opacity=(1-shockT)*.55;}
     else holeShock.material.opacity=0;
-    /* 遥测 HUD：自旋/温度随脉冲与吸引实时跳动，约 8Hz 节流。 */
+    /* 遥测 HUD：自旋/温度/FPS 随状态实时跳动，约 8Hz 节流。 */
+    fpsFrames++;
+    if(t-fpsT0>=1000){fpsNow=Math.round(fpsFrames*1000/(t-fpsT0));fpsFrames=0;fpsT0=t;
+      if(qualityMode==='auto'){const s=autoTierStep(qualityTier,fpsNow,qualityHolds);if(s.tier!==qualityTier){qualityTier=s.tier;applyQuality();}qualityHolds=s.holds;}
+    }
     if(t-lastTelem>120){lastTelem=t;
-      const spin=$('bhSpin'),temp=$('bhTemp');
-      const a=(0.998+holePulse*0.0015+holeAttract*0.0008);
-      if(spin)spin.textContent='a* '+a.toFixed(4);
+      const spin=$('bhSpin'),temp=$('bhTemp'),fps=$('bhFps');
+      if(spin)spin.textContent='a* '+(obsSpin+holePulse*0.0015+holeAttract*0.0008).toFixed(4);
       if(temp)temp.textContent='T '+(1.2+holePulse*2.6+holeAttract*1.1).toFixed(1)+'×10⁷ K';
+      if(fps)fps.textContent=fpsNow+' FPS · '+({high:'高清',med:'均衡',low:'省电'}[QUALITY_TIERS[qualityTier].id]||'');
     }
     renderer.render(scene,camera);
   }
@@ -725,20 +807,39 @@ export function initStarHome(env,api){
     closeHole();
   }
 
-  /* ---------- 观测台：常驻控制台，10 参数实时渲染 ---------- */
-  const OBS_KEYS=['speed','incl','turb','beam','hue','glow','density','jet','time','zoom'];
-  const OBS_DEFAULT={speed:1,incl:.3,turb:1,beam:.9,hue:0,glow:1,density:1,jet:1,time:1,zoom:1};
+  /* ---------- 观测台：常驻控制台，12 参数实时渲染 ---------- */
+  const OBS_KEYS=['speed','incl','turb','beam','hue','glow','density','jet','time','zoom','spin','flare'];
+  const OBS_DEFAULT={speed:1,incl:.42,turb:1,beam:.9,hue:0,glow:1,density:1,jet:1,time:1,zoom:1,spin:.6,flare:.7};
   const OBS_PRESETS={
     eht:{...OBS_DEFAULT},
-    garg:{speed:.7,incl:.42,turb:1.3,beam:1.2,hue:.12,glow:1.4,density:.8,jet:1.2,time:.8},
-    blue:{speed:1.4,incl:.3,turb:.8,beam:1.1,hue:.85,glow:1.1,density:.7,jet:1.4,time:1.2},
-    quiet:{speed:.25,incl:.3,turb:.4,beam:.4,hue:0,glow:.4,density:.3,jet:.3,time:.4},
-    edge:{speed:1.1,incl:.08,turb:1.1,beam:1.3,hue:.05,glow:.9,density:.9,jet:.8,time:1}
+    garg:{speed:.7,incl:.42,turb:1.3,beam:1.2,hue:.12,glow:1.4,density:.8,jet:1.2,time:.8,spin:.9,flare:1},
+    blue:{speed:1.4,incl:.3,turb:.8,beam:1.1,hue:.85,glow:1.1,density:.7,jet:1.4,time:1.2,spin:.5,flare:.6},
+    quiet:{speed:.25,incl:.3,turb:.4,beam:.4,hue:0,glow:.4,density:.3,jet:.3,time:.4,spin:.3,flare:.2},
+    edge:{speed:1.1,incl:.08,turb:1.1,beam:1.3,hue:.05,glow:.9,density:.9,jet:.8,time:1,spin:.7,flare:.8}
   };
-  const OBS_IDS={speed:'obsSpeed',incl:'obsIncl',turb:'obsTurb',beam:'obsBeam',hue:'obsHue',glow:'obsGlow',density:'obsDensity',jet:'obsJet',time:'obsTime',zoom:'obsZoom'};
-  const OBS_RANGE={speed:[0,3],incl:[.05,.8],turb:[0,2],beam:[0,1.6],hue:[0,1],glow:[0,2.5],density:[0,1],jet:[0,2],time:[0,3],zoom:[.55,1.7]};
+  const OBS_IDS={speed:'obsSpeed',incl:'obsIncl',turb:'obsTurb',beam:'obsBeam',hue:'obsHue',glow:'obsGlow',density:'obsDensity',jet:'obsJet',time:'obsTime',zoom:'obsZoom',spin:'obsSpin',flare:'obsFlare'};
+  const OBS_RANGE={speed:[0,3],incl:[.05,.8],turb:[0,2],beam:[0,1.6],hue:[0,1],glow:[0,2.5],density:[0,1],jet:[0,2],time:[0,3],zoom:[.55,1.7],spin:[0,1],flare:[0,1.5]};
   const OBS_STORE='ember-studio-obs-v1';
-  let obsTimeScale=1,obsGlowBase=1,obsZoom=1;
+  const QUALITY_STORE='ember-studio-quality-v1';
+  let obsTimeScale=1,obsGlowBase=1,obsZoom=1,obsSpin=.6,obsFlare=.7;
+  let qualityMode='auto',qualityTier=0,qualityHolds={low:0,high:0};
+  /* 质量档落到渲染：步长进着色器、像素比进渲染器；auto 不锁档。 */
+  function applyQuality(){
+    const t=QUALITY_TIERS[qualityTier];
+    if(holeUniforms)holeUniforms.uSteps.value=t.steps;
+    if(renderer){
+      const pr=Math.min(window.devicePixelRatio||1,t.px);
+      if(Math.abs(renderer.getPixelRatio()-pr)>.01){renderer.setPixelRatio(pr);resize();}
+    }
+  }
+  function setQualityMode(m){
+    qualityMode=qualitySanitize(m);
+    if(qualityMode!=='auto'){qualityTier=tierIndexOf(qualityMode);}
+    else{qualityTier=0;qualityHolds={low:0,high:0};}
+    applyQuality();
+    try{localStorage.setItem(QUALITY_STORE,qualityMode);}catch(e){}
+    const sel=$('obsQuality');if(sel)sel.value=qualityMode;
+  }
   /* 观测参数记忆：重启后恢复上次的黑洞模样；非法值逐键回落默认。 */
   function obsLoad(){
     let raw=null;
@@ -761,11 +862,12 @@ export function initStarHome(env,api){
       holeUniforms.uBeam.value=v.beam;
       holeUniforms.uHue.value=v.hue;
       holeUniforms.uGlow.value=v.glow;
+      holeUniforms.uSpin.value=v.spin;
       obsGlowBase=v.glow;
     }
     if(holeParticles)holeParticles.material.uniforms.uDensity.value=v.density;
     for(const j of holeJets)j.material.uniforms.uJet.value=v.jet;
-    obsTimeScale=v.time;obsZoom=v.zoom;
+    obsTimeScale=v.time;obsZoom=v.zoom;obsSpin=v.spin;obsFlare=v.flare;
     for(const k of OBS_KEYS){
       const el=$(OBS_IDS[k]);if(el)el.value=v[k];
       const out=$(OBS_IDS[k]+'V');if(out)out.textContent=(+v[k]).toFixed(2).replace(/0$/,'');
@@ -786,9 +888,11 @@ export function initStarHome(env,api){
     });
     const rnd=$('obsRandom');if(rnd)rnd.onclick=()=>{
       const r=(a,b)=>+(a+Math.random()*(b-a)).toFixed(2);
-      const v={speed:r(.2,2.4),incl:r(.08,.7),turb:r(.3,1.8),beam:r(.3,1.5),hue:r(0,1),glow:r(.3,2),density:r(.2,1),jet:r(0,1.8),time:r(.3,2)};
+      const v={speed:r(.2,2.4),incl:r(.08,.7),turb:r(.3,1.8),beam:r(.3,1.5),hue:r(0,1),glow:r(.3,2),density:r(.2,1),jet:r(0,1.8),time:r(.3,2),zoom:r(.7,1.5),spin:r(0,1),flare:r(0,1.4)};
       obsApply(v);obsSave(v);
     };
+    const qsel=$('obsQuality');
+    if(qsel)qsel.onchange=()=>setQualityMode(qsel.value);
     const rst=$('obsReset');if(rst)rst.onclick=()=>{obsApply({...OBS_DEFAULT});obsSave(OBS_DEFAULT);};
     const exp=$('obsExport');if(exp)exp.onclick=()=>{
       const v=obsRead();
@@ -809,6 +913,8 @@ export function initStarHome(env,api){
       const prev=b.onclick;
       b.onclick=()=>{prev();obsSave(obsRead());};
     });
+    let qm='auto';try{qm=localStorage.getItem(QUALITY_STORE)||'auto';}catch(e){}
+    setQualityMode(qm);
     const start=obsLoad();
     obsApply(start);
     setCollapsed(false);
