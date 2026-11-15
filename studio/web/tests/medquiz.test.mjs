@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {QUIZ_BANK,QUIZ_SUBJECTS,bankCount,getBank,parseBankText,mergeBank,qKey} from '../src/quiz-data.js';
-import {buildQuiz,answerQuiz,nextQuiz,gradeQuiz,accuracy,sessionSummary,quizStatsSanitize,shuffle,displayOptions,chosenDisplay,toggleStar,sanitizeSession,sessionWrongList} from '../src/medquiz.js';
+import {buildQuiz,answerQuiz,nextQuiz,prevQuiz,skipQuiz,gradeQuiz,accuracy,sessionSummary,quizStatsSanitize,shuffle,displayOptions,chosenDisplay,toggleStar,sanitizeSession,sessionWrongList} from '../src/medquiz.js';
 
 test('bank integrity: >=600 questions, unique ids & stems, valid answers',()=>{
   assert.ok(QUIZ_BANK.length>=600);
@@ -207,4 +207,59 @@ test('sessionWrongList returns only wrong with chosen/answer',()=>{
   // 答对则不入回顾
   const right=answerQuiz(s,q.id,q.answer);
   assert.equal(sessionWrongList(right,QUIZ_BANK).length,0);
+});
+
+test('prevQuiz goes back and clamps at first',()=>{
+  const s=buildQuiz(quizStatsSanitize(null),'解剖','order');
+  assert.equal(prevQuiz(s).pos,0); // 第一题不能再退
+  const n=nextQuiz(s);
+  assert.equal(n.pos,1);
+  const p=prevQuiz(n);
+  assert.equal(p.pos,0);
+  assert.equal(p.finished,false);
+});
+
+test('skipQuiz advances without answering and marks skipped',()=>{
+  const s=buildQuiz(quizStatsSanitize(null),'解剖','order');
+  const qid=s.ids[0];
+  const k=skipQuiz(s);
+  assert.equal(k.pos,1);
+  assert.equal(k.answers[qid],undefined); // 未作答
+  assert.equal(k.skipped[qid],1);
+  const sum=sessionSummary(k,QUIZ_BANK);
+  assert.equal(sum.skipped,1);
+  assert.equal(sum.right,0);
+  assert.equal(sum.wrong,0);
+});
+
+test('answering a previously skipped question clears skip flag',()=>{
+  const s=buildQuiz(quizStatsSanitize(null),'解剖','order');
+  const qid=s.ids[0];
+  const k=skipQuiz(s);
+  const back=prevQuiz(k);
+  const q=QUIZ_BANK.find(x=>x.id===qid);
+  const a=answerQuiz(back,qid,q.answer);
+  assert.equal(a.skipped[qid],undefined);
+  assert.equal(sessionSummary(a,QUIZ_BANK).skipped,0);
+});
+
+test('skip then finish counts skipped separately',()=>{
+  let s=buildQuiz(quizStatsSanitize(null),'解剖','order');
+  const total=s.ids.length;
+  // 全部跳过
+  while(!s.finished)s=skipQuiz(s);
+  const sum=sessionSummary(s,QUIZ_BANK);
+  assert.equal(sum.total,total);
+  assert.equal(sum.skipped,total);
+  assert.equal(sum.right,0);
+  assert.equal(sum.wrong,0);
+});
+
+test('sanitizeSession preserves skipped set',()=>{
+  let s=buildQuiz(quizStatsSanitize(null),'解剖','order');
+  s=skipQuiz(s);
+  const r=sanitizeSession(JSON.parse(JSON.stringify(s)),QUIZ_BANK);
+  assert.ok(r);
+  assert.equal(r.skipped[s.ids[0]],1);
+  assert.equal(r.pos,1);
 });

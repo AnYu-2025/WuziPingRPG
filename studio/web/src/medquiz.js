@@ -1,6 +1,7 @@
 /* 天工 · 医学生刷题（纯逻辑，不依赖 DOM，方便单元测试）
  * 题库由调用方传入 bank（内置+用户导入合并去重后的数组）。
- * 会话 {mode,subject,difficulty,ids,pos,answers:{qid:choice},finished}。判分即时反馈。
+ * 会话 {mode,subject,difficulty,ids,pos,answers:{qid:choice},skipped:{qid:1},finished}。判分即时反馈。
+ * 未作答也可「跳过这题」前进、「返回上题」回看；跳过的题不计对错，交卷时单列。
  * 注意：与 quiz.js（笔记出题器）是两个独立模块，互不影响。 */
 
 import {QUIZ_BANK,QUIZ_SUBJECTS} from './quiz-data.js';
@@ -73,7 +74,7 @@ export function buildQuiz(stats,subject,mode,rnd,bank,difficulty){
     for(let i=idx.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
     perm[q.id]=idx;
   }
-  return {mode:md,subject:subj,difficulty:diff,ids,pos:0,answers:{},perm,finished:ids.length===0};
+  return {mode:md,subject:subj,difficulty:diff,ids,pos:0,answers:{},skipped:{},perm,finished:ids.length===0};
 }
 
 /* 本会话中某题的展示选项与正确选项的展示下标。 */
@@ -98,13 +99,31 @@ export function answerQuiz(session,qid,choice,bank){
   const q=byId(b,qid);
   if(!q||session.answers[qid]!=null)return session;
   const c=clamp(Math.round(num(choice,-1)),0,q.options.length-1);
-  return {...session,answers:{...session.answers,[qid]:c}};
+  const skipped={...(session.skipped||{})};
+  delete skipped[qid]; /* 回看时作答，撤销跳过标记 */
+  return {...session,answers:{...session.answers,[qid]:c},skipped};
 }
 
 export function nextQuiz(session){
   if(!session)return session;
   const pos=Math.min(session.ids.length,session.pos+1);
   return {...session,pos,finished:pos>=session.ids.length};
+}
+
+/* 返回上题：回看已答/已跳过的题，不改变作答与统计。 */
+export function prevQuiz(session){
+  if(!session||session.pos<=0)return session;
+  return {...session,pos:session.pos-1,finished:false};
+}
+
+/* 跳过这题：未作答也能前进；标记跳过，交卷单列，不计对错。 */
+export function skipQuiz(session){
+  if(!session||session.finished)return session;
+  const qid=session.ids[session.pos];
+  const skipped={...(session.skipped||{})};
+  if(qid!=null&&session.answers[qid]==null)skipped[qid]=1;
+  const pos=Math.min(session.ids.length,session.pos+1);
+  return {...session,skipped,pos,finished:pos>=session.ids.length};
 }
 
 /* 判分后更新统计：答对从错题本移除，答错记一次。 */
@@ -127,15 +146,15 @@ export function accuracy(stats){
 
 export function sessionSummary(session,bank){
   const b=(bank&&bank.length)?bank:QUIZ_BANK;
-  if(!session)return {total:0,right:0,wrong:0};
-  let right=0,wrong=0;
+  if(!session)return {total:0,right:0,wrong:0,skipped:0};
+  let right=0,wrong=0,skipped=0;
   for(const qid of session.ids){
     const a=session.answers[qid];
-    if(a==null)continue;
+    if(a==null){if(session.skipped&&session.skipped[qid])skipped++;continue;}
     const q=byId(b,qid);
     if(q&&a===q.answer)right++;else wrong++;
   }
-  return {total:session.ids.length,right,wrong};
+  return {total:session.ids.length,right,wrong,skipped};
 }
 
 /* 会话恢复：中断后续刷。只接受结构合法的未完成会话；
@@ -154,6 +173,10 @@ export function sanitizeSession(raw,bank){
       if(q&&Number.isFinite(+a)&&+a>=0&&+a<q.options.length)answers[id]=Math.round(+a);
     }
   }
+  const skipped={};
+  if(raw.skipped&&typeof raw.skipped==='object'){
+    for(const id of ids){if(raw.skipped[id]&&answers[id]==null)skipped[id]=1;}
+  }
   const perm={};
   for(const id of ids){
     const q=byId(b,id);
@@ -165,7 +188,7 @@ export function sanitizeSession(raw,bank){
   const mode=QUIZ_MODES.includes(raw.mode)?raw.mode:'order';
   const subject=typeof raw.subject==='string'&&(raw.subject==='全部'||QUIZ_SUBJECTS.includes(raw.subject))?raw.subject:'全部';
   const difficulty=[0,1,2,3,4].includes(+raw.difficulty)?+raw.difficulty:0;
-  return {mode,subject,difficulty,ids,pos,answers,perm,finished:pos>=ids.length};
+  return {mode,subject,difficulty,ids,pos,answers,skipped,perm,finished:pos>=ids.length};
 }
 
 /* 交卷后错题回顾：返回本会话答错的题（含用户选择与正确项，原始下标）。 */

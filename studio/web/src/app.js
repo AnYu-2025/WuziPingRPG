@@ -37,7 +37,7 @@ import {habitsSanitize,addHabit,removeHabit,isChecked,toggleCheck,currentStreak,
 import {DAYS,PERIODS,COURSE_COLORS,scheduleSanitize,addCourse,updateCourse,removeCourse,coursesOnDay,nowInfo,currentStatus,fmtMin,weeksText} from './schedule.js';
 import {splitChapters,shelfSanitize,novelSettingsSanitize,progressText} from './novel.js';
 import {QUIZ_SUBJECTS,bankCount,quizById,getBank,parseBankText,DIFF_LABELS} from './quiz-data.js';
-import {quizStatsSanitize,buildQuiz as mqBuild,answerQuiz as mqAnswerFn,nextQuiz as mqNextFn,gradeQuiz as mqGrade,accuracy as mqAccuracy,sessionSummary as mqSummary,displayOptions,chosenDisplay,toggleStar as mqToggleStar,sanitizeSession as mqSanitizeSession,sessionWrongList as mqWrongList} from './medquiz.js';
+import {quizStatsSanitize,buildQuiz as mqBuild,answerQuiz as mqAnswerFn,nextQuiz as mqNextFn,prevQuiz as mqPrevFn,skipQuiz as mqSkipFn,gradeQuiz as mqGrade,accuracy as mqAccuracy,sessionSummary as mqSummary,displayOptions,chosenDisplay,toggleStar as mqToggleStar,sanitizeSession as mqSanitizeSession,sessionWrongList as mqWrongList} from './medquiz.js';
 import {examsSanitize,addExam,removeExam,addMilestone,toggleMilestone,removeMilestone,sortExams,examProgress,countdownText,daysUntil} from './exams.js';
 import {CALCULATORS,calcById,runCalc} from './medcalc.js';
 import {LAYERS,PRESETS,defaultSoundscape,soundscapeSanitize,setLayer,setMaster,applyPreset,startTimer,clearTimer,timerRemaining,fadeGain,activeLayers} from './soundscape.js';
@@ -136,7 +136,7 @@ function notifyUndo(text,onUndo,ms=6000){
 }
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
 function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule),novel:shelfSanitize(state.novel),medquiz:quizStatsSanitize(state.medquiz),mqSession:mqSessionSnapshot(),exams:examsSanitize(state.exams),soundscape:soundscapeSanitize(state.soundscape)};}
-function mqSessionSnapshot(){const s=mqSession;if(!s||s.finished||!s.ids.length)return null;return {mode:s.mode,subject:s.subject,difficulty:s.difficulty,ids:s.ids,pos:s.pos,answers:s.answers,perm:s.perm};}
+function mqSessionSnapshot(){const s=mqSession;if(!s||s.finished||!s.ids.length)return null;return {mode:s.mode,subject:s.subject,difficulty:s.difficulty,ids:s.ids,pos:s.pos,answers:s.answers,skipped:s.skipped||{},perm:s.perm};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
 function mb(bytes){return (bytes/1048576).toFixed(1);}
@@ -1184,7 +1184,7 @@ function applyMode(mode){
     const np=$('novelPanel');if(np)np.hidden=true;
     const qp=$('medquizPanel');if(qp)qp.hidden=true;
     const ep=$('examsPanel');if(ep)ep.hidden=false;
-    $('activePath').textContent='考试倒计时';$('dirtyFlag').textContent='';
+    $('activePath').textContent='任务 DDL';$('dirtyFlag').textContent='';
     examCloseForm();renderExams();fxEnter();
     return true;
   }
@@ -1996,6 +1996,8 @@ function mqRenderQuestion(){
   else ex.hidden=true;
   $('mqNext').hidden=!answered;
   $('mqNext').textContent=(s.pos+1>=s.ids.length)?'看结果':'下一题';
+  const prevBtn=$('mqPrev');if(prevBtn)prevBtn.disabled=s.pos<=0;
+  const skipBtn=$('mqSkip');if(skipBtn){skipBtn.hidden=answered;skipBtn.textContent=(s.pos+1>=s.ids.length)?'跳过并交卷 ›':'跳过这题 ›';}
   const starBtn=$('mqStar');
   if(starBtn){const on=!!state.medquiz.star[qid];starBtn.textContent=on?'★ 已收藏':'☆ 收藏';starBtn.setAttribute('aria-pressed',on?'true':'false');starBtn.classList.toggle('starred',on);}
   hudMark(document.querySelector('#medquizPanel'));
@@ -2032,20 +2034,36 @@ on('mqStart',()=>{
   $('mqSetup').hidden=true;$('mqResult').hidden=true;$('mqRun').hidden=false;
   mqRenderQuestion();scheduleSave();
 });
+function mqShowResult(){
+  mqPersist();
+  $('mqRun').hidden=true;$('mqResult').hidden=false;
+  const sum=mqSummary(mqSession,mqBank());
+  const sc=$('mqScore');sc.innerHTML='';
+  const b=document.createElement('b');b.textContent=sum.right+' / '+sum.total;
+  let txt='答对 '+sum.right+' 题，答错 '+sum.wrong+' 题。';
+  if(sum.skipped)txt+='跳过 '+sum.skipped+' 题（不计对错）。';
+  txt+='错题已收进错题本。';
+  sc.append(b,document.createTextNode(txt));
+  $('mqRetryWrong').hidden=sum.wrong===0;
+  const wrong=mqWrongList(mqSession,mqBank());
+  $('mqReview').hidden=!wrong.length;
+  const rl=$('mqReviewList');rl.hidden=true;rl.replaceChildren();
+}
 on('mqNext',()=>{
   mqSession=mqNextFn(mqSession);
-  if(mqSession.finished){
-    mqPersist();
-    $('mqRun').hidden=true;$('mqResult').hidden=false;
-    const sum=mqSummary(mqSession,mqBank());
-    const sc=$('mqScore');sc.innerHTML='';
-    const b=document.createElement('b');b.textContent=sum.right+' / '+sum.total;
-    sc.append(b,document.createTextNode('答对 '+sum.right+' 题，答错 '+sum.wrong+' 题。错题已收进错题本。'));
-    $('mqRetryWrong').hidden=sum.wrong===0;
-    const wrong=mqWrongList(mqSession,mqBank());
-    $('mqReview').hidden=!wrong.length;
-    const rl=$('mqReviewList');rl.hidden=true;rl.replaceChildren();
-  }else{mqPersist();mqRenderQuestion();}
+  if(mqSession.finished)mqShowResult();
+  else{mqPersist();mqRenderQuestion();}
+});
+on('mqPrev',()=>{
+  if(!mqSession||mqSession.pos<=0)return;
+  mqSession=mqPrevFn(mqSession);
+  mqPersist();mqRenderQuestion();
+});
+on('mqSkip',()=>{
+  if(!mqSession||mqSession.finished)return;
+  mqSession=mqSkipFn(mqSession);
+  if(mqSession.finished)mqShowResult();
+  else{mqPersist();mqRenderQuestion();}
 });
 on('mqQuit',()=>{mqPersist();mqShowSetup();renderMqSetup();});
 on('mqBackSetup',()=>{mqClearSession();mqShowSetup();renderMqSetup();});
@@ -2090,7 +2108,7 @@ on('mqClearCustom',()=>{
   try{localStorage.removeItem(MQ_CUSTOM_KEY);}catch(e){}
   renderMqSetup();notify('已清空导入题库。');
 });
-/* 键盘快捷作答：1-6/A-F 选项，Enter/→ 下一题，S 收藏。仅在刷题作答页生效。 */
+/* 键盘快捷作答：1-6/A-F 选项，Enter/→ 下一题（未答则跳过），← 上题，S 收藏。仅在刷题作答页生效。 */
 document.addEventListener('keydown',e=>{
   if(workspaceMode!=='medquiz')return;
   const run=$('mqRun');if(!run||run.hidden)return;
@@ -2103,18 +2121,19 @@ document.addEventListener('keydown',e=>{
   const k=e.key;
   if(!answered&&/^[1-6]$/.test(k)){const i=+k-1;if(i<disp.options.length){e.preventDefault();mqAnswer(disp.perm[i]);}return;}
   if(!answered&&/^[a-fA-F]$/.test(k)){const i=k.toLowerCase().charCodeAt(0)-97;if(i<disp.options.length){e.preventDefault();mqAnswer(disp.perm[i]);}return;}
-  if(answered&&(k==='Enter'||k==='ArrowRight')){e.preventDefault();$('mqNext').click();return;}
+  if(k==='ArrowLeft'){e.preventDefault();$('mqPrev').click();return;}
+  if(k==='Enter'||k==='ArrowRight'){e.preventDefault();(answered?$('mqNext'):$('mqSkip')).click();return;}
   if(k==='s'||k==='S'){e.preventDefault();$('mqStar').click();}
 });
 
-/* 考试倒计时：加考试 + 倒数天数 + 复习里程碑勾选。 */
+/* 任务 DDL：加任务 + 倒数天数 + 里程碑勾选。 */
 function examCloseForm(){const f=$('examForm');if(f)f.hidden=true;}
 function renderExams(){
   const list=$('examList');if(!list)return;
   const now=Date.now();
   const exams=sortExams(state.exams,now);
   list.replaceChildren();
-  if(!exams.length){const e=document.createElement('p');e.className='exam-empty';e.textContent='还没有考试，点「＋ 加考试」排一个。';list.append(e);return;}
+  if(!exams.length){const e=document.createElement('p');e.className='exam-empty';e.textContent='还没有任务，点「＋ 加任务」排一个截止日。';list.append(e);return;}
   for(const ex of exams){
     const d=daysUntil(ex.date,now);
     const card=document.createElement('div');card.className='exam-card'+(d<0?' past':'');
@@ -2131,11 +2150,11 @@ function renderExams(){
     del.onclick=()=>{
       const removed=ex;
       state.exams=removeExam(state.exams,ex.id);renderExams();scheduleSave();
-      notifyUndo('已删除考试「'+removed.name.slice(0,12)+'」',()=>{
+      notifyUndo('已删除任务「'+removed.name.slice(0,12)+'」',()=>{
         const s=examsSanitize(state.exams);
         if(s.exams.some(x=>x.id===removed.id))return;
         state.exams={nextId:Math.max(s.nextId,removed.id+1),exams:[...s.exams,removed]};
-        renderExams();scheduleSave();notify('考试已恢复，里程碑保留。');
+        renderExams();scheduleSave();notify('任务已恢复，里程碑保留。');
       });
     };
     top.append(days,info,del);card.append(top);
@@ -2170,7 +2189,7 @@ on('examAddToggle',()=>{const f=$('examForm');f.hidden=!f.hidden;if(!f.hidden){$
 on('examCancel',()=>examCloseForm());
 on('examSave',()=>{
   const r=addExam(state.exams,$('examName').value,$('examDate').value);
-  if(!r.ok){notify(r.dup?'这个考试已经排过了。':'填好考试名和日期。');return;}
+  if(!r.ok){notify(r.dup?'这个任务已经排过了。':'填好任务名和日期。');return;}
   state.exams=r.store;examCloseForm();renderExams();scheduleSave();
 });
 
@@ -2344,7 +2363,7 @@ on('backupImport',()=>$('backupFile').click());
   const parsed=parseBackup(text);
   if(!parsed){notify('不是有效的天工备份文件。');return;}
   const s=backupSummary(parsed);
-  if(!confirm('导入将覆盖当前全部草稿与学习记录。\n备份含：'+s.files+' 个文件、'+s.cards+' 卡片、'+s.mistakes+' 错题、'+s.habits+' 习惯、'+s.courses+' 课程、'+s.exams+' 考试、'+s.novels+' 小说、'+s.customQuiz+' 导入题。\n确定恢复？'))return;
+  if(!confirm('导入将覆盖当前全部草稿与学习记录。\n备份含：'+s.files+' 个文件、'+s.cards+' 卡片、'+s.mistakes+' 错题、'+s.habits+' 习惯、'+s.courses+' 课程、'+s.exams+' 任务、'+s.novels+' 小说、'+s.customQuiz+' 导入题。\n确定恢复？'))return;
   try{
     loadState(parsed.snapshot);
     for(const [k,v] of Object.entries(parsed.novels)){try{localStorage.setItem(k,v);}catch(e){}}
@@ -2425,7 +2444,7 @@ function renderOverview(){
   if(ex){
     ex.replaceChildren();
     if(!sum.exams.length){
-      const e=document.createElement('p');e.className='ov-empty';e.textContent='没有临近的考试，去「考试倒计时」排一个。';ex.append(e);
+      const e=document.createElement('p');e.className='ov-empty';e.textContent='没有临近的任务，去「任务 DDL」排一个截止日。';ex.append(e);
     }else{
       for(const e of sum.exams){
         const b=document.createElement('button');b.type='button';b.className='ov-exam';
