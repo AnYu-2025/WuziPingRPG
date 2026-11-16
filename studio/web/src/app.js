@@ -974,7 +974,7 @@ function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(land
   /* 星穹在首页可见时启动；WebGL 不可用则保持卡片。 */
   /* 必须先让 #starStage 参与布局再 enter：否则量到 0 尺寸，
      WebGL 画布被建成 1×1 再拉伸满屏，整页糊成一片浅色。 */
-  if(!starActive&&landingOpen&&!landing.hidden){document.body.classList.add('starhome');starActive=starApi.enter();if(starActive){setStarView(state.star&&state.star.view==='list');}else{document.body.classList.remove('starhome');}}
+  if(!starActive&&landingOpen&&!landing.hidden){document.body.classList.add('starhome');starActive=starApi.enter();if(starActive){setStarView(!(state.star&&state.star.view==='sky'));}else{document.body.classList.remove('starhome');}}
 }
 function hideLanding(){if(!landingOpen||!landing)return;if(starActive&&starApi)starApi.leave();if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model'&&modelApi)modelApi.enter();if(workspaceMode==='pelican'&&pelicanApi)pelicanApi.enter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},fxEnabled()?310:280);}
 function openLanding(reopen=false){
@@ -996,6 +996,29 @@ function openLanding(reopen=false){
   if(starActive&&starApi)starApi.enter();
   /* 回到首页：跃迁收束 + 卡片错峰浮现 */
   if(reopen){homeIn();materialize('homeScroll','.home-group');}
+  initHomePages();
+}
+/* 滚动多主页：右侧页指示点随滚动高亮当前组，点按跳到对应组，
+   用上下滚动代替电脑式点击切换，更符合手机习惯。 */
+let homePagesBound=false;
+function initHomePages(){
+  const wrap=$('homePages'),sc=$('homeScroll');if(!wrap||!sc)return;
+  const groups=[...sc.querySelectorAll('.home-group')];
+  /* 只构建一次，避免重复绑定 scroll 监听导致高亮落在旧节点上。 */
+  if(!homePagesBound){
+    const dots=groups.map((g,i)=>{const d=document.createElement('button');d.type='button';d.className='home-page-dot';d.title=(g.querySelector('h2')||{}).textContent||('第'+(i+1)+'页');d.setAttribute('aria-label',d.title);d.onclick=()=>g.scrollIntoView({behavior:'smooth',block:'start'});wrap.append(d);return d;});
+    const setActive=()=>{
+      const mid=sc.scrollTop+sc.clientHeight*.4;let idx=0;
+      groups.forEach((g,i)=>{if(g.offsetTop<=mid)idx=i;});
+      dots.forEach((d,i)=>d.classList.toggle('on',i===idx));
+      wrap.hidden=document.body.classList.contains('starhome')&&!document.body.classList.contains('listview');
+    };
+    sc.addEventListener('scroll',()=>requestAnimationFrame(setActive),{passive:true});
+    homePagesBound=true;
+    setActive();
+  }else{
+    wrap.hidden=document.body.classList.contains('starhome')&&!document.body.classList.contains('listview');
+  }
 }
 function setLectureTab(name){
   const tab=name==='timeline'||name==='slides'?name:'notes';
@@ -1441,6 +1464,7 @@ function setStarView(list){
   const sky=$('homeSkyBtn');if(sky)sky.hidden=!starActive||!list;
   /* 记住用户选的视图，下次打开首页照旧。 */
   if(state.star){state.star.view=list?'list':'sky';scheduleSave();}
+  initHomePages();
 }
 on('homeSkyBtn',()=>setStarView(false));
 

@@ -23,17 +23,18 @@ export const BACK={
 };
 
 export const GROUPS=[
-  {id:'study',title:'学习',hint:'课堂、朗读和纸质资料'},
+  {id:'study',title:'学习',hint:'课堂、背诵、刷题与打卡'},
   {id:'create',title:'创作',hint:'代码、文字和照片'},
-  {id:'more',title:'助手与休息',hint:'问问题，或者玩一会儿'}
+  {id:'kit',title:'Kit 工具箱',hint:'临床与效率小工具，随取随用'},
+  {id:'more',title:'助手',hint:'问问题'}
 ];
 
 /* 顺序即首页顺序。resume 是「接着做」卡片上的标题。 */
 export const MODULES=[
   {id:'overview',group:'study',kind:'web',title:'学习总览',resume:'继续学习总览',detail:'今天该做什么、这周学了多少，一页看完',icon:'📊',tag:'离线'},
   {id:'lecture',group:'study',kind:'web',title:'上课',resume:'继续上课',detail:'边听边记，录音、笔记、PPT 对着同一条时间轴',icon:'🎙',tag:'录音'},
-  {id:'tts',group:'study',kind:'web',title:'英文朗读',resume:'继续英文朗读',detail:'一句一句读英文，语速随你调',icon:'EN',tag:'离线'},
-  {id:'scan',group:'study',kind:'native',title:'扫描文档',resume:'继续扫描文档',detail:'拍书页讲义，自动裁边，存成 PDF',icon:'▣',tag:'相机',minSdk:29},
+  {id:'tts',group:'kit',kind:'web',title:'英文朗读',resume:'继续英文朗读',detail:'一句一句读英文，语速随你调',icon:'EN',tag:'离线'},
+  {id:'scan',group:'kit',kind:'native',title:'扫描文档',resume:'继续扫描文档',detail:'拍书页讲义，自动裁边，存成 PDF',icon:'▣',tag:'相机',minSdk:29},
   {id:'focus',group:'study',kind:'web',title:'专注番茄',resume:'继续专注',detail:'学一会儿歇一会儿，今天学了多久一目了然',icon:'🍅',tag:'离线'},
   {id:'cards',group:'study',kind:'web',title:'记忆卡片',resume:'继续记忆卡片',detail:'快忘的自动排到前面，背过的越隔越久',icon:'🗂',tag:'离线'},
   {id:'mistakes',group:'study',kind:'web',title:'错题本',resume:'继续错题本',detail:'错在哪、为什么错，记下来慢慢啃',icon:'📕',tag:'离线'},
@@ -41,16 +42,14 @@ export const MODULES=[
   {id:'schedule',group:'study',kind:'web',title:'课程表',resume:'继续课程表',detail:'这周上什么课、在哪上、还有几分钟',icon:'📅',tag:'离线'},
   {id:'medquiz',group:'study',kind:'web',title:'医学生刷题',resume:'继续刷题',detail:'基础医学 8 科，答完马上看解析，错题自动收',icon:'🩺',tag:'离线'},
   {id:'exams',group:'study',kind:'web',title:'任务 DDL',resume:'继续排任务 DDL',detail:'作业、考试、报告，截止日排一排',icon:'⏳',tag:'离线'},
-  {id:'medcalc',group:'study',kind:'web',title:'临床计算',resume:'继续临床计算',detail:'BMI、肌酐清除率、滴速剂量，输入就出结果',icon:'🧮',tag:'离线'},
+  {id:'medcalc',group:'kit',kind:'web',title:'临床计算',resume:'继续临床计算',detail:'BMI、肌酐清除率、滴速剂量，输入就出结果',icon:'🧮',tag:'离线'},
   {id:'python',group:'create',kind:'web',title:'写代码',resume:'继续写代码',detail:'Python、C++、网页，没网也能跑',icon:'</>',tag:'离线'},
   {id:'notepad',group:'create',kind:'web',title:'记事本',resume:'继续记事本',detail:'想到什么写什么，关掉也不丢',icon:'✎',tag:'草稿'},
   {id:'photo',group:'create',kind:'native',title:'修图',resume:'继续修图',detail:'调色、裁剪、拼图、加水印',icon:'◐',tag:'照片'},
   {id:'model',group:'create',kind:'web',title:'3D 建模',resume:'继续 3D 建模',detail:'在手机上捏模型，手指转视角',icon:'◈',tag:'离线'},
-  {id:'novel',group:'more',kind:'web',title:'小说阅读器',resume:'继续看小说',detail:'导入 TXT 自动分章，进度记得住，护眼夜间都有',icon:'📖',tag:'离线'},
-  {id:'ai',group:'more',kind:'web',title:'AI 助手',resume:'继续 AI 助手',detail:'有事问它；要动你手机里的东西，会先问你',icon:'✧',tag:'联网'},
-  {id:'game',group:'more',kind:'web',title:'星火远征',resume:'继续星火远征',detail:'之前的存档都还在，接着玩',icon:'✦',tag:'游戏'},
-  {id:'pelican',group:'more',kind:'web',title:'鹈鹕骑车',resume:'继续鹈鹕骑车',detail:'点一下跳一下，别撞上就行',icon:'🚲',tag:'3D'},
-  {id:'soundscape',group:'more',kind:'web',title:'潮声 · 白噪音景',resume:'继续潮声',detail:'雨声海浪篝火现场合成，混音助眠专注',icon:'🎧',tag:'离线'}
+  {id:'ai',group:'more',kind:'web',title:'AI 助手',resume:'继续 AI 助手',detail:'有事问它；要动你手机里的东西，会先问你',icon:'✧',tag:'联网'}
+  /* 游戏（星火远征/鹈鹕骑车）、潮声白噪音、小说阅读器按评审意见下线：
+     代码与存档保留在本机，后续可独立成项目或恢复入口。 */
 ];
 /* 旧名字保留给已有调用方。 */
 export const HOME_ACTIONS=MODULES;

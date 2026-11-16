@@ -118,3 +118,15 @@ body.starhome.listview .bh-console,body.starhome.listview .bh-dock{display:none}
 body.starhome .home-scroll::-webkit-scrollbar{width:6px}
 body.starhome .home-scroll::-webkit-scrollbar-track{background:rgba(10,16,30,.4)}
 body.starhome .home-scroll::-webkit-scrollbar-thumb{background:rgba(148,190,233,.3);border-radius:3px}
+/* 简洁列表首页：深色底 + 滚动吸附多主页 + 右侧页指示，参考移动端课表风格。 */
+body.starhome.listview #landing{background:linear-gradient(180deg,#0a0f1c 0%,#0b1220 55%,#0a101c 100%)}
+body.starhome.listview #landing::before{opacity:.25}
+body.starhome.listview .home-scroll{scroll-snap-type:y proximity}
+body.starhome.listview .home-group{scroll-snap-align:start;scroll-margin-top:12px}
+body.starhome.listview .home-brand strong,body.starhome.listview .home-scroll h1,body.starhome.listview .home-ghead h2,body.starhome.listview .home-copy strong{color:#e8f0fa}
+body.starhome.listview .brandsub,body.starhome.listview .home-lead,body.starhome.listview .home-ghead span,body.starhome.listview .home-copy small,body.starhome.listview .home-foot{color:#8aa5c0}
+body.starhome.listview .home-return{background:rgba(13,22,38,.7);border-color:rgba(148,190,233,.25);color:#c4d6ea}
+.home-pages{position:absolute;right:8px;top:50%;transform:translateY(-50%);z-index:5;display:flex;flex-direction:column;gap:8px}
+.home-page-dot{width:7px;height:7px;border-radius:50%;background:rgba(148,190,233,.3);border:none;padding:0;min-height:0;transition:background .2s,transform .2s}
+.home-page-dot.on{background:#63d9a4;transform:scale(1.35)}
+body.starhome:not(.listview) .home-pages{display:none}

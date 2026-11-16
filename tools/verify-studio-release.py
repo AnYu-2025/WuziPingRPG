@@ -45,7 +45,7 @@ DEX_CLASSES = (
     b"Lcn/wuziping/ember/HistoryJourney;",
     b"Lcn/wuziping/studio/EditorActivity;",
 )
-MODES = (b"lecture", b"tts", b"scan", b"python", b"notepad", b"photo", b"ai", b"game")
+MODES = (b"lecture", b"tts", b"scan", b"python", b"notepad", b"photo", b"ai", b"medcalc")
 RESULTS: list[tuple[str, str, str]] = []
 
 
@@ -175,6 +175,11 @@ def main(argv: list[str] | None = None) -> int:
                 token = b'data-mode="' + mode + b'"'
                 if token not in html:
                     raise AssertionError(f"missing {token.decode()}")
+            if b'data-group="kit"' not in html:
+                raise AssertionError("missing Kit toolbox group")
+            for retired in (b"game", b"pelican", b"novel", b"soundscape"):
+                if b'data-mode="' + retired + b'"' in html:
+                    raise AssertionError(f"retired module still on home: {retired.decode()}")
             fallback = zip_entry(archive, "assets/studio/editor.page")
             if bytes_match(fallback, html) is None:
                 record(

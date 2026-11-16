@@ -9,10 +9,11 @@ import {
 const editor={homeOpen:false,mode:'python',dialogOpen:false,drawerOpen:false,drawing:false,searchOpen:false,loungeOpen:false,lectureTab:'notes'};
 
 test('modules are grouped for the hub and every module has a Chinese name',()=>{
-  assert.deepEqual(GROUPS.map(g=>g.id),['study','create','more']);
-  assert.deepEqual(modulesInGroup('study').map(item=>item.id),['overview','lecture','tts','scan','focus','cards','mistakes','habits','schedule','medquiz','exams','medcalc']);
+  assert.deepEqual(GROUPS.map(g=>g.id),['study','create','kit','more']);
+  assert.deepEqual(modulesInGroup('study').map(item=>item.id),['overview','lecture','focus','cards','mistakes','habits','schedule','medquiz','exams']);
   assert.deepEqual(modulesInGroup('create').map(item=>item.id),['python','notepad','photo','model']);
-  assert.deepEqual(modulesInGroup('more').map(item=>item.id),['novel','ai','game','pelican','soundscape']);
+  assert.deepEqual(modulesInGroup('kit').map(item=>item.id),['tts','scan','medcalc']);
+  assert.deepEqual(modulesInGroup('more').map(item=>item.id),['ai']);
   assert.equal(HOME_ACTIONS,MODULES);
   for(const item of MODULES){
     assert.ok(item.title.length>=2,item.id);
@@ -83,8 +84,8 @@ test('the game tab inside the editor returns to the file, not home',()=>{
   assert.equal(back.state.homeOpen,false);
 });
 
-test('game opened from home returns home',()=>{
-  assert.equal(stepBack({homeOpen:false,mode:'game',loungeOpen:true}).action,BACK.HOME);
+test('a web module opened from home returns home',()=>{
+  assert.equal(stepBack({homeOpen:false,mode:'cards',loungeOpen:false}).action,BACK.HOME);
 });
 
 test('repeated back goes home once, then asks to exit, and does not bounce into the editor',()=>{

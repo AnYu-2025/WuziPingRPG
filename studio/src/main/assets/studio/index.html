@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.48</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.49</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -88,8 +88,6 @@
   <div class="home-grid">
    <button class="home-card" type="button" data-mode="overview" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">📊</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>学习总览</strong><small>今天该做什么、这周学了多少，一页看完</small></span></button>
    <button class="home-card" type="button" data-mode="lecture" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🎙</span><span class="home-tag">录音</span></span><span class="home-copy"><strong>上课</strong><small>录音、笔记、PPT 同一条时间轴</small></span></button>
-   <button class="home-card" type="button" data-mode="tts" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">EN</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>英文朗读</strong><small>按句子朗读英文，可调语速</small></span></button>
-   <button class="home-card" type="button" data-mode="scan" data-kind="native" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">▣</span><span class="home-tag">相机</span></span><span class="home-copy"><strong>扫描文档</strong><small>拍书页和讲义，自动裁边，导出 PDF</small></span></button>
    <button class="home-card" type="button" data-mode="focus" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🍅</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>专注番茄</strong><small>学一会儿歇一会儿，今天学了多久一目了然</small></span></button>
    <button class="home-card" type="button" data-mode="cards" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🗂</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>记忆卡片</strong><small>快忘的自动排到前面，背过的越隔越久</small></span></button>
    <button class="home-card" type="button" data-mode="mistakes" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">📕</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>错题本</strong><small>错在哪、为什么错，记下来慢慢啃</small></span></button>
@@ -97,7 +95,6 @@
    <button class="home-card" type="button" data-mode="schedule" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">📅</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>课程表</strong><small>下节课在哪上、还有几分钟，一眼看清</small></span></button>
    <button class="home-card" type="button" data-mode="medquiz" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🩺</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>医学生刷题</strong><small>8 科基础题，答完看解析，错题自动收</small></span></button>
    <button class="home-card" type="button" data-mode="exams" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">⏳</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>任务 DDL</strong><small>作业、考试、报告，截止日排一排</small></span></button>
-   <button class="home-card" type="button" data-mode="medcalc" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🧮</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>临床计算</strong><small>BMI、肌酐清除率、滴速剂量，输入就出结果</small></span></button>
   </div>
  </section>
  <section class="home-group" data-group="create" aria-label="创作">
@@ -109,18 +106,23 @@
    <button class="home-card" type="button" data-mode="model" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">◈</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>3D 建模</strong><small>在手机上捏模型，能导出 OBJ / GLB</small></span></button>
   </div>
  </section>
- <section class="home-group" data-group="more" aria-label="助手与休息">
-  <div class="home-ghead"><h2>助手与休息</h2><span>问问题，或者玩一会儿</span></div>
+ <section class="home-group" data-group="kit" aria-label="Kit 工具箱">
+  <div class="home-ghead"><h2>Kit 工具箱</h2><span>临床与效率小工具，随取随用</span></div>
+  <div class="home-grid">
+   <button class="home-card" type="button" data-mode="medcalc" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🧮</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>临床计算</strong><small>BMI、肌酐清除率、滴速剂量，输入就出结果</small></span></button>
+   <button class="home-card" type="button" data-mode="tts" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">EN</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>英文朗读</strong><small>按句子朗读英文，可调语速</small></span></button>
+   <button class="home-card" type="button" data-mode="scan" data-kind="native" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">▣</span><span class="home-tag">相机</span></span><span class="home-copy"><strong>扫描文档</strong><small>拍书页和讲义，自动裁边，导出 PDF</small></span></button>
+  </div>
+ </section>
+ <section class="home-group" data-group="more" aria-label="助手">
+  <div class="home-ghead"><h2>助手</h2><span>问问题</span></div>
   <div class="home-grid">
    <button class="home-card" type="button" data-mode="ai" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✧</span><span class="home-tag">联网</span></span><span class="home-copy"><strong>AI 助手</strong><small>有事问它；要动你手机里的东西，会先问你</small></span></button>
-   <button class="home-card" type="button" data-mode="game" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">✦</span><span class="home-tag">游戏</span></span><span class="home-copy"><strong>星火远征</strong><small>之前的存档都还在，接着玩</small></span></button>
-   <button class="home-card" type="button" data-mode="pelican" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🚲</span><span class="home-tag">3D</span></span><span class="home-copy"><strong>鹈鹕骑车</strong><small>点一下跳一下，别撞上就行</small></span></button>
-   <button class="home-card" type="button" data-mode="novel" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">📖</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>小说阅读器</strong><small>导入 TXT 自动分章，进度记得住</small></span></button>
-   <button class="home-card" type="button" data-mode="soundscape" data-kind="web" disabled><span class="home-cardtop"><span class="home-icon" aria-hidden="true">🎧</span><span class="home-tag">离线</span></span><span class="home-copy"><strong>潮声 · 白噪音景</strong><small>雨声海浪篝火现场合成，混音助眠专注</small></span></button>
   </div>
  </section>
  <p class="home-foot">东西都会自动存好。想把改动写回手机上的原文件，打开文件点「保存」就行。</p>
 </div>
+<div class="home-pages" id="homePages" aria-hidden="true"></div>
 <div id="starHoleSheet" class="star-hole-sheet" hidden>
  <div class="star-hole-head"><strong>黑洞收纳</strong><button id="starHoleClose" type="button" aria-label="关闭">✕</button></div>
  <div id="starHoleList"></div>
