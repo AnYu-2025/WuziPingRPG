@@ -2579,7 +2579,7 @@ function renderOverview(){
       const b=document.createElement('b');b.textContent=String(n);
       const s=document.createElement('small');s.textContent=icon+' '+label;
       c.append(b,s);c.title='今日'+label+' '+n+' 次，点击进入';
-      c.onclick=()=>enterHomeMode(mode);
+      c.onclick=()=>{if(applyMode(mode))selectedMode=mode;};
       today.append(c);
     }
   }
@@ -2620,10 +2620,13 @@ function renderOverview(){
     heat.replaceChildren();
     const max=Math.max(1,...(sum.heat||[]).map(d=>d.total));
     for(const d of (sum.heat||[])){
-      const cell=document.createElement('span');
+      const cell=document.createElement('button');cell.type='button';
       const lv=d.total===0?0:d.total<=max*.34?1:d.total<=max*.67?2:3;
       cell.className='hcell l'+lv+(d.date===sum.today?' today':'');
-      cell.title=d.date+'：专注 '+d.focus+' · 卡片 '+d.cards+' · 刷题 '+d.quiz+' · 打卡 '+d.checks;
+      const detail=d.date.slice(5)+'：专注 '+d.focus+' · 卡片 '+d.cards+' · 刷题 '+d.quiz+' · 打卡 '+d.checks;
+      cell.title=detail;cell.setAttribute('aria-label',detail);
+      /* 触屏没有悬停：点按格子用 toast 显示当日明细。 */
+      cell.onclick=()=>notify(detail);
       heat.append(cell);
     }
   }
@@ -2632,11 +2635,13 @@ function renderOverview(){
   if(rep){
     rep.replaceChildren();
     const r=sum.report||{cur:{focus:0,cards:0,quiz:0,checks:0,total:0},delta:{total:0},pct:null,activeDays:0};
-    const cells=[['🍅','专注',r.cur.focus],['🗂','卡片',r.cur.cards],['✍️','刷题',r.cur.quiz],['🌱','打卡',r.cur.checks]];
-    for(const [icon,label,n] of cells){
-      const c=document.createElement('div');c.className='ov-report-cell';
+    const cells=[['🍅','专注',r.cur.focus,'focus'],['🗂','卡片',r.cur.cards,'cards'],['✍️','刷题',r.cur.quiz,'medquiz'],['🌱','打卡',r.cur.checks,'habits']];
+    for(const [icon,label,n,mode] of cells){
+      const c=document.createElement('button');c.type='button';c.className='ov-report-cell';
       const b=document.createElement('b');b.textContent=String(n);
       const s=document.createElement('small');s.textContent=icon+' '+label;
+      c.title='本周'+label+' '+n+' 次，点击进入';
+      c.onclick=()=>{if(applyMode(mode))selectedMode=mode;};
       c.append(b,s);rep.append(c);
     }
     const foot=document.createElement('p');foot.className='ov-report-foot';
