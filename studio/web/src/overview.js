@@ -9,6 +9,7 @@ import {habitsSanitize,habitsStats,currentStreak,isChecked} from './habits.js';
 import {examsSanitize,sortExams,daysUntil,examProgress} from './exams.js';
 import {scheduleSanitize,coursesOnDay,nowInfo,currentStatus} from './schedule.js';
 import {quizStatsSanitize,accuracy} from './medquiz.js';
+import {studyLogSanitize,dayCounts} from './study-log.js';
 
 const pad=x=>String(x).padStart(2,'0');
 export function dayKey(d){
@@ -83,14 +84,17 @@ export function upcomingExams(state,now,n=3){
   return out;
 }
 
-/* 连续学习天数：以「当天有专注段或有打卡」为准，从今天往回数；
+/* 连续学习天数：以「当天有专注/卡片/刷题/打卡任一动作」为准，从今天往回数；
  * 今天还没记录时从昨天起算，避免早上打开就显示断签。 */
 export function studyStreak(state,now){
   const focus=focusSanitize(state&&state.focus);
   const habits=habitsSanitize(state&&state.habits).habits;
+  const log=studyLogSanitize(state&&state.studyLog);
   const active=k=>{
     if(focus.history&&focus.history[k]>0)return true;
     for(const h of habits)if(isChecked(h,k))return true;
+    const d=log.days[k];
+    if(d&&(d.focus>0||d.cards>0||d.quiz>0))return true;
     return false;
   };
   const base=new Date(now);
@@ -122,10 +126,14 @@ export function buildOverview(state,now){
   const exams=upcomingExams(state,t,3);
   const streak=studyStreak(state,t);
   const week=weeklyActivity(state,t);
+  /* 今日学习四宫格：专注/卡片/刷题来自学习日历，打卡由 habits 实时推导。 */
+  const todayChecks=habitsSanitize(state&&state.habits).habits.filter(h=>isChecked(h,dayKey(t))).length;
+  const todayStudy=dayCounts(state&&state.studyLog,dayKey(t),todayChecks);
   const sum={
     today:dayKey(t),
     streak,
     tasks,
+    todayStudy,
     week,
     weekTotal:week.reduce((a,b)=>a+b.total,0),
     subjects:subjectMastery(state),

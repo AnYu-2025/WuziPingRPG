@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.39</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.40</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -268,6 +268,7 @@
    <div class="ov-streak"><b id="ovStreak">0</b><small>连续学习天数</small></div>
    <p class="ov-line" id="ovLine">正在汇总…</p>
   </div>
+  <div class="ov-today" id="ovToday" aria-label="今日学习"></div>
   <div class="ov-tasks" id="ovTasks"></div>
   <div class="ov-card">
    <div class="ov-cardhead"><strong>这七天</strong><span id="ovWeekTotal"></span></div>

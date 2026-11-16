@@ -44,6 +44,7 @@ import {LAYERS,PRESETS,defaultSoundscape,soundscapeSanitize,setLayer,setMaster,a
 import {createSoundscapeAudio} from './soundscape-audio.js';
 import {createSoundscapeVisual} from './soundscape-visual.js';
 import {buildBackup,parseBackup,backupSummary} from './backup.js';
+import {studyLogSanitize,logStudy,dayCounts} from './study-log.js';
 import {fxBoot,setFx,fxEnabled,fxStored,fxPreferred,warp,materialize,hudMark,homeIn,bootSequence} from './fx.js';
 import {buildOverview} from './overview.js';
 import {init as initPelican} from './pelican3d.js';
@@ -108,7 +109,7 @@ const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript'
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null),mistakes:bookSanitize(null),habits:habitsSanitize(null),schedule:scheduleSanitize(null),novel:shelfSanitize(null),medquiz:quizStatsSanitize(null),mqSession:null,exams:examsSanitize(null),soundscape:defaultSoundscape()});
+const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null),mistakes:bookSanitize(null),habits:habitsSanitize(null),schedule:scheduleSanitize(null),novel:shelfSanitize(null),medquiz:quizStatsSanitize(null),mqSession:null,exams:examsSanitize(null),soundscape:defaultSoundscape(),studyLog:studyLogSanitize(null)});
 let state=defaults(),view,restoring=false,worker=null,cppWorker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 /* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
 const micWaiters=new Map();let micSeq=0;
@@ -161,7 +162,7 @@ function notifyUndo(text,onUndo,ms=6000){
   toastTimer=setTimeout(()=>{undoAction=null;hideToast();},ms);
 }
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule),novel:shelfSanitize(state.novel),medquiz:quizStatsSanitize(state.medquiz),mqSession:mqSessionSnapshot(),exams:examsSanitize(state.exams),soundscape:soundscapeSanitize(state.soundscape)};}
+function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule),novel:shelfSanitize(state.novel),medquiz:quizStatsSanitize(state.medquiz),mqSession:mqSessionSnapshot(),exams:examsSanitize(state.exams),soundscape:soundscapeSanitize(state.soundscape),studyLog:studyLogSanitize(state.studyLog)};}
 function mqSessionSnapshot(){const s=mqSession;if(!s||s.finished||!s.ids.length)return null;return {mode:s.mode,subject:s.subject,difficulty:s.difficulty,ids:s.ids,pos:s.pos,answers:s.answers,skipped:s.skipped||{},perm:s.perm};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
@@ -216,6 +217,7 @@ function loadState(data){
   state.exams=examsSanitize(data.exams);
   state.soundscape=soundscapeSanitize(data.soundscape);
   state.soundscape.timerEnd=0; /* 后台不续跑定时 */
+  state.studyLog=studyLogSanitize(data.studyLog);
   state.settings.fontSize=Math.max(12,Math.min(24,Number(state.settings.fontSize)||15));state.settings.timeLimit=[15,30,60].includes(+state.settings.timeLimit)?+state.settings.timeLimit:15;if(window.innerWidth<700)state.settings.wrap=true;
   adoptTheme(data.settings);
   state.active=files.some(f=>f.path===state.active)?state.active:files[0].path;state.opened=Array.isArray(state.opened)?state.opened.filter(p=>files.some(f=>f.path===p)):[];if(!state.opened.includes(state.active))state.opened.push(state.active);
@@ -1506,6 +1508,8 @@ setInterval(()=>{
   if(r.finished){
     notify(state.focus.phase==='work'?'休息结束，开始新一轮专注。':'一个专注段完成，休息一下。');
     buzzFocus();
+    /* 完成的是工作段（现进入休息）才记一笔专注。 */
+    if(state.focus.phase!=='work')state.studyLog=logStudy(state.studyLog,todayStr(),'focus');
     /* 进入休息段：联动停声；休息结束回工作段不自动响，等用户点开始。 */
     if(state.focus.sound&&state.focus.phase!=='work')focusSoundStop();
     scheduleSave();
@@ -1592,7 +1596,7 @@ for(const b of document.querySelectorAll('#cardsRate button')){
   b.addEventListener('click',()=>{
     if(!cardsCurrent)return;
     const rated=reviewCard(cardsCurrent,+b.dataset.rate,Date.now());
-    if(rated){state.cards={...deckSanitize(state.cards),cards:deckSanitize(state.cards).cards.map(c=>c.id===rated.id?rated:c)};}
+    if(rated){state.cards={...deckSanitize(state.cards),cards:deckSanitize(state.cards).cards.map(c=>c.id===rated.id?rated:c)};state.studyLog=logStudy(state.studyLog,todayStr(),'cards');}
     cardsShown=false;cardsCurrent=cardsQueue.shift()||null;
     renderCards();scheduleSave();
   });
@@ -2136,6 +2140,7 @@ function mqAnswer(i){
   const qid=s.ids[s.pos];
   mqSession=mqAnswerFn(s,qid,i,bank);
   state.medquiz=mqGrade(state.medquiz,qid,i,bank);
+  state.studyLog=logStudy(state.studyLog,todayStr(),'quiz');
   mqPersist();mqRenderQuestion();
 }
 on('mqStar',()=>{
@@ -2563,6 +2568,21 @@ function renderOverview(){
   const sum=buildOverview(state,Date.now());
   const st=$('ovStreak');if(st)st.textContent=String(sum.streak);
   const line=$('ovLine');if(line)line.textContent=sum.line;
+  /* 今日学习四宫格：专注/卡片/刷题/打卡，点一下跳到对应模块。 */
+  const today=$('ovToday');
+  if(today){
+    today.replaceChildren();
+    const ts=sum.todayStudy||{focus:0,cards:0,quiz:0,checks:0};
+    const cells=[['🍅','专注',ts.focus,'focus'],['🗂','卡片',ts.cards,'cards'],['✍️','刷题',ts.quiz,'medquiz'],['🌱','打卡',ts.checks,'habits']];
+    for(const [icon,label,n,mode] of cells){
+      const c=document.createElement('button');c.type='button';c.className='ov-today-cell'+(n?'':' zero');
+      const b=document.createElement('b');b.textContent=String(n);
+      const s=document.createElement('small');s.textContent=icon+' '+label;
+      c.append(b,s);c.title='今日'+label+' '+n+' 次，点击进入';
+      c.onclick=()=>enterHomeMode(mode);
+      today.append(c);
+    }
+  }
   const tasks=$('ovTasks');
   if(tasks){
     tasks.replaceChildren(
