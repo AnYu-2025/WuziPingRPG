@@ -52,3 +52,32 @@ export function dayCounts(log,dateStr,checks=0){
 export function dayActive(log,dateStr,checks=0){
   return dayCounts(log,dateStr,checks).total>0;
 }
+
+const pad=x=>String(x).padStart(2,'0');
+const keyOf=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+
+/* 最近 n 天（含今天）的四类计数序列，供热力图。
+   checksByDate 由调用方从 habits.checks 推导传入，缺失按 0。 */
+export function lastNDaysStudy(log,n,dateStr,checksByDate){
+  const base=dateStr?new Date(dateStr+'T00:00:00'):new Date();
+  const out=[];
+  for(let i=n-1;i>=0;i--){
+    const d=new Date(base);d.setDate(d.getDate()-i);
+    const k=keyOf(d);
+    out.push({date:k,...dayCounts(log,k,(checksByDate&&checksByDate[k])||0)});
+  }
+  return out;
+}
+
+/* 学习周报：最近 7 天 vs 之前 7 天的四类合计与环比。
+   delta 为本周减上周的绝对差；上周为 0 时 pct 返回 null（不臆造百分比）。 */
+export function weekReport(log,dateStr,checksByDate){
+  const days=lastNDaysStudy(log,14,dateStr,checksByDate);
+  const prev=days.slice(0,7),cur=days.slice(7);
+  const sum=arr=>arr.reduce((a,d)=>({focus:a.focus+d.focus,cards:a.cards+d.cards,quiz:a.quiz+d.quiz,checks:a.checks+d.checks,total:a.total+d.total}),{focus:0,cards:0,quiz:0,checks:0,total:0});
+  const c=sum(cur),p=sum(prev);
+  const delta={focus:c.focus-p.focus,cards:c.cards-p.cards,quiz:c.quiz-p.quiz,checks:c.checks-p.checks,total:c.total-p.total};
+  const pct=p.total>0?Math.round((c.total-p.total)/p.total*100):null;
+  const activeDays=cur.filter(d=>d.total>0).length;
+  return {cur:c,prev:p,delta,pct,activeDays};
+}

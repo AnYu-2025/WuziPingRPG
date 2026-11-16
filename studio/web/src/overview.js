@@ -9,7 +9,7 @@ import {habitsSanitize,habitsStats,currentStreak,isChecked} from './habits.js';
 import {examsSanitize,sortExams,daysUntil,examProgress} from './exams.js';
 import {scheduleSanitize,coursesOnDay,nowInfo,currentStatus} from './schedule.js';
 import {quizStatsSanitize,accuracy} from './medquiz.js';
-import {studyLogSanitize,dayCounts} from './study-log.js';
+import {studyLogSanitize,dayCounts,lastNDaysStudy,weekReport} from './study-log.js';
 
 const pad=x=>String(x).padStart(2,'0');
 export function dayKey(d){
@@ -117,6 +117,15 @@ export function overviewLine(sum){
   return bits.join(' · ');
 }
 
+/* 从 habits.checks 推导每天的打卡数，供学习日历热力图/周报。 */
+export function checksByDate(state){
+  const map={};
+  for(const h of habitsSanitize(state&&state.habits).habits){
+    for(const k of Object.keys(h.checks||{})){map[k]=(map[k]||0)+1;}
+  }
+  return map;
+}
+
 export function buildOverview(state,now){
   const t=now==null?Date.now():now;
   const quiz=quizStatsSanitize(state&&state.medquiz);
@@ -129,11 +138,16 @@ export function buildOverview(state,now){
   /* 今日学习四宫格：专注/卡片/刷题来自学习日历，打卡由 habits 实时推导。 */
   const todayChecks=habitsSanitize(state&&state.habits).habits.filter(h=>isChecked(h,dayKey(t))).length;
   const todayStudy=dayCounts(state&&state.studyLog,dayKey(t),todayChecks);
+  const checksMap=checksByDate(state);
+  const heat=lastNDaysStudy(state&&state.studyLog,28,dayKey(t),checksMap);
+  const report=weekReport(state&&state.studyLog,dayKey(t),checksMap);
   const sum={
     today:dayKey(t),
     streak,
     tasks,
     todayStudy,
+    heat,
+    report,
     week,
     weekTotal:week.reduce((a,b)=>a+b.total,0),
     subjects:subjectMastery(state),

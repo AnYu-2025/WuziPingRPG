@@ -2614,6 +2614,40 @@ function renderOverview(){
       col.append(vv,stack,lb);chart.append(col);
     }
   }
+  /* 近 28 天学习热力图：4 行 × 7 列，颜色深浅按当日总动作数。 */
+  const heat=$('ovHeat');
+  if(heat){
+    heat.replaceChildren();
+    const max=Math.max(1,...(sum.heat||[]).map(d=>d.total));
+    for(const d of (sum.heat||[])){
+      const cell=document.createElement('span');
+      const lv=d.total===0?0:d.total<=max*.34?1:d.total<=max*.67?2:3;
+      cell.className='hcell l'+lv+(d.date===sum.today?' today':'');
+      cell.title=d.date+'：专注 '+d.focus+' · 卡片 '+d.cards+' · 刷题 '+d.quiz+' · 打卡 '+d.checks;
+      heat.append(cell);
+    }
+  }
+  /* 本周学习周报：四类计数 + 环比上周。 */
+  const rep=$('ovReport'),rd=$('ovReportDelta');
+  if(rep){
+    rep.replaceChildren();
+    const r=sum.report||{cur:{focus:0,cards:0,quiz:0,checks:0,total:0},delta:{total:0},pct:null,activeDays:0};
+    const cells=[['🍅','专注',r.cur.focus],['🗂','卡片',r.cur.cards],['✍️','刷题',r.cur.quiz],['🌱','打卡',r.cur.checks]];
+    for(const [icon,label,n] of cells){
+      const c=document.createElement('div');c.className='ov-report-cell';
+      const b=document.createElement('b');b.textContent=String(n);
+      const s=document.createElement('small');s.textContent=icon+' '+label;
+      c.append(b,s);rep.append(c);
+    }
+    const foot=document.createElement('p');foot.className='ov-report-foot';
+    foot.textContent='本周共 '+r.cur.total+' 次 · 活跃 '+r.activeDays+' 天';
+    rep.append(foot);
+    if(rd){
+      if(r.pct==null)rd.textContent=r.cur.total>0?'上周无记录':'';
+      else rd.textContent=(r.delta.total>=0?'↑ 比上周 +'+r.pct+'%':'↓ 比上周 '+r.pct+'%');
+      rd.className=r.delta.total>=0?'up':'down';
+    }
+  }
   const subs=$('ovSubjects');
   const sm=$('ovSubMeta');
   if(subs){
