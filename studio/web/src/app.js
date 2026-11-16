@@ -55,6 +55,16 @@ const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*
 function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
 /* 轻触感反馈：打卡/评分/掌握等确认动作给一个短震动，不支持则静默。 */
 function tap(){try{if(navigator.vibrate)navigator.vibrate(12);}catch(e){}}
+/* 卡片到期标签：到期/今天/明天/N天后，比单纯间隔更直观。 */
+function dueLabel(c,now){
+  if(c.due<=now)return '到期';
+  const dayStart=new Date(now);dayStart.setHours(0,0,0,0);
+  const dueDay=new Date(c.due);dueDay.setHours(0,0,0,0);
+  const days=Math.round((dueDay-dayStart)/86400000);
+  if(days<=0)return '今天';
+  if(days===1)return '明天';
+  return days+'天后';
+}
 /* 列表分页：长列表一次全量建 DOM 是点开/滑动卡顿源之一。
    首屏只渲染 PAGE 条，点「显示更多」增量追加，不重建已有行。 */
 const PAGE=60;
@@ -1526,6 +1536,14 @@ on('focusStart',()=>{
 on('focusReset',()=>{state.focus=focusReset(state.focus);if(state.focus.sound)focusSoundStop();renderFocus();syncFocusTitle();scheduleSave();});
 on('focusSkip',()=>{state.focus=focusSkip(state.focus);if(state.focus.sound)focusSoundStop();renderFocus();syncFocusTitle();scheduleSave();});
 {const fs=$('focusSound');if(fs)fs.onchange=()=>{state.focus={...state.focus,sound:fs.checked};if(!fs.checked)focusSoundStop();else if(state.focus.running&&state.focus.phase==='work')focusSoundPlay();scheduleSave();};}
+/* 专注页空格开始/暂停（输入框里打字不触发）。 */
+document.addEventListener('keydown',e=>{
+  if(workspaceMode!=='focus')return;
+  if(e.key!==' '&&e.code!=='Space')return;
+  const tag=(e.target&&e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea'||tag==='select'||tag==='button'||e.ctrlKey||e.metaKey||e.altKey)return;
+  e.preventDefault();$('focusStart').click();
+});
 for(const [id,key] of [['focusWorkMin','workMin'],['focusShortMin','shortMin'],['focusLongMin','longMin']]){
   const el=$(id);if(el)el.onchange=()=>{state.focus=focusSetMinutes(state.focus,key,+el.value);renderFocus();scheduleSave();};
 }
@@ -1557,7 +1575,7 @@ function renderCards(){
     const buildRow=c=>{
       const row=document.createElement('div');row.className='cards-row';
       const t=document.createElement('span');t.className='t';t.textContent=c.front;
-      const d=document.createElement('span');d.className='d';d.textContent=c.due<=Date.now()?'到期':(c.interval?c.interval+'天':'新');
+      const d=document.createElement('span');d.className='d';d.textContent=dueLabel(c,Date.now());
       const edit=document.createElement('button');edit.type='button';edit.className='edit';edit.textContent='改';
       edit.onclick=()=>cardsBeginEdit(c);
       const del=document.createElement('button');del.type='button';del.textContent='删';
@@ -2041,6 +2059,15 @@ on('novelImportBtn',()=>$('novelFile').click());
 on('novelBackShelf',()=>{novelShowShelf();renderNovelShelf();});
 on('novelPrev',()=>{const b=shelfSanitize(state.novel).books.find(x=>x.id===novelBookId);if(b&&b.ch>0)novelRenderChapter(b.ch-1);});
 on('novelNext',()=>{const b=shelfSanitize(state.novel).books.find(x=>x.id===novelBookId);if(b&&b.ch<novelChapters.length-1)novelRenderChapter(b.ch+1);});
+/* 阅读器左右滑动翻页：水平位移明显大于垂直才触发，避免干扰上下滚动阅读。 */
+{const nb=$('novelBody');if(nb){let sx=0,sy=0,sw=false;
+  nb.addEventListener('touchstart',e=>{if(e.touches.length===1){sx=e.touches[0].clientX;sy=e.touches[0].clientY;sw=true;}},{passive:true});
+  nb.addEventListener('touchend',e=>{
+    if(!sw)return;sw=false;
+    const t=e.changedTouches[0];const dx=t.clientX-sx,dy=t.clientY-sy;
+    if(Math.abs(dx)>64&&Math.abs(dx)>Math.abs(dy)*1.6){if(dx<0)$('novelNext').click();else $('novelPrev').click();}
+  },{passive:true});
+}}
 on('novelFontMinus',()=>novelFont(-1));
 on('novelFontPlus',()=>novelFont(1));
 on('novelThemePaper',()=>novelSetTheme('paper'));
