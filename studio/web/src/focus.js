@@ -6,7 +6,7 @@
 
 export const DEFAULT_FOCUS=()=>({
   phase:'work',remaining:25*60,running:false,completed:0,cycle:0,
-  workMin:25,shortMin:5,longMin:15,today:{date:'',count:0},history:{}
+  workMin:25,shortMin:5,longMin:15,today:{date:'',count:0},history:{},sound:false
 });
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 const num=(v,f)=>Number.isFinite(+v)?+v:f;
@@ -34,7 +34,8 @@ export function focusSanitize(raw){
     running:r.running===true,
     completed:clamp(Math.round(num(r.completed,0)),0,99999),
     cycle:clamp(Math.round(num(r.cycle,0)),0,3),
-    workMin,shortMin,longMin,today,history
+    workMin,shortMin,longMin,today,history,
+    sound:r.sound===true
   };
 }
 

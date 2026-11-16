@@ -263,3 +263,19 @@ test('sanitizeSession preserves skipped set',()=>{
   assert.equal(r.skipped[s.ids[0]],1);
   assert.equal(r.pos,1);
 });
+
+test('gradeQuiz accumulates per-subject stats',()=>{
+  const anat=QUIZ_BANK.find(q=>q.subject==='解剖');
+  const phys=QUIZ_BANK.find(q=>q.subject==='生理');
+  let st=quizStatsSanitize(null);
+  st=gradeQuiz(st,anat.id,anat.answer,QUIZ_BANK); // 对
+  st=gradeQuiz(st,anat.id,(anat.answer+1)%anat.options.length,QUIZ_BANK); // 错
+  st=gradeQuiz(st,phys.id,phys.answer,QUIZ_BANK); // 对
+  assert.equal(st.bySubject['解剖'].answered,2);
+  assert.equal(st.bySubject['解剖'].right,1);
+  assert.equal(st.bySubject['生理'].answered,1);
+  assert.equal(st.bySubject['生理'].right,1);
+  // 序列化往返保留
+  const back=quizStatsSanitize(JSON.parse(JSON.stringify(st)));
+  assert.deepEqual(back.bySubject,st.bySubject);
+});

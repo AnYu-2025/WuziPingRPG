@@ -25,10 +25,20 @@ export function quizStatsSanitize(raw){
       if(r.star[k])star[k]=1;
     }
   }
+  /* 分科作答统计：{科目:{answered,right}}，供分科正确率。 */
+  const bySubject={};
+  if(r.bySubject&&typeof r.bySubject==='object'){
+    for(const k of Object.keys(r.bySubject).slice(0,20)){
+      const v=r.bySubject[k];
+      if(v&&typeof v==='object'){
+        bySubject[k]={answered:clamp(Math.round(num(v.answered,0)),0,999999),right:clamp(Math.round(num(v.right,0)),0,999999)};
+      }
+    }
+  }
   return {
     answered:clamp(Math.round(num(r.answered,0)),0,999999),
     right:clamp(Math.round(num(r.right,0)),0,999999),
-    wrong,star,
+    wrong,star,bySubject,
     lastSubject:typeof r.lastSubject==='string'&&(r.lastSubject==='全部'||QUIZ_SUBJECTS.includes(r.lastSubject))?r.lastSubject:'全部',
     lastMode:QUIZ_MODES.includes(r.lastMode)?r.lastMode:'order',
     lastDifficulty:[0,1,2,3,4].includes(+r.lastDifficulty)?+r.lastDifficulty:0
@@ -136,7 +146,10 @@ export function gradeQuiz(stats,qid,choice,bank){
   const wrong={...s.wrong};
   if(ok)delete wrong[qid];
   else wrong[qid]=(wrong[qid]||0)+1;
-  return {...s,answered:s.answered+1,right:s.right+(ok?1:0),wrong};
+  const subj=q.subject||'其他';
+  const prev=s.bySubject[subj]||{answered:0,right:0};
+  const bySubject={...s.bySubject,[subj]:{answered:prev.answered+1,right:prev.right+(ok?1:0)}};
+  return {...s,answered:s.answered+1,right:s.right+(ok?1:0),wrong,bySubject};
 }
 
 export function accuracy(stats){

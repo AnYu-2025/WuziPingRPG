@@ -1455,6 +1455,7 @@ function renderFocus(){
     else hint.textContent='本轮第 '+s.cycle+' / 4 个 · 完成 4 个进入长休息';
   }
   const start=$('focusStart');if(start)start.textContent=s.running?'暂停':'开始';
+  const snd=$('focusSound');if(snd)snd.checked=!!s.sound;
   const wm=$('focusWorkMin'),sm=$('focusShortMin'),lm=$('focusLongMin');
   if(wm&&document.activeElement!==wm)wm.value=s.workMin;
   if(sm&&document.activeElement!==sm)sm.value=s.shortMin;
@@ -1474,6 +1475,19 @@ function renderFocus(){
     }
   }
 }
+/* 专注×潮声联动：勾选后专注段自动播「深度专注」预设，休息/暂停即停。
+   仅在用户勾选时接管音频，不勾选则完全不碰潮声。 */
+function focusSoundPlay(){
+  state.soundscape=applyPreset(ssState(),'focus');
+  const a=ssEnsureAudio();
+  if(!a.ensure())return;
+  a.resume();
+  for(const id of activeLayers(state.soundscape)){const L=state.soundscape.layers[id];a.startLayer(id,L.vol);a.setLayerVol(id,L.vol);}
+  for(const l of LAYERS)if(!state.soundscape.layers[l.id].on)a.stopLayer(l.id);
+  a.setMaster(state.soundscape.master);
+}
+function focusSoundStop(){if(ssAudio)ssAudio.stopAll();}
+function buzzFocus(){try{if(navigator.vibrate)navigator.vibrate([60,40,60]);}catch(e){}}
 /* 专注时把倒计时写进标题栏：切到别的标签/最小化也能瞥见剩余时间。 */
 const BASE_TITLE=document.title||'天工';
 function syncFocusTitle(){
@@ -1489,13 +1503,24 @@ setInterval(()=>{
   if(!state.focus||!state.focus.running){syncFocusTitle();return;}
   const r=focusTick(state.focus,todayStr());
   state.focus=r.state;
-  if(r.finished){notify(state.focus.phase==='work'?'休息结束，开始新一轮专注。':'一个专注段完成，休息一下。');scheduleSave();}
+  if(r.finished){
+    notify(state.focus.phase==='work'?'休息结束，开始新一轮专注。':'一个专注段完成，休息一下。');
+    buzzFocus();
+    /* 进入休息段：联动停声；休息结束回工作段不自动响，等用户点开始。 */
+    if(state.focus.sound&&state.focus.phase!=='work')focusSoundStop();
+    scheduleSave();
+  }
   if(workspaceMode==='focus')renderFocus();
   syncFocusTitle();
 },1000);
-on('focusStart',()=>{state.focus=focusToggle(state.focus);renderFocus();syncFocusTitle();scheduleSave();});
-on('focusReset',()=>{state.focus=focusReset(state.focus);renderFocus();syncFocusTitle();scheduleSave();});
-on('focusSkip',()=>{state.focus=focusSkip(state.focus);renderFocus();syncFocusTitle();scheduleSave();});
+on('focusStart',()=>{
+  state.focus=focusToggle(state.focus);
+  if(state.focus.sound){if(state.focus.running&&state.focus.phase==='work')focusSoundPlay();else focusSoundStop();}
+  renderFocus();syncFocusTitle();scheduleSave();
+});
+on('focusReset',()=>{state.focus=focusReset(state.focus);if(state.focus.sound)focusSoundStop();renderFocus();syncFocusTitle();scheduleSave();});
+on('focusSkip',()=>{state.focus=focusSkip(state.focus);if(state.focus.sound)focusSoundStop();renderFocus();syncFocusTitle();scheduleSave();});
+{const fs=$('focusSound');if(fs)fs.onchange=()=>{state.focus={...state.focus,sound:fs.checked};if(!fs.checked)focusSoundStop();else if(state.focus.running&&state.focus.phase==='work')focusSoundPlay();scheduleSave();};}
 for(const [id,key] of [['focusWorkMin','workMin'],['focusShortMin','shortMin'],['focusLongMin','longMin']]){
   const el=$(id);if(el)el.onchange=()=>{state.focus=focusSetMinutes(state.focus,key,+el.value);renderFocus();scheduleSave();};
 }
@@ -2049,6 +2074,21 @@ function renderMqSetup(){
     const saved=mqSanitizeSession(state.mqSession,bank);
     if(saved&&!saved.finished){resume.hidden=false;resume.textContent='继续上次刷题 · '+(saved.pos+1)+' / '+saved.ids.length;}
     else resume.hidden=true;
+  }
+  /* 分科正确率：按正确率升序，薄弱科目排前面，一眼看到该补哪科。 */
+  const subBox=$('mqSubjects');
+  if(subBox){
+    subBox.replaceChildren();
+    const bs=state.medquiz.bySubject||{};
+    const rows=Object.keys(bs).map(k=>({s:k,a:bs[k].answered,r:bs[k].right,rate:bs[k].answered?Math.round(bs[k].right/bs[k].answered*100):0})).filter(x=>x.a>0).sort((a,b)=>a.rate-b.rate);
+    if(!rows.length){const e=document.createElement('p');e.className='mq-subjects-empty';e.textContent='刷几道题，这里会显示各科正确率。';subBox.append(e);}
+    for(const x of rows){
+      const chip=document.createElement('button');chip.type='button';chip.className='mq-subchip'+(x.rate<60?' weak':'');
+      chip.textContent=x.s+' '+x.rate+'%';
+      chip.title=x.s+'：答 '+x.a+' 题，对 '+x.r+' 题';
+      chip.onclick=()=>{const s2=$('mqSubject');if(s2){s2.value=x.s;renderMqSetup();}};
+      subBox.append(chip);
+    }
   }
 }
 function mqRenderQuestion(){
