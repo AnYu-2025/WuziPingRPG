@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.42</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.43</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -32,7 +32,7 @@
    </span>
   </div>
   <div class="bh-console-meta">
-   <label class="bh-quality">画质<select id="obsQuality" aria-label="渲染画质"><option value="auto">自动</option><option value="high">高</option><option value="med">中</option><option value="low">低</option></select></label>
+   <label class="bh-quality">画质<select id="obsQuality" aria-label="渲染画质"><option value="auto">自动</option><option value="high">高</option><option value="med">中</option><option value="low">低</option><option value="eco">流畅</option></select></label>
    <span class="bh-console-note">弱机自动降步长保帧率 · 遥测实时读数</span>
   </div>
   <div class="bh-console-strip" id="bhStrip">

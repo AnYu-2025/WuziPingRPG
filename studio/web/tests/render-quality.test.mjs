@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {QUALITY_TIERS,QUALITY_MODES,qualitySanitize,tierIndexOf,autoTierStep} from '../src/render-quality.js';
+import {QUALITY_TIERS,QUALITY_MODES,qualitySanitize,tierIndexOf,autoTierStep,initialTier} from '../src/render-quality.js';
 
 test('qualitySanitize accepts modes and falls back to auto',()=>{
   for(const m of QUALITY_MODES)assert.equal(qualitySanitize(m),m);
@@ -16,12 +16,13 @@ test('tierIndexOf maps ids and clamps unknown',()=>{
   assert.equal(tierIndexOf('nope'),0);
 });
 
-test('tiers ordered high to low with decreasing cost',()=>{
-  assert.equal(QUALITY_TIERS.length,3);
+test('tiers ordered high to eco with decreasing cost',()=>{
+  assert.equal(QUALITY_TIERS.length,4);
   for(let i=1;i<QUALITY_TIERS.length;i++){
     assert.ok(QUALITY_TIERS[i].steps<QUALITY_TIERS[i-1].steps);
     assert.ok(QUALITY_TIERS[i].px<=QUALITY_TIERS[i-1].px);
   }
+  assert.equal(tierIndexOf('eco'),3);
 });
 
 test('autoTierStep downgrades after two sustained low evaluations',()=>{
@@ -35,7 +36,10 @@ test('autoTierStep downgrades after two sustained low evaluations',()=>{
   assert.equal(s.tier,2);
   s=autoTierStep(s.tier,30,s.holds);
   s=autoTierStep(s.tier,30,s.holds);
-  assert.equal(s.tier,2); // 到底不再降
+  assert.equal(s.tier,3);
+  s=autoTierStep(s.tier,30,s.holds);
+  s=autoTierStep(s.tier,30,s.holds);
+  assert.equal(s.tier,3); // 到底不再降
 });
 
 test('autoTierStep upgrades after three sustained high evaluations',()=>{
@@ -67,4 +71,18 @@ test('mid fps resets holds so no flapping',()=>{
   s=autoTierStep(s.tier,50,s.holds);
   assert.equal(s.holds.high,0);
   assert.equal(s.tier,1);
+});
+
+test('very low fps downgrades immediately',()=>{
+  const s=autoTierStep(0,15,{low:0,high:0});
+  assert.equal(s.tier,1); // 一次评估直接降
+  const t=autoTierStep(3,10,{low:0,high:0});
+  assert.equal(t.tier,3); // 底档不再降
+});
+
+test('initialTier starts low on weak devices',()=>{
+  assert.equal(initialTier(4,8),tierIndexOf('low'));
+  assert.equal(initialTier(8,4),tierIndexOf('low'));
+  assert.equal(initialTier(8,8),0);
+  assert.equal(initialTier(undefined,undefined),0);
 });

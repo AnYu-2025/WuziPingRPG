@@ -8,7 +8,7 @@ export function createSoundscapeVisual(canvas){
 
   function resize(){
     const r=canvas.getBoundingClientRect();
-    const dpr=Math.min(window.devicePixelRatio||1,2);
+    const dpr=Math.min(window.devicePixelRatio||1,1.5);
     W=Math.max(1,r.width);H=Math.max(1,r.height);
     canvas.width=W*dpr;canvas.height=H*dpr;
     ctx.setTransform(dpr,0,0,dpr,0,0);

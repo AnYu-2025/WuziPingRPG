@@ -7,7 +7,7 @@
  */
 import * as THREE from 'three';
 import {starSanitize} from './star-data.js';
-import {QUALITY_TIERS,qualitySanitize,tierIndexOf,autoTierStep} from './render-quality.js';
+import {QUALITY_TIERS,qualitySanitize,tierIndexOf,autoTierStep,initialTier} from './render-quality.js';
 
 const R=5;
 const STAR_COLORS={
@@ -791,7 +791,7 @@ export function initStarHome(env,api){
       const spin=$('bhSpin'),temp=$('bhTemp'),fps=$('bhFps');
       if(spin)spin.textContent='a* '+(obsSpin+holePulse*0.0015+holeAttract*0.0008).toFixed(4);
       if(temp)temp.textContent='T '+(1.2+holePulse*2.6+holeAttract*1.1).toFixed(1)+'×10⁷ K';
-      if(fps)fps.textContent=fpsNow+' FPS · '+({high:'高清',med:'均衡',low:'省电'}[QUALITY_TIERS[qualityTier].id]||'');
+      if(fps)fps.textContent=fpsNow+' FPS · '+({high:'高清',med:'均衡',low:'省电',eco:'流畅'}[QUALITY_TIERS[qualityTier].id]||'');
     }
     renderer.render(scene,camera);
   }
@@ -841,7 +841,7 @@ export function initStarHome(env,api){
   function setQualityMode(m){
     qualityMode=qualitySanitize(m);
     if(qualityMode!=='auto'){qualityTier=tierIndexOf(qualityMode);}
-    else{qualityTier=0;qualityHolds={low:0,high:0};}
+    else{qualityTier=initialTier(navigator.hardwareConcurrency,navigator.deviceMemory);qualityHolds={low:0,high:0};}
     applyQuality();
     try{localStorage.setItem(QUALITY_STORE,qualityMode);}catch(e){}
     const sel=$('obsQuality');if(sel)sel.value=qualityMode;

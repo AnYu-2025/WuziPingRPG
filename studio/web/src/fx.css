@@ -83,8 +83,10 @@ html[data-fx="on"] #pelicanPanel{position:relative;z-index:1}
     rgba(169,123,255,.88) 50.5%,
     rgba(169,123,255,.26) 51.4%,
     transparent 52.6%,transparent 100%);
-  background-size:100% 240%;background-position:0 -130%;
-  filter:drop-shadow(0 0 10px rgba(95,230,255,.9));opacity:0;
+  background-size:100% 240%;background-position:0 50%;
+  /* 扫光用 transform 位移（合成器线程），不再逐帧重绘 background-position；
+     发光用渐变自身亮度，去掉昂贵的 drop-shadow 滤镜。 */
+  transform:translate3d(0,-62%,0);opacity:0;will-change:transform,opacity;
 }
 #fxWarp .fx-edge{
   border-top:1px solid rgba(95,230,255,.75);border-bottom:1px solid rgba(169,123,255,.7);
@@ -101,7 +103,7 @@ html[data-fx="on"] #fxWarp.fx-run .fx-edge{animation:fx-edge var(--fx-dur) var(-
 @keyframes fx-veil{0%{opacity:0}14%{opacity:1}62%{opacity:.9}100%{opacity:0}}
 @keyframes fx-grain{0%{opacity:0}18%{opacity:1}78%{opacity:.55}100%{opacity:0}}
 @keyframes fx-band{0%{transform:translate3d(-104%,0,0)}100%{transform:translate3d(104%,0,0)}}
-@keyframes fx-scan{0%{opacity:0;background-position:0 -130%}8%{opacity:1}90%{opacity:1}100%{opacity:0;background-position:0 240%}}
+@keyframes fx-scan{0%{opacity:0;transform:translate3d(0,-62%,0)}8%{opacity:1}90%{opacity:1}100%{opacity:0;transform:translate3d(0,62%,0)}}
 @keyframes fx-edge{0%{opacity:0;transform:scaleY(.02)}18%{opacity:1;transform:scaleY(1)}72%{opacity:.6}100%{opacity:0;transform:scaleY(1.05)}}
 
 /* ---------- 全息实体化：面板进场 ---------- */
@@ -124,10 +126,12 @@ html[data-fx="on"] .fx-stagger>*{animation:fx-rise .44s var(--fx-ease) both;anim
 @keyframes fx-rise{0%{opacity:0;transform:translate3d(0,14px,0)}100%{opacity:1;transform:none}}
 
 /* ---------- 首页往返 ---------- */
+/* 首页往返只用 transform+opacity（合成器线程）。
+   旧版整屏 filter:blur 在弱机上是「点开功能卡一下」的主因，移除。 */
 html[data-fx="on"] #landing.landing-out{animation:fx-warp-out .32s cubic-bezier(.4,0,1,1) both}
-@keyframes fx-warp-out{0%{opacity:1;transform:scale(1);filter:blur(0)}100%{opacity:0;transform:scale(1.07);filter:blur(7px)}}
+@keyframes fx-warp-out{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.07)}}
 html[data-fx="on"] #landing.fx-home-in{animation:fx-warp-in .46s var(--fx-ease) both}
-@keyframes fx-warp-in{0%{opacity:0;transform:scale(1.05);filter:blur(6px)}100%{opacity:1;transform:scale(1);filter:blur(0)}}
+@keyframes fx-warp-in{0%{opacity:0;transform:scale(1.05)}100%{opacity:1;transform:scale(1)}}
 
 /* ---------- 常驻全息肌理 ---------- */
 /* 工作区坐标网格 */

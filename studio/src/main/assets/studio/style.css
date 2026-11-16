@@ -464,7 +464,9 @@ body.notepad .mdtoggle[aria-pressed="true"]{background:#f0e6cf;border-color:#b08
 
 /* Meteor glass home: the photo is bundled locally, and motion stays decorative. */
 #landing { isolation:isolate; background:#06121f; color:#edf8ff; }
-#landing::before { content:""; position:absolute; z-index:-2; inset:-18px; background:linear-gradient(180deg,rgba(3,12,27,.38),rgba(3,15,27,.62)),url("meteor-sky.webp") center center / cover no-repeat; filter:blur(3px); animation:sky-drift 32s ease-in-out infinite alternate; pointer-events:none; }
+/* 天空底图不再常驻 filter:blur（弱机每帧重模糊整屏很贵）；
+   底图本身是柔焦夜空，去掉 3px 模糊观感几乎不变。漂移动画仅 transform。 */
+#landing::before { content:""; position:absolute; z-index:-2; inset:-18px; background:linear-gradient(180deg,rgba(3,12,27,.38),rgba(3,15,27,.62)),url("meteor-sky.webp") center center / cover no-repeat; animation:sky-drift 32s ease-in-out infinite alternate; pointer-events:none; will-change:transform; }
 #landing::after { content:""; position:absolute; z-index:-1; inset:0; background:radial-gradient(ellipse at 80% 15%,rgba(148,124,255,.16),transparent 45%),linear-gradient(180deg,transparent,rgba(4,14,27,.38)); pointer-events:none; }
 @keyframes sky-drift { from { transform:scale(1.04) translate3d(0,0,0); } to { transform:scale(1.1) translate3d(-1%,.5%,0); } }
 #landing .home-brand strong,#landing .home-scroll h1,#landing .home-ghead h2,#landing .home-copy strong { color:#f2fbff; text-shadow:0 1px 12px rgba(0,0,0,.38); }
@@ -486,8 +488,8 @@ body.starhome #landing::before{animation:none;filter:none}
 #landing .home-icon,#landing .home-card[data-mode] .home-icon { background:rgba(159,160,237,.20); color:#e6e4ff; }
 #landing .status-dot,#landing[data-ready="1"] .status-dot { background:#bfacff; }
 
-.meteor-field { position:absolute; z-index:-1; inset:0; overflow:hidden; pointer-events:none; filter:blur(1.5px); }
-.meteor-field i { position:absolute; top:-12%; width:150px; height:2px; opacity:0; border-radius:50%; transform:rotate(-35deg); background:linear-gradient(90deg,transparent,var(--meteor-color)); box-shadow:0 0 12px var(--meteor-color); animation:meteor-flight 7s linear infinite; }
+.meteor-field { position:absolute; z-index:-1; inset:0; overflow:hidden; pointer-events:none; }
+.meteor-field i { position:absolute; top:-12%; width:150px; height:2px; opacity:0; border-radius:50%; transform:rotate(-35deg); background:linear-gradient(90deg,transparent,var(--meteor-color)); box-shadow:0 0 8px var(--meteor-color); animation:meteor-flight 7s linear infinite; }
 .meteor-field i:nth-child(1) { left:30%; --meteor-color:#ffd07a; animation-delay:0s; }
 .meteor-field i:nth-child(2) { left:80%; --meteor-color:#f49fff; animation-delay:1.8s; animation-duration:8s; }
 .meteor-field i:nth-child(3) { left:60%; --meteor-color:#9cbcff; animation-delay:4.2s; animation-duration:9s; }
@@ -597,7 +599,7 @@ body.starhome #landing::before{animation:none;filter:none}
 #landing::before { z-index:0; inset:-24px; background:linear-gradient(180deg,rgba(10,8,32,.14),rgba(10,8,32,.30)),url("meteor-sky.webp") center / cover no-repeat; filter:blur(3px); }
 #landing::after { z-index:0; background:linear-gradient(180deg,rgba(9,11,29,.08),rgba(9,11,29,.32)); }
 #landing .home-top,#landing .home-scroll { position:relative; z-index:2; }
-#landing .meteor-field { z-index:1; filter:blur(.55px); }
+#landing .meteor-field { z-index:1; }
 #landing .meteor-field i { top:-5%; left:100%; width:clamp(120px,36vw,260px); height:3px; opacity:0; border-radius:50%; background:linear-gradient(90deg,var(--meteor-color),transparent 95%); box-shadow:0 0 8px 1px var(--meteor-color); transform:rotate(-37deg); animation:meteor-cross 5s linear infinite; }
 #landing .meteor-field i:nth-child(1) { left:30%; --meteor-color:#ffcf7a; animation-duration:4.5s; animation-delay:-2.2s; }
 #landing .meteor-field i:nth-child(2) { left:80%; --meteor-color:#f4a5ff; animation-duration:5.5s; animation-delay:-1s; }
