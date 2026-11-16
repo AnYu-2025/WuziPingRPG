@@ -61,6 +61,17 @@ function appendMore(list,total,shown,onMore){
   b.textContent='显示更多（还有 '+(total-shown)+' 条）';
   b.onclick=onMore;list.append(b);
 }
+/* 统一空状态：图标 + 标题 + 一句引导，取代各模块孤零零的灰字。
+   可选 action 渲染成主按钮，空态也能一键开始。 */
+function emptyState(icon,title,hint,action){
+  const box=document.createElement('div');box.className='empty-state';
+  const ic=document.createElement('span');ic.className='es-icon';ic.textContent=icon;ic.setAttribute('aria-hidden','true');
+  const tt=document.createElement('b');tt.className='es-title';tt.textContent=title;
+  box.append(ic,tt);
+  if(hint){const h=document.createElement('span');h.className='es-hint';h.textContent=hint;box.append(h);}
+  if(action){const b=document.createElement('button');b.type='button';b.className='es-action';b.textContent=action.label;b.onclick=action.onClick;box.append(b);}
+  return box;
+}
 /* 原生工作区快照的硬上限（EditorActivity 里是同一个数）。
    以前超限是静默丢弃整份草稿，现在先在页面里算清楚再明确报错。 */
 const WORKSPACE_LIMIT=30*1024*1024;
@@ -115,12 +126,15 @@ let editorStates=new Map();
 function active(){return state.files.find(f=>f.path===state.active)||state.files[0];}
 function language(path){return langs[extension(path)]||['纯文本',()=>[]];}
 function hideToast(){
-  const t=$('toast');if(!t)return;
-  t.hidden=true;t.replaceChildren();t.classList.remove('toast-undo');
+  const t=$('toast');if(!t||t.hidden)return;
+  /* 先播退出动画再真正隐藏；减弱动效时直接隐藏。 */
+  if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches){t.hidden=true;t.replaceChildren();t.classList.remove('toast-undo','toast-out');return;}
+  t.classList.add('toast-out');
+  setTimeout(()=>{t.hidden=true;t.replaceChildren();t.classList.remove('toast-undo','toast-out');},180);
 }
 function notify(text){
   const t=$('toast');if(!t)return;
-  t.classList.remove('toast-undo');
+  t.classList.remove('toast-undo','toast-out');
   t.textContent=text;t.hidden=false;
   clearTimeout(toastTimer);toastTimer=setTimeout(hideToast,3500);
 }
@@ -140,7 +154,10 @@ function notifyUndo(text,onUndo,ms=6000){
     hideToast();clearTimeout(toastTimer);
     if(act)act();
   };
-  t.append(span,btn);t.hidden=false;
+  t.append(span,btn);
+  /* 倒计时进度条：直观显示还剩多少反悔时间。 */
+  const bar=document.createElement('i');bar.className='toast-bar';bar.style.animationDuration=ms+'ms';t.append(bar);
+  t.classList.remove('toast-out');t.hidden=false;
   toastTimer=setTimeout(()=>{undoAction=null;hideToast();},ms);
 }
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
@@ -1538,8 +1555,8 @@ function renderCards(){
       shownCount=next;appendMore(list,shown.length,shownCount,moreCards);
     };
     appendMore(list,shown.length,shownCount,moreCards);
-    if(!deck.cards.length){const e=document.createElement('p');e.className='cards-face-hint';e.textContent='还没有卡片，点「添加卡片」开始。';list.append(e);}
-    else if(!shown.length){const e=document.createElement('p');e.className='cards-face-hint';e.textContent='没有匹配「'+q+'」的卡片。';list.append(e);}
+    if(!deck.cards.length){list.append(emptyState('🗂','还没有卡片','把要记的做成卡片，到期自动提醒复习。',{label:'添加第一张',onClick:()=>$('cardsToggleAdd').click()}));}
+    else if(!shown.length){list.append(emptyState('🔍','没有匹配「'+q+'」的卡片','换个关键词，或清空筛选看看全部。'));}
   }
   hudMark(document.querySelector('#cardsPanel'));
 }
@@ -1645,7 +1662,12 @@ function renderMistakes(){
   const mq=($('mistFilter')?$('mistFilter').value:'').trim().toLowerCase();
   if(mq)items=items.filter(it=>(it.title+' '+it.question+' '+it.answer+' '+it.reason).toLowerCase().includes(mq));
   list.replaceChildren();
-  if(!items.length){const e=document.createElement('p');e.className='mist-empty';e.textContent=book.items.length?(mq?'没有匹配「'+mq+'」的错题。':'这个筛选下没有错题。'):'还没有错题，点「＋ 记错题」开始。';list.append(e);return;}
+  if(!items.length){
+    if(!book.items.length)list.append(emptyState('📝','还没有错题','把做错的题记下来，逐个攻克。',{label:'记第一道',onClick:()=>mistOpenForm(null)}));
+    else if(mq)list.append(emptyState('🔍','没有匹配「'+mq+'」的错题','换个关键词试试。'));
+    else list.append(emptyState('✅','这个筛选下没有错题','换个科目或掌握度，或记一道新错题。'));
+    return;
+  }
   const buildMist=it=>{
     const card=document.createElement('div');card.className='mist-item';
     const head=document.createElement('div');head.className='mist-item-head';
@@ -1722,7 +1744,7 @@ function renderHabits(){
   const stats=$('habitStats');if(stats)stats.textContent='共 '+st.total+' 个 · 今日已打 '+st.doneToday+' · 累计 '+st.totalChecks+' 次';
   const list=$('habitList');if(!list)return;
   list.replaceChildren();
-  if(!book.habits.length){const e=document.createElement('p');e.className='habit-empty';e.textContent='还没有习惯，输入名称点「添加」开始。';list.append(e);return;}
+  if(!book.habits.length){list.append(emptyState('🌱','还没有习惯','定一个小习惯，每天打卡攒连续。',{label:'添加第一个',onClick:()=>{const i=$('habitName');if(i)i.focus();}}));return;}
   const buildHabit=h=>{
     const item=document.createElement('div');item.className='habit-item';
     const top=document.createElement('div');top.className='habit-item-top';
@@ -1924,7 +1946,7 @@ function renderNovelShelf(){
   const shelf=state.novel||shelfSanitize(null);
   const list=$('novelShelfList');if(!list)return;
   list.replaceChildren();
-  if(!shelf.books.length){const e=document.createElement('p');e.className='novel-empty';e.textContent='书架还空着，点「＋ 导入 TXT」放一本书进来。';list.append(e);return;}
+  if(!shelf.books.length){list.append(emptyState('📚','书架还空着','导入一本 TXT，随时接着读。',{label:'导入第一本',onClick:()=>$('novelFile').click()}));return;}
   for(const b of shelf.books){
     const row=document.createElement('div');row.className='novel-book';
     const cover=document.createElement('span');cover.className='cover';cover.textContent='📖';
@@ -2219,7 +2241,7 @@ function renderExams(){
     }
   }
   list.replaceChildren();
-  if(!exams.length){const e=document.createElement('p');e.className='exam-empty';e.textContent='还没有任务，点「＋ 加任务」排一个截止日。';list.append(e);return;}
+  if(!exams.length){list.append(emptyState('⏳','还没有任务','作业、考试、报告，排个截止日心里有数。',{label:'加第一个任务',onClick:()=>examOpenForm(null)}));return;}
   for(const ex of exams){
     const d=daysUntil(ex.date,now);
     const card=document.createElement('div');card.className='exam-card'+(d<0?' past':'');
