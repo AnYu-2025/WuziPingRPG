@@ -1564,7 +1564,16 @@ function renderCards(){
     if(cardsShown){for(const b of rate.querySelectorAll('button')){const iv=previewInterval(cardsCurrent,+b.dataset.rate,Date.now());const lab=b.querySelector('.iv');if(lab)lab.textContent=iv;}}
   }else{
     face.textContent=cardsQueue.length?'共 '+cardsQueue.length+' 张待复习，点「开始复习」':'没有到期的卡片，去添加或稍后再来';
-    hint.textContent='';rate.hidden=true;
+    /* 复习完/无到期时告知下一批何时到，形成节奏预期。 */
+    if(!cardsQueue.length){
+      const now=Date.now();
+      const future=deck.cards.filter(c=>c.due>now);
+      if(future.length){
+        const next=Math.min(...future.map(c=>c.due));
+        hint.textContent='下一批 '+dueLabel({due:next},now)+'到期（'+future.length+' 张）';
+      }else hint.textContent='';
+    }else hint.textContent='';
+    rate.hidden=true;
   }
   const list=$('cardsList');
   const fw=$('cardsFilterWrap');if(fw)fw.hidden=list?list.hidden:true;
@@ -2098,6 +2107,7 @@ function renderMqSetup(){
   if(sel)sel.value=state.medquiz.lastSubject||'全部';
   const md=$('mqMode');if(md)md.value=state.medquiz.lastMode||'order';
   const df=$('mqDifficulty');if(df)df.value=String(state.medquiz.lastDifficulty||0);
+  const lm=$('mqLimit');if(lm)lm.value=String(state.medquiz.lastLimit==null?20:state.medquiz.lastLimit);
   const bank=mqBank();
   const st=$('mqStats');if(st)st.textContent='题库 '+bank.length+' 题 · 已答 '+state.medquiz.answered+' · 正确率 '+mqAccuracy(state.medquiz)+'% · 错题 '+Object.keys(state.medquiz.wrong).length+' · 收藏 '+Object.keys(state.medquiz.star).length;
   const imp=$('mqImportInfo');if(imp)imp.textContent='内置偏难重点题 + 你导入的 '+mqLoadCustom().length+' 题（自动去重）。';
@@ -2189,8 +2199,9 @@ on('mqResume',()=>{
 });
 on('mqStart',()=>{
   const subject=$('mqSubject').value,mode=$('mqMode').value,diff=+($('mqDifficulty')?$('mqDifficulty').value:0);
-  state.medquiz={...quizStatsSanitize(state.medquiz),lastSubject:subject,lastMode:mode,lastDifficulty:diff};
-  mqSession=mqBuild(state.medquiz,subject,mode,undefined,mqBank(),diff);
+  const limit=+($('mqLimit')?$('mqLimit').value:20);
+  state.medquiz={...quizStatsSanitize(state.medquiz),lastSubject:subject,lastMode:mode,lastDifficulty:diff,lastLimit:limit};
+  mqSession=mqBuild(state.medquiz,subject,mode,undefined,mqBank(),diff,limit);
   if(!mqSession.ids.length){notify(mode==='wrong'?'没有错题，先刷几道吧。':'这个筛选下暂时没有题。');return;}
   $('mqSetup').hidden=true;$('mqResult').hidden=true;$('mqRun').hidden=false;
   mqRenderQuestion();scheduleSave();

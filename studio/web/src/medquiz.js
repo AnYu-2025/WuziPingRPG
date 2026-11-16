@@ -41,7 +41,8 @@ export function quizStatsSanitize(raw){
     wrong,star,bySubject,
     lastSubject:typeof r.lastSubject==='string'&&(r.lastSubject==='全部'||QUIZ_SUBJECTS.includes(r.lastSubject))?r.lastSubject:'全部',
     lastMode:QUIZ_MODES.includes(r.lastMode)?r.lastMode:'order',
-    lastDifficulty:[0,1,2,3,4].includes(+r.lastDifficulty)?+r.lastDifficulty:0
+    lastDifficulty:[0,1,2,3,4].includes(+r.lastDifficulty)?+r.lastDifficulty:0,
+    lastLimit:[0,10,20,50].includes(+r.lastLimit)?+r.lastLimit:20
   };
 }
 
@@ -64,7 +65,7 @@ export function shuffle(arr,rnd){
   return a;
 }
 
-export function buildQuiz(stats,subject,mode,rnd,bank,difficulty){
+export function buildQuiz(stats,subject,mode,rnd,bank,difficulty,limit){
   const b=(bank&&bank.length)?bank:QUIZ_BANK;
   const s=quizStatsSanitize(stats);
   const subj=(subject==='全部'||QUIZ_SUBJECTS.includes(subject))?subject:'全部';
@@ -76,10 +77,14 @@ export function buildQuiz(stats,subject,mode,rnd,bank,difficulty){
   if(md==='star')pool=pool.filter(q=>s.star[q.id]);
   let ids=pool.map(q=>q.id);
   if(md==='random')ids=shuffle(ids,rnd);
+  /* 每轮题量：顺序刷截取前 N，随机刷已洗牌截取，避免一轮几百题太长。 */
+  const lim=Math.round(num(limit,0));
+  if(lim>0)ids=ids.slice(0,lim);
+  const sel=pool.filter(q=>ids.includes(q.id));
   /* 选项顺序打散，消除"正确答案总在A"的位置偏置；perm 按题固定于本会话。 */
   const perm={};
   const rand=typeof rnd==='function'?rnd:Math.random;
-  for(const q of pool){
+  for(const q of sel){
     const idx=q.options.map((_,i)=>i);
     for(let i=idx.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
     perm[q.id]=idx;

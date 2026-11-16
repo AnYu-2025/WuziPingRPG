@@ -279,3 +279,19 @@ test('gradeQuiz accumulates per-subject stats',()=>{
   const back=quizStatsSanitize(JSON.parse(JSON.stringify(st)));
   assert.deepEqual(back.bySubject,st.bySubject);
 });
+
+test('buildQuiz limit caps round size for order and random',()=>{
+  const order=buildQuiz(quizStatsSanitize(null),'全部','order',undefined,QUIZ_BANK,0,10);
+  assert.equal(order.ids.length,10);
+  assert.equal(order.finished,false);
+  const rnd=buildQuiz(quizStatsSanitize(null),'全部','random',undefined,QUIZ_BANK,0,20);
+  assert.equal(rnd.ids.length,20);
+  // 选项打散只覆盖选中题
+  assert.ok(rnd.ids.every(id=>Array.isArray(rnd.perm[id])));
+  // limit 大于池则全量
+  const all=buildQuiz(quizStatsSanitize(null),'解剖','order',undefined,QUIZ_BANK,0,9999);
+  assert.equal(all.ids.length,QUIZ_BANK.filter(q=>q.subject==='解剖').length);
+  // limit 0/缺省=全量
+  const none=buildQuiz(quizStatsSanitize(null),'解剖','order',undefined,QUIZ_BANK,0);
+  assert.equal(none.ids.length,all.ids.length);
+});
