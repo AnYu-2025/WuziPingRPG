@@ -1431,6 +1431,12 @@ function renderFocus(){
   }
   const dots=$('focusDots');
   if(dots){dots.replaceChildren();for(let i=0;i<4;i++){const d=document.createElement('i');if(i<s.cycle)d.className='on';dots.append(d);}}
+  const hint=$('focusCycleHint');
+  if(hint){
+    if(s.phase==='long')hint.textContent='长休息中，好好放松～';
+    else if(s.phase==='short')hint.textContent='短休息 · 再来 '+(4-s.cycle)+' 个专注进入长休息';
+    else hint.textContent='本轮第 '+s.cycle+' / 4 个 · 完成 4 个进入长休息';
+  }
   const start=$('focusStart');if(start)start.textContent=s.running?'暂停':'开始';
   const wm=$('focusWorkMin'),sm=$('focusShortMin'),lm=$('focusLongMin');
   if(wm&&document.activeElement!==wm)wm.value=s.workMin;
@@ -1614,6 +1620,24 @@ function renderMistakes(){
   const book=state.mistakes||bookSanitize(null);
   const st=bookStats(book);
   const stats=$('mistStats');if(stats)stats.textContent='共 '+st.total+' 题 · 已掌握 '+st.mastered+' · 掌握率 '+st.rate+'%';
+  /* 分科条：每科错题数 + 掌握率，点一下按该科筛选（再点取消）。 */
+  const subBar=$('mistSubjects');
+  if(subBar){
+    subBar.replaceChildren();
+    const cur=$('mistSubject')?$('mistSubject').value:'全部';
+    const subs=Object.keys(st.bySubject).sort((a,b)=>st.bySubject[b]-st.bySubject[a]);
+    for(const s of subs){
+      const items=book.items.filter(it=>it.subject===s);
+      const mastered=items.filter(it=>it.mastery===2).length;
+      const rate=items.length?Math.round(mastered/items.length*100):0;
+      const chip=document.createElement('button');chip.type='button';
+      chip.className='mist-subchip'+(cur===s?' on':'');
+      chip.textContent=s+' '+st.bySubject[s]+' · '+rate+'%';
+      chip.title=s+'：'+st.bySubject[s]+' 题，已掌握 '+mastered;
+      chip.onclick=()=>{const sel=$('mistSubject');if(sel){sel.value=(cur===s?'全部':s);renderMistakes();}};
+      subBar.append(chip);
+    }
+  }
   const subject=$('mistSubject')?$('mistSubject').value:'全部';
   const mastery=$('mistMastery')?+$('mistMastery').value:-1;
   const list=$('mistList');if(!list)return;
@@ -1709,12 +1733,15 @@ function renderHabits(){
     const check=document.createElement('button');check.type='button';check.className='habit-check'+(done?' done':'');check.textContent=done?'已打卡':'打卡';
     check.onclick=()=>{state.habits=toggleCheck(state.habits,h.id,today);renderHabits();scheduleSave();};
     top.append(t,streak,best,check);item.append(top);
-    const week=document.createElement('div');week.className='habit-week';
-    for(const d of lastNDaysChecks(h,7,today)){
-      const cell=document.createElement('span');cell.className='d'+(d.done?' on':'')+(d.date===today?' today':'');
-      const fill=document.createElement('i');
-      const lab=document.createElement('b');lab.textContent=d.date.slice(8);
-      cell.title=d.date+(d.done?' 已打卡':' 未打卡');cell.append(fill,lab);week.append(cell);
+    /* 28 天热力图（4 行 × 7 列，末格为今天）：点任意格子补卡/取消，未来日禁用。 */
+    const week=document.createElement('div');week.className='habit-heat';
+    for(const d of lastNDaysChecks(h,28,today)){
+      const cell=document.createElement('button');cell.type='button';
+      cell.className='hc'+(d.done?' on':'')+(d.date===today?' today':'');
+      cell.title=d.date+(d.done?' 已打卡，点击取消':' 未打卡，点击补卡');
+      cell.setAttribute('aria-label',cell.title);
+      cell.onclick=()=>{state.habits=toggleCheck(state.habits,h.id,d.date);renderHabits();scheduleSave();};
+      week.append(cell);
     }
     item.append(week);
     const foot=document.createElement('div');foot.className='habit-item-foot';

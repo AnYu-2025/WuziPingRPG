@@ -629,6 +629,7 @@ body.starhome #landing::before{animation:none;filter:none}
 .focus-dots{display:flex;gap:8px}
 .focus-dots i{width:12px;height:12px;border-radius:50%;background:var(--line-strong)}
 .focus-dots i.on{background:var(--accent)}
+.focus-cycle-hint{margin:2px 0 0;font-size:11.5px;color:var(--muted);text-align:center}
 .focus-actions{display:flex;gap:10px}
 .focus-actions button{min-height:46px;padding:0 22px;border-radius:12px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:15px;font-weight:600}
 .focus-actions button.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
@@ -678,6 +679,9 @@ body.cardsview .quickkeys,body.cardsview .statusbar #position{display:none}
 .mist-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .mist-head strong{font-size:17px;color:var(--text-strong)}
 .mist-stats{font-size:12px;color:var(--muted)}
+.mist-subjects{display:flex;gap:6px;flex-wrap:wrap}
+.mist-subchip{min-height:30px;padding:0 11px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--text-strong);font-size:12px;font-weight:600}
+.mist-subchip.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .mist-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .mist-filters select{flex:1;min-width:110px;height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text-strong);padding:0 8px;font-size:13px}
 .mist-filters button{min-height:40px;padding:0 14px;border-radius:10px;background:var(--surface);border:1px solid var(--line);color:var(--text-strong);font-size:13px;font-weight:600}
@@ -730,6 +734,12 @@ body.mistakesview .quickkeys,body.mistakesview .statusbar #position{display:none
 .habit-week .d.on i{background:var(--accent);border-color:var(--accent)}
 .habit-week .d.today i{outline:2px solid var(--accent);outline-offset:1px}
 .habit-week .d b{font-size:9.5px;color:var(--muted);font-weight:600}
+/* 28 天热力图：4 行 × 7 列，末格今天；可点击补卡。 */
+.habit-heat{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:2px}
+.habit-heat .hc{aspect-ratio:1;width:100%;min-height:0;padding:0;border-radius:6px;background:var(--surface-2);border:1px solid var(--line);cursor:pointer;transition:transform .12s,background .12s}
+.habit-heat .hc:hover{transform:scale(1.12)}
+.habit-heat .hc.on{background:var(--accent);border-color:var(--accent)}
+.habit-heat .hc.today{outline:2px solid var(--accent);outline-offset:1px}
 .habit-item-foot{display:flex;justify-content:flex-end}
 .habit-item-foot button{min-height:30px;padding:0 10px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);color:#c2453a;font-size:12px}
 .habit-empty{font-size:13px;color:var(--muted);text-align:center;padding:24px 0}

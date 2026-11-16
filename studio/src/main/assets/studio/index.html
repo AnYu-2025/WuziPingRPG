@@ -5,7 +5,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.36</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.3.37</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -297,6 +297,7 @@
    <div class="focus-time" id="focusTime">25:00</div>
   </div>
   <div class="focus-dots" id="focusDots" aria-label="本轮进度"></div>
+  <p class="focus-cycle-hint" id="focusCycleHint"></p>
   <div class="focus-actions">
    <button id="focusStart" class="primary" type="button">开始</button>
    <button id="focusReset" type="button">重置</button>
@@ -363,6 +364,7 @@
    <strong>错题本</strong>
    <span class="mist-stats" id="mistStats"></span>
   </div>
+  <div class="mist-subjects" id="mistSubjects"></div>
   <div class="mist-filters">
    <select id="mistSubject" aria-label="按科目筛选"></select>
    <select id="mistMastery" aria-label="按掌握度筛选">
