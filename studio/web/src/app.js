@@ -53,6 +53,8 @@ import {pelicanSanitize} from './pelican.js';
 const $=id=>document.getElementById(id),native=!!window.StudioBridge,MAX_FILE=2*1024*1024;
 /* 输入防抖：列表快筛逐键重渲染会卡，停顿 120ms 再渲染。 */
 function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+/* 轻触感反馈：打卡/评分/掌握等确认动作给一个短震动，不支持则静默。 */
+function tap(){try{if(navigator.vibrate)navigator.vibrate(12);}catch(e){}}
 /* 列表分页：长列表一次全量建 DOM 是点开/滑动卡顿源之一。
    首屏只渲染 PAGE 条，点「显示更多」增量追加，不重建已有行。 */
 const PAGE=60;
@@ -927,7 +929,7 @@ for(const b of document.querySelectorAll('.quickkeys button')){
   view.focus();
  });
 }
-document.addEventListener('keydown',event=>{const mod=event.ctrlKey||event.metaKey;if(mod&&event.key.toLowerCase()==='s'){event.preventDefault();if(!worker)saveFile(event.shiftKey);}else if(event.key==='F5'||mod&&event.key==='Enter'){event.preventDefault();run();}else if(mod&&event.key.toLowerCase()==='o'){event.preventDefault();$('openFile').click();}else if(mod&&event.key.toLowerCase()==='n'){event.preventDefault();nameDialog();}});
+document.addEventListener('keydown',event=>{const mod=event.ctrlKey||event.metaKey;if(mod&&event.key.toLowerCase()==='s'){event.preventDefault();if(!worker)saveFile(event.shiftKey);}else if(event.key==='F5'||mod&&event.key==='Enter'){event.preventDefault();run();}else if(mod&&event.key.toLowerCase()==='o'){event.preventDefault();$('openFile').click();}else if(mod&&event.key.toLowerCase()==='n'){event.preventDefault();nameDialog();}else if(event.key==='Escape'&&document.body.classList.contains('drawer')){closeDrawer();}});
 window.addEventListener('pagehide',flush);document.addEventListener('visibilitychange',()=>{if(document.hidden)flush();});
 const onViewportChange=()=>{if((window.visualViewport?window.visualViewport.height:innerHeight)<520)setConsole(false);};
 window.addEventListener('resize',onViewportChange);if(window.visualViewport)window.visualViewport.addEventListener('resize',onViewportChange);
@@ -1584,7 +1586,7 @@ function renderCards(){
     };
     appendMore(list,shown.length,shownCount,moreCards);
     if(!deck.cards.length){list.append(emptyState('🗂','还没有卡片','把要记的做成卡片，到期自动提醒复习。',{label:'添加第一张',onClick:()=>$('cardsToggleAdd').click()}));}
-    else if(!shown.length){list.append(emptyState('🔍','没有匹配「'+q+'」的卡片','换个关键词，或清空筛选看看全部。'));}
+    else if(!shown.length){list.append(emptyState('🔍','没有匹配「'+q+'」的卡片','换个关键词，或清空筛选看看全部。',{label:'清空筛选',onClick:()=>{const f=$('cardsFilter');if(f)f.value='';renderCards();}}));}
   }
   hudMark(document.querySelector('#cardsPanel'));
 }
@@ -1595,7 +1597,7 @@ for(const b of document.querySelectorAll('#cardsRate button')){
   b.addEventListener('click',()=>{
     if(!cardsCurrent)return;
     const rated=reviewCard(cardsCurrent,+b.dataset.rate,Date.now());
-    if(rated){state.cards={...deckSanitize(state.cards),cards:deckSanitize(state.cards).cards.map(c=>c.id===rated.id?rated:c)};state.studyLog=logStudy(state.studyLog,todayStr(),'cards');}
+    if(rated){state.cards={...deckSanitize(state.cards),cards:deckSanitize(state.cards).cards.map(c=>c.id===rated.id?rated:c)};state.studyLog=logStudy(state.studyLog,todayStr(),'cards');tap();}
     cardsShown=false;cardsCurrent=cardsQueue.shift()||null;
     renderCards();scheduleSave();
   });
@@ -1692,7 +1694,7 @@ function renderMistakes(){
   list.replaceChildren();
   if(!items.length){
     if(!book.items.length)list.append(emptyState('📝','还没有错题','把做错的题记下来，逐个攻克。',{label:'记第一道',onClick:()=>mistOpenForm(null)}));
-    else if(mq)list.append(emptyState('🔍','没有匹配「'+mq+'」的错题','换个关键词试试。'));
+    else if(mq)list.append(emptyState('🔍','没有匹配「'+mq+'」的错题','换个关键词，或清空筛选看看全部。',{label:'清空筛选',onClick:()=>{const f=$('mistFilter');if(f)f.value='';renderMistakes();}}));
     else list.append(emptyState('✅','这个筛选下没有错题','换个科目或掌握度，或记一道新错题。'));
     return;
   }
@@ -1718,7 +1720,7 @@ function renderMistakes(){
       const act=document.createElement('div');act.className='mist-item-actions';
       for(let m=0;m<3;m++){
         const b=document.createElement('button');b.type='button';b.textContent=MASTERY[m];if(it.mastery===m)b.className='on';
-        b.onclick=e=>{e.stopPropagation();state.mistakes=setMastery(state.mistakes,it.id,m,Date.now()).book;renderMistakes();scheduleSave();};
+        b.onclick=e=>{e.stopPropagation();state.mistakes=setMastery(state.mistakes,it.id,m,Date.now()).book;if(m===2)tap();renderMistakes();scheduleSave();};
         act.append(b);
       }
       const edit=document.createElement('button');edit.type='button';edit.textContent='编辑';
@@ -1781,7 +1783,7 @@ function renderHabits(){
     const best=document.createElement('span');best.className='habit-best';best.textContent='最佳 '+bestStreak(h);
     const done=isChecked(h,today);
     const check=document.createElement('button');check.type='button';check.className='habit-check'+(done?' done':'');check.textContent=done?'已打卡':'打卡';
-    check.onclick=()=>{state.habits=toggleCheck(state.habits,h.id,today);renderHabits();scheduleSave();};
+    check.onclick=()=>{state.habits=toggleCheck(state.habits,h.id,today);if(!done)tap();renderHabits();scheduleSave();};
     top.append(t,streak,best,check);item.append(top);
     /* 28 天热力图（4 行 × 7 列，末格为今天）：点任意格子补卡/取消，未来日禁用。 */
     const week=document.createElement('div');week.className='habit-heat';
@@ -1790,7 +1792,7 @@ function renderHabits(){
       cell.className='hc'+(d.done?' on':'')+(d.date===today?' today':'');
       cell.title=d.date+(d.done?' 已打卡，点击取消':' 未打卡，点击补卡');
       cell.setAttribute('aria-label',cell.title);
-      cell.onclick=()=>{state.habits=toggleCheck(state.habits,h.id,d.date);renderHabits();scheduleSave();};
+      cell.onclick=()=>{state.habits=toggleCheck(state.habits,h.id,d.date);if(!d.done)tap();renderHabits();scheduleSave();};
       week.append(cell);
     }
     item.append(week);
