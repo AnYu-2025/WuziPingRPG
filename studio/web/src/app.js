@@ -1079,12 +1079,11 @@ function applyMode(mode){
   const FX_STAGGER={overview:'.ov-tasks>*',focus:'.focus-actions button',cards:'.cards-actions button',mistakes:'.mist-filters>*',habits:'.habit-add>*',schedule:'.sched-head>*',novel:'.novel-head>*',medquiz:'.mq-row>*',exams:'.exam-head>*',medcalc:'.mc-chips button',soundscape:'.ss-presets button',model:'.model-modes button',ai:'.ai-section',python:'.quickkeys button',notepad:'.quickkeys button',lecture:'.lecture-tab',tts:'.tts-main>*',game:'.game-actions button'};
   const FX_PANEL={overview:'overviewPanel',focus:'focusPanel',cards:'cardsPanel',mistakes:'mistakesPanel',habits:'habitsPanel',schedule:'schedulePanel',novel:'novelPanel',medquiz:'medquizPanel',exams:'examsPanel',medcalc:'medcalcPanel',soundscape:'soundscapePanel',model:'modelPanel',ai:'aiPanel',python:'workbench',notepad:'workbench',lecture:'workbench',tts:'workbench',game:'lounge'};
   const fxEnter=()=>{if(!fxChanged)return;warp();const p=FX_PANEL[mode];if(p)materialize(p,FX_STAGGER[mode]);};
-  /* 焦点管理：换模块后把焦点落到面板标题，读屏/键盘用户能感知上下文；
+  /* 焦点管理：换模块后把焦点落到面板容器（不显示焦点框），读屏/键盘用户能感知上下文；
      不滚动页面、不打断输入框里正在打字的人。 */
   if(fxChanged){const p=FX_PANEL[mode];const panel=p?$(p):null;
-    if(panel){const h=panel.querySelector('h1,h2,h3,.panel-title,strong');
-      if(h){if(!h.hasAttribute('tabindex'))h.setAttribute('tabindex','-1');
-        setTimeout(()=>{const ae=document.activeElement;const typing=ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.isContentEditable);if(!typing)h.focus({preventScroll:true});},fxEnabled()?340:60);}}}
+    if(panel){if(!panel.hasAttribute('tabindex'))panel.setAttribute('tabindex','-1');
+      setTimeout(()=>{const ae=document.activeElement;const typing=ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.isContentEditable);if(!typing)panel.focus({preventScroll:true});},fxEnabled()?340:60);}}
   if(noteEmpty)noteEmpty.textContent=mode==='lecture'?'点上方「🎙 开始录音」，边听边记；每一行都会自动带上时间戳。':'从这里开始写点什么…';
   const drawToggle=$('drawToggle');
   if(leavingAI)aiModeLeave();

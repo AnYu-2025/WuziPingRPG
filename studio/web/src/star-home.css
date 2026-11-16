@@ -1,124 +1,120 @@
-/* 星穹首页：画布铺满首页，标签与控制浮在其上。 */
+/* 星穹首页：画布铺满首页，标签与控制浮在其上。
+   设计语言：低饱和深蓝面 + 细描边 + 单一青蓝强调色，安静、克制、耐看。 */
 #starStage{position:absolute;inset:0;z-index:1;display:none}
 body.starhome #starStage{display:block}
 body.starhome .home-scroll{display:none}
 body.starhome.listview .home-scroll{display:block}
 body.starhome.listview #starStage{display:none}
 #starCanvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
-/* 科幻叠层：扫描线 + 边缘渐晕 + 左上遥测，全部 pointer-events:none 不挡交互。 */
-.bh-scanlines{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:.5;
-  background:repeating-linear-gradient(0deg,rgba(120,200,255,.028) 0 1px,transparent 1px 3px);
-  mix-blend-mode:screen}
+/* 叠层：极淡扫描线 + 边缘渐晕 + 左上遥测，全部 pointer-events:none 不挡交互。 */
+.bh-scanlines{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:.35;
+  background:repeating-linear-gradient(0deg,rgba(140,190,235,.02) 0 1px,transparent 1px 4px)}
 .bh-vignette{position:absolute;inset:0;z-index:2;pointer-events:none;
-  background:radial-gradient(120% 90% at 50% 42%,transparent 52%,rgba(2,4,12,.55) 100%)}
-.bh-telemetry{position:absolute;left:12px;top:calc(60px + env(safe-area-inset-top));z-index:3;
-  display:flex;flex-direction:column;gap:3px;pointer-events:none;
+  background:radial-gradient(120% 92% at 50% 42%,transparent 56%,rgba(2,5,12,.5) 100%)}
+.bh-telemetry{position:absolute;left:14px;top:calc(62px + env(safe-area-inset-top));z-index:3;
+  display:flex;flex-direction:column;gap:4px;pointer-events:none;
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  font-size:10px;letter-spacing:.04em;color:#8fd8ff;
-  text-shadow:0 0 8px rgba(80,200,255,.45)}
-.bh-telemetry .bh-desig{font-size:11px;font-weight:700;color:#bfeaff;letter-spacing:.08em}
-.bh-telemetry .bh-coord{color:#6fb6d8;font-size:9.5px}
-.bh-telemetry .bh-stat{display:flex;align-items:center;gap:5px;color:#7fcbe8}
-.bh-dot{width:5px;height:5px;border-radius:50%;background:#5fe6a0;box-shadow:0 0 6px #5fe6a0;animation:bh-blink 2.4s infinite}
+  font-size:10px;letter-spacing:.05em;color:#7fa8c9}
+.bh-telemetry .bh-desig{font-size:11px;font-weight:700;color:#c4dcee;letter-spacing:.1em}
+.bh-telemetry .bh-coord{color:#5f83a3;font-size:9.5px}
+.bh-telemetry .bh-stat{display:flex;align-items:center;gap:6px;color:#7fa8c9}
+.bh-dot{width:5px;height:5px;border-radius:50%;background:#63d9a4;box-shadow:0 0 5px rgba(99,217,164,.7);animation:bh-blink 2.6s infinite}
 @keyframes bh-blink{0%,100%{opacity:1}50%{opacity:.3}}
-@media (prefers-reduced-motion:reduce){.bh-dot{animation:none}.bh-scanlines{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.bh-dot{animation:none}.bh-scanlines{opacity:.2}}
 body.starhome.listview .bh-scanlines,body.starhome.listview .bh-vignette,body.starhome.listview .bh-telemetry{display:none}
 #starLabels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .star-label{
   position:absolute;left:0;top:0;pointer-events:auto;
-  padding:4px 11px;border-radius:999px;
-  background:rgba(8,12,28,.82);border:1px solid rgba(159,184,255,.34);
-  color:#f2f7ff;font-size:12px;font-weight:600;letter-spacing:.02em;
+  padding:5px 12px;border-radius:999px;
+  background:rgba(9,14,26,.78);border:1px solid rgba(148,190,233,.2);
+  color:#dce8f5;font-size:12px;font-weight:500;letter-spacing:.02em;
   white-space:nowrap;transition:opacity .2s;
-  text-shadow:0 1px 8px rgba(0,0,0,.65);
 }
-.star-label:active{background:rgba(47,212,191,.35)}
+.star-label:active{background:rgba(99,217,164,.22);border-color:rgba(99,217,164,.5)}
 /* 底部坞：收纳 + 提示 + 视图按钮，常驻最底，控制台叠在其上。 */
 .bh-dock{
   position:absolute;left:0;right:0;bottom:0;z-index:10;
-  display:flex;flex-direction:column;align-items:center;gap:7px;
-  padding:18px 12px calc(10px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:20px 14px calc(12px + env(safe-area-inset-bottom));
   pointer-events:none;
-  background:linear-gradient(180deg,rgba(6,8,24,0),rgba(6,8,24,.78) 40%,rgba(6,8,24,.94));
+  background:linear-gradient(180deg,rgba(4,7,15,0),rgba(4,7,15,.72) 42%,rgba(4,7,15,.92));
 }
 .bh-dock>*{pointer-events:auto}
 .star-hud-actions{display:flex;gap:10px}
 .star-hint{
-  max-width:100%;font-size:11px;color:#c6d8f5;text-align:center;
-  text-shadow:0 1px 6px rgba(0,0,0,.8);
+  max-width:100%;font-size:11px;color:#8aa5c0;text-align:center;letter-spacing:.02em;
 }
 .bh-dock .star-hud-actions button{
-  flex:none;height:36px;min-height:36px;padding:0 14px;border-radius:999px;
-  background:rgba(10,16,32,.88);border:1px solid rgba(159,184,255,.3);
-  color:#cfe0ff;font-size:12px;font-weight:600;
+  flex:none;height:38px;min-height:38px;padding:0 16px;border-radius:999px;
+  background:rgba(10,16,30,.82);border:1px solid rgba(148,190,233,.22);
+  color:#c4d6ea;font-size:12px;font-weight:600;
 }
-.bh-dock .star-hud-actions button.active{background:rgba(47,212,191,.25);border-color:#2fd4bf;color:#b8fff2}
+.bh-dock .star-hud-actions button.active{background:rgba(99,217,164,.16);border-color:rgba(99,217,164,.55);color:#b9ecd6}
 .star-hole-chip{
   display:flex;align-items:center;justify-content:center;gap:6px;height:32px;min-width:36px;padding:0 12px;
-  border-radius:999px;background:rgba(5,8,16,.88);border:1px solid rgba(255,154,61,.45);
-  color:#ffd9ae;font-size:12px;font-weight:600;
+  border-radius:999px;background:rgba(10,14,24,.82);border:1px solid rgba(232,164,92,.4);
+  color:#f0c9a0;font-size:12px;font-weight:600;
 }
 .star-hole-chip #starHoleBadge{
-  min-width:18px;height:18px;border-radius:999px;background:#ff9a3d;color:#241305;
+  min-width:18px;height:18px;border-radius:999px;background:#e8a45c;color:#241305;
   font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px;
 }
 .home-skybtn{
   margin-left:8px;height:26px;min-height:26px;padding:0 10px;border-radius:999px;
-  background:rgba(159,160,237,.2);border:1px solid rgba(191,172,255,.4);
-  color:#e6e4ff;font-size:11px;font-weight:600;
+  background:rgba(122,156,224,.16);border:1px solid rgba(148,190,233,.3);
+  color:#d7e4ff;font-size:11px;font-weight:600;
 }
-/* 黑洞观测台：常驻底部控制台，横向滚动，自带滚动条语言 */
+/* 黑洞观测台：常驻底部控制台，横向滚动，细滚动条 */
 .bh-console{
   position:absolute;left:0;right:0;bottom:calc(140px + env(safe-area-inset-bottom));z-index:20;
-  display:flex;flex-direction:column;gap:7px;padding:9px 12px 8px;
-  background:linear-gradient(180deg,rgba(5,9,20,.9),rgba(4,7,16,.97) 30%);
-  border-top:1px solid rgba(111,224,255,.22);
+  display:flex;flex-direction:column;gap:8px;padding:10px 14px 9px;
+  background:linear-gradient(180deg,rgba(5,8,17,.88),rgba(4,6,13,.96) 32%);
+  border-top:1px solid rgba(148,190,233,.14);
 }
-/* 折叠规则放在基础 display 之后，保证覆盖生效 */
 .bh-console-head{display:flex;align-items:center;gap:8px;min-width:0}
-.bh-console-head strong{flex:none;color:#bfeaff;font-size:12px;letter-spacing:.08em;white-space:nowrap}
-.bh-console-sub{flex:1;min-width:0;color:#5f8fb0;font-size:9.5px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bh-console-head strong{flex:none;color:#c4dcee;font-size:12px;letter-spacing:.1em;white-space:nowrap}
+.bh-console-sub{flex:1;min-width:0;color:#54718c;font-size:9.5px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bh-console-actions{flex:none;display:flex;gap:5px}
-.bh-console-actions button{height:24px;min-height:24px;padding:0 9px;border-radius:7px;background:rgba(111,224,255,.12);border:1px solid rgba(111,224,255,.3);color:#bfeaff;font-size:10px;font-weight:600}
-.bh-console-actions button:active{background:rgba(111,224,255,.3)}
+.bh-console-actions button{height:26px;min-height:26px;padding:0 10px;border-radius:8px;background:rgba(122,156,224,.12);border:1px solid rgba(148,190,233,.24);color:#c4d6ea;font-size:10px;font-weight:600}
+.bh-console-actions button:active{background:rgba(122,156,224,.28)}
 .bh-console-meta{display:flex;align-items:center;gap:8px;min-width:0}
-.bh-quality{flex:none;display:flex;align-items:center;gap:5px;font-size:9.5px;color:#7fcbe8}
-.bh-quality select{height:22px;border-radius:6px;background:rgba(10,18,36,.8);border:1px solid rgba(111,224,255,.3);color:#bfeaff;font-size:10px;padding:0 4px}
-.bh-console-note{flex:1;min-width:0;color:#5f8fb0;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bh-console-strip{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:thin;scrollbar-color:rgba(111,224,255,.45) rgba(10,16,32,.5)}
+.bh-quality{flex:none;display:flex;align-items:center;gap:5px;font-size:9.5px;color:#7fa8c9}
+.bh-quality select{height:24px;border-radius:7px;background:rgba(10,16,30,.85);border:1px solid rgba(148,190,233,.24);color:#c4d6ea;font-size:10px;padding:0 5px}
+.bh-console-note{flex:1;min-width:0;color:#54718c;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bh-console-strip{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:thin;scrollbar-color:rgba(148,190,233,.35) rgba(10,16,30,.5)}
 .bh-console-strip::-webkit-scrollbar{height:5px}
-.bh-console-strip::-webkit-scrollbar-track{background:rgba(10,16,32,.5);border-radius:3px}
-.bh-console-strip::-webkit-scrollbar-thumb{background:rgba(111,224,255,.45);border-radius:3px}
-.bh-console-strip::-webkit-scrollbar-thumb:hover{background:rgba(111,224,255,.7)}
-.bh-ctl{flex:none;width:104px;display:flex;flex-direction:column;gap:3px;padding:6px 8px;border-radius:10px;background:rgba(10,18,36,.6);border:1px solid rgba(111,224,255,.16)}
-.bh-ctl span{font-size:9.5px;color:#7fcbe8;letter-spacing:.02em;white-space:nowrap}
-.bh-ctl input{width:100%;accent-color:#6fe0ff;height:18px;margin:0}
-.bh-ctl output{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10px;color:#bfeaff;text-align:right}
+.bh-console-strip::-webkit-scrollbar-track{background:rgba(10,16,30,.5);border-radius:3px}
+.bh-console-strip::-webkit-scrollbar-thumb{background:rgba(148,190,233,.35);border-radius:3px}
+.bh-console-strip::-webkit-scrollbar-thumb:hover{background:rgba(148,190,233,.6)}
+.bh-ctl{flex:none;width:106px;display:flex;flex-direction:column;gap:4px;padding:7px 9px;border-radius:12px;background:rgba(10,16,30,.62);border:1px solid rgba(148,190,233,.14)}
+.bh-ctl span{font-size:9.5px;color:#7fa8c9;letter-spacing:.03em;white-space:nowrap}
+.bh-ctl input{width:100%;accent-color:#63d9a4;height:18px;margin:0}
+.bh-ctl output{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10px;color:#c4dcee;text-align:right}
 .bh-console-presets{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
 .bh-console-presets::-webkit-scrollbar{display:none}
-.bh-console-presets button{flex:none;height:26px;min-height:26px;padding:0 11px;border-radius:999px;background:rgba(111,224,255,.1);border:1px solid rgba(111,224,255,.28);color:#9fdcf5;font-size:10.5px;font-weight:600;white-space:nowrap}
-.bh-console-presets button:active{background:rgba(111,224,255,.3)}
+.bh-console-presets button{flex:none;height:28px;min-height:28px;padding:0 12px;border-radius:999px;background:rgba(122,156,224,.1);border:1px solid rgba(148,190,233,.22);color:#a9c2dc;font-size:10.5px;font-weight:600;white-space:nowrap}
+.bh-console-presets button:active{background:rgba(122,156,224,.26)}
 .bh-console.bh-collapsed .bh-console-strip,.bh-console.bh-collapsed .bh-console-presets{display:none}
 body.starhome.listview .bh-console,body.starhome.listview .bh-dock{display:none}
-/* 黑洞面板 */
+/* 黑洞收纳面板 */
 .star-hole-sheet{
   position:absolute;left:0;right:0;bottom:0;z-index:40;max-height:60%;
   display:flex;flex-direction:column;
-  background:rgba(8,11,22,.97);border-radius:18px 18px 0 0;
-  border-top:1px solid rgba(255,154,61,.35);
+  background:rgba(7,10,19,.97);border-radius:20px 20px 0 0;
+  border-top:1px solid rgba(232,164,92,.3);
   padding-bottom:env(safe-area-inset-bottom);
 }
-.star-hole-head{display:flex;align-items:center;padding:14px 16px 8px}
-.star-hole-head strong{flex:1;color:#ffd9ae;font-size:15px}
-.star-hole-head button{width:34px;height:34px;min-height:34px;border-radius:999px;background:rgba(255,255,255,.08);color:#cfe0ff}
+.star-hole-head{display:flex;align-items:center;padding:16px 16px 8px}
+.star-hole-head strong{flex:1;color:#f0c9a0;font-size:15px}
+.star-hole-head button{width:34px;height:34px;min-height:34px;border-radius:999px;background:rgba(255,255,255,.07);color:#c4d6ea}
 #starHoleList{overflow-y:auto;padding:0 16px;display:flex;flex-direction:column;gap:8px}
-.star-hole-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(159,184,255,.15)}
-.star-hole-row span{flex:1;color:#eaf2ff;font-size:13.5px;font-weight:600}
-.star-hole-row button{height:34px;min-height:34px;padding:0 12px;border-radius:9px;background:rgba(255,255,255,.1);color:#cfe0ff;font-size:12px;font-weight:600}
-.star-hole-row button.primary{background:#ff9a3d;color:#241305}
-.star-hole-empty{color:#8fa3c8;font-size:12.5px;padding:8px 2px}
-.star-hole-note{color:#7d91b8;font-size:11px;padding:10px 16px 14px;margin:0}
+.star-hole-row{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(148,190,233,.14)}
+.star-hole-row span{flex:1;color:#dce8f5;font-size:13.5px;font-weight:600}
+.star-hole-row button{height:34px;min-height:34px;padding:0 12px;border-radius:10px;background:rgba(255,255,255,.09);color:#c4d6ea;font-size:12px;font-weight:600}
+.star-hole-row button.primary{background:#e8a45c;color:#241305}
+.star-hole-empty{color:#7d91b8;font-size:12.5px;padding:8px 2px}
+.star-hole-note{color:#68809c;font-size:11px;padding:10px 16px 14px;margin:0}
 /* 列表视图滚动条用夜空语言 */
 body.starhome .home-scroll::-webkit-scrollbar{width:6px}
-body.starhome .home-scroll::-webkit-scrollbar-track{background:rgba(10,16,32,.4)}
-body.starhome .home-scroll::-webkit-scrollbar-thumb{background:rgba(159,184,255,.35);border-radius:3px}
+body.starhome .home-scroll::-webkit-scrollbar-track{background:rgba(10,16,30,.4)}
+body.starhome .home-scroll::-webkit-scrollbar-thumb{background:rgba(148,190,233,.3);border-radius:3px}
