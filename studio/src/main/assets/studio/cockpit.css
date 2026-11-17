@@ -1,0 +1,86 @@
+/* 天工 · 星舰座舱设计系统（cockpit）
+ * 统一「宇宙飞船」视觉：深空蓝底 + 青色全息光 + 细线刻度 + 等宽遥测。
+ * 面板为 #xxxPanel（ID 优先级），故此处用 ID 选择器统一深空，杜绝浅深拼贴。
+ * 首页 #landing 不在其列，保持自己的夜空语言。仅观感，不改功能。 */
+:root{
+  --cp-bg:#070b14;
+  --cp-panel:#0c1322;
+  --cp-panel-2:#101a2e;
+  --cp-line:rgba(126,178,233,.16);
+  --cp-line-strong:rgba(126,178,233,.34);
+  --cp-cyan:#5fd4ff;
+  --cp-cyan-dim:rgba(95,212,255,.14);
+  --cp-green:#63d9a4;
+  --cp-amber:#e8a45c;
+  --cp-text:#dce8f5;
+  --cp-muted:#7d95b4;
+  --cp-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+/* 工作区面板整体深空化 */
+#overviewPanel,#focusPanel,#cardsPanel,#mistakesPanel,#habitsPanel,#schedulePanel,
+#novelPanel,#medquizPanel,#examsPanel,#medcalcPanel,#soundscapePanel,#modelPanel,
+#pythonPanel,#notepadPanel,#lecturePanel,#ttsPanel,#aiPanel,#photoPanel,#scanPanel{
+  background:
+    radial-gradient(120% 50% at 50% -10%,rgba(95,212,255,.05),transparent 60%),
+    linear-gradient(180deg,#0a0f1c,#070b14 45%);
+  color:var(--cp-text);
+}
+/* 顶栏：舰桥控制台（html 前缀压过 shell.css 的 body:not(.gameview)） */
+html body:not(.gameview) .appbar{background:rgba(12,19,34,.94);border:1px solid var(--cp-line)}
+html body:not(.gameview) .appbar .icon,html body:not(.gameview) .appbar .homeback{color:var(--cp-muted);background:transparent;border-color:var(--cp-line)}
+html body:not(.gameview) #activePath,html body:not(.gameview) .doc strong{color:var(--cp-text)}
+html body:not(.gameview) #saveButton,html body:not(.gameview) .appbar .saveicon{background:rgba(95,212,255,.08);border-color:var(--cp-line);color:var(--cp-text)}
+html body:not(.gameview) .statusbar{background:rgba(9,13,23,.94);border-top:1px solid var(--cp-line);color:var(--cp-muted)}
+html body:not(.gameview) .statusbar #saveState{color:var(--cp-green)}
+/* 通用文字深空化 */
+#overviewPanel h1,#overviewPanel h2,#overviewPanel h3,
+.cards-head strong,.mist-head strong,.habit-head strong,.exam-head strong,.mc-head strong,
+.mq-head strong,.sched-head strong,.novel-head strong,.focus-head strong,.ov-cardhead strong{color:var(--cp-text)}
+.cards-stats,.mist-stats,.habit-stats,.mq-stats,.exam-stats,.focus-stats,
+.ov-cardhead span,.ov-line,.ov-streak small,.mq-note,.cards-face-hint{color:var(--cp-muted)}
+/* 面板卡片：全息面板，细描边+角标刻度 */
+.ov-card,.cockpit,.cards-face,.mist-item,.habit-item,.exam-card,.mc-card,.mq-q,
+.ss-layer,.novel-book,.cards-row,.ov-hero,.ov-task,.ov-today-cell,.ov-report-cell{
+  background:linear-gradient(180deg,var(--cp-panel-2),var(--cp-panel));
+  border:1px solid var(--cp-line);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+  color:var(--cp-text);
+}
+.ov-card,.cockpit{position:relative;border-radius:16px}
+.ov-card::before,.cockpit::before{content:"";position:absolute;left:8px;top:8px;width:10px;height:10px;
+  border-left:1px solid var(--cp-line-strong);border-top:1px solid var(--cp-line-strong);pointer-events:none}
+.ov-card::after,.cockpit::after{content:"";position:absolute;right:8px;bottom:8px;width:10px;height:10px;
+  border-right:1px solid var(--cp-line-strong);border-bottom:1px solid var(--cp-line-strong);pointer-events:none}
+/* 输入控件深空化 */
+#overviewPanel input,#cardsPanel input,#cardsPanel textarea,#mistakesPanel input,#mistakesPanel textarea,
+#habitsPanel input,#examsPanel input,#medquizPanel select,#medcalcPanel input,#schedulePanel input,#schedulePanel select{
+  background:rgba(10,16,30,.8);border:1px solid var(--cp-line);color:var(--cp-text)}
+#cardsPanel input::placeholder,#mistakesPanel input::placeholder,#habitsPanel input::placeholder,#examsPanel input::placeholder{color:var(--cp-muted)}
+/* 驾驶舱建议条 */
+.cockpit{padding:14px;display:flex;flex-direction:column;gap:10px}
+.cockpit-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.cockpit-title{font-size:15px;font-weight:700;color:var(--cp-text);letter-spacing:.06em}
+.cockpit-sub{font-family:var(--cp-mono);font-size:10px;color:var(--cp-muted);letter-spacing:.08em}
+.cockpit-list{display:flex;flex-direction:column;gap:8px}
+.cockpit-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;
+  background:rgba(95,212,255,.05);border:1px solid var(--cp-line)}
+.ci-icon{flex:none;width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  background:var(--cp-cyan-dim);font-size:16px}
+.ci-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ci-copy b{font-size:13.5px;color:var(--cp-text)}
+.ci-copy small{font-size:11px;color:var(--cp-muted);line-height:1.5}
+.ci-go{flex:none;min-height:34px;padding:0 14px;border-radius:9px;background:var(--cp-cyan);border:none;
+  color:#06202e;font-size:12px;font-weight:700}
+.ci-go:active{transform:translateY(1px);filter:brightness(1.1)}
+/* 复盘 */
+.recap-line{margin:0;font-size:12px;color:var(--cp-muted);line-height:1.6}
+.recap-next{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--cp-text)}
+.recap-next button{min-height:30px;padding:0 12px;border-radius:8px;background:var(--cp-cyan-dim);
+  border:1px solid var(--cp-line-strong);color:var(--cp-cyan);font-size:11.5px;font-weight:600}
+/* 总览数字青色遥测 */
+.ov-streak b,.ov-today-cell b,.ov-report-cell b{color:var(--cp-cyan)}
+.ov-today-cell small,.ov-report-cell small,.ov-report-foot,.ov-task small{color:var(--cp-muted)}
+.ov-task b{color:var(--cp-text)}
+/* 扫描线极淡叠层，不挡交互 */
+#overviewPanel::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+  background:repeating-linear-gradient(0deg,rgba(126,178,233,.015) 0 1px,transparent 1px 4px)}

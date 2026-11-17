@@ -2616,6 +2616,21 @@ on('backupImport',()=>$('backupFile').click());
   }catch(e){notify('恢复失败：'+(e.message||e));}
 });}
 
+/* 驾驶舱一键直达：切到模块并按建议参数自动开始（复习/刷题/专注）。 */
+function runPlanAction(p){
+  if(!p||!p.mode)return;
+  if(!applyMode(p.mode))return;
+  selectedMode=p.mode;
+  const a=(p.params||{}).auto;
+  setTimeout(()=>{
+    if(a==='review'){const b=$('cardsStart');if(b)b.click();}
+    else if(a==='quiz'){
+      if(p.params.subject){const s=$('mqSubject');if(s)s.value=p.params.subject;}
+      const b=$('mqStart');if(b)b.click();
+    }
+    else if(a==='focus'){if(!(state.focus&&state.focus.running)){const b=$('focusStart');if(b)b.click();}}
+  },80);
+}
 /* 学习总览：汇总各模块真实数据，点卡片直达对应模块。 */
 function ovTask(label,value,mode,zero){
   const b=document.createElement('button');
@@ -2631,6 +2646,34 @@ function renderOverview(){
   const sum=buildOverview(state,Date.now());
   const st=$('ovStreak');if(st)st.textContent=String(sum.streak);
   const line=$('ovLine');if(line)line.textContent=sum.line;
+  /* 今日驾驶舱：可解释建议，一键直达并自动开始。 */
+  const pl=$('ovPlanList');
+  if(pl){
+    pl.replaceChildren();
+    (sum.plan||[]).forEach((p,i)=>{
+      const row=document.createElement('div');row.className='cockpit-item';
+      const ic=document.createElement('span');ic.className='ci-icon';ic.textContent=p.icon;
+      const copy=document.createElement('div');copy.className='ci-copy';
+      const t=document.createElement('b');t.textContent=p.title;
+      const r=document.createElement('small');r.textContent=p.reason;
+      copy.append(t,r);
+      const go=document.createElement('button');go.type='button';go.className='ci-go';go.textContent=p.cta;
+      go.onclick=()=>runPlanAction(p);
+      row.append(ic,copy,go);pl.append(row);
+    });
+  }
+  /* 今日复盘 */
+  const rc=sum.recap;
+  const rt=$('ovRecapTone'),rl=$('ovRecapLine'),rn=$('ovRecapNext');
+  if(rc){
+    if(rt)rt.textContent=rc.tone==='good'?'状态良好':rc.tone==='light'?'稳步前进':'待启动';
+    if(rl)rl.textContent=rc.headline+' · 专注 '+rc.done.focus+' / 卡片 '+rc.done.cards+' / 刷题 '+rc.done.quiz+' / 打卡 '+rc.done.checks+' · 连续 '+rc.streak+' 天';
+    if(rn){rn.replaceChildren();
+      if(rc.next){const s=document.createElement('span');s.textContent='明天先做：'+rc.next.title;
+        const b=document.createElement('button');b.type='button';b.textContent=rc.next.cta;b.onclick=()=>runPlanAction(rc.next);
+        rn.append(s,b);}
+    }
+  }
   /* 今日学习四宫格：专注/卡片/刷题/打卡，点一下跳到对应模块。 */
   const today=$('ovToday');
   if(today){

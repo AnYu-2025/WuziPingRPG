@@ -10,6 +10,7 @@ import {examsSanitize,sortExams,daysUntil,examProgress} from './exams.js';
 import {scheduleSanitize,coursesOnDay,nowInfo,currentStatus} from './schedule.js';
 import {quizStatsSanitize,accuracy} from './medquiz.js';
 import {studyLogSanitize,dayCounts,lastNDaysStudy,weekReport} from './study-log.js';
+import {buildPlan,buildRecap} from './study-plan.js';
 
 const pad=x=>String(x).padStart(2,'0');
 export function dayKey(d){
@@ -141,6 +142,20 @@ export function buildOverview(state,now){
   const checksMap=checksByDate(state);
   const heat=lastNDaysStudy(state&&state.studyLog,28,dayKey(t),checksMap);
   const report=weekReport(state&&state.studyLog,dayKey(t),checksMap);
+  /* 今日驾驶舱：把真实数据汇成可解释建议与晚间复盘。 */
+  const habitsAll=habitsSanitize(state&&state.habits).habits;
+  const planInput={
+    cardsDue:cards.due,
+    habitsLeft:habitsAll.filter(h=>!isChecked(h,dayKey(t))).length,
+    mistakesOpen:mistakes.total-mistakes.mastered,
+    coursesToday:tasks.coursesToday,
+    focusToday:todayStudy.focus,
+    todayCards:todayStudy.cards,todayQuiz:todayStudy.quiz,todayChecks:todayStudy.checks,
+    exams:sortExams(state&&state.exams,t).map(e=>({name:e.name,days:daysUntil(e.date,t)})),
+    subjects:Object.entries(quiz.bySubject||{}).map(([subject,v])=>({subject,answered:v.answered,rate:v.answered?Math.round(v.right/v.answered*100):0}))
+  };
+  const plan=buildPlan(planInput);
+  const recap=buildRecap(planInput,streak);
   const sum={
     today:dayKey(t),
     streak,
@@ -148,6 +163,8 @@ export function buildOverview(state,now){
     todayStudy,
     heat,
     report,
+    plan,
+    recap,
     week,
     weekTotal:week.reduce((a,b)=>a+b.total,0),
     subjects:subjectMastery(state),
