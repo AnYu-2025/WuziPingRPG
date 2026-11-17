@@ -42,6 +42,8 @@ DEX_CLASSES = (
     b"Lcom/scan/camera/MainActivity;",
     b"Lcn/wuziping/studio/PhotoActivity;",
     b"Lcn/wuziping/ember/Game;",
+    b"Lcn/wuziping/ember/OpenWorld;",
+    b"Lcn/wuziping/ember/OpenWorldRenderer;",
     b"Lcn/wuziping/ember/HistoryJourney;",
     b"Lcn/wuziping/studio/EditorActivity;",
 )

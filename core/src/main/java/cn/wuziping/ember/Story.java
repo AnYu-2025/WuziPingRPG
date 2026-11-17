@@ -43,8 +43,10 @@ public final class Story {
     }
     public String interaction(Game g){
         if(g.inHistory())return "";
+        if(g.inOpen())return g.world.interaction(g);
         if(g.inPhysics())return g.physics.interaction(g);
         if(g.inMath())return g.math.interaction(g);
+        if(g.inTown()&&Game.dist(g.x,g.y,480,520)<50)return "进入开放世界";
         if(g.inTown()&&Game.dist(g.x,g.y,1200,540)<50)return "进入物理工坊";
         if(g.inTown()&&Game.dist(g.x,g.y,1140,620)<50)return "进入数学星庭";
         if(g.guest.near(g))return "交谈 · 奶龙";
@@ -58,8 +60,10 @@ public final class Story {
     public void interact(Game g){
         if(g.mode!=Game.PLAY||!enabled)return;
         if(g.inHistory())return;
+        if(g.inOpen()){OpenWorld.Npc n=g.world.nearestNpc(g.x,g.y);if(n!=null)g.world.talk(g,n);else g.announce("靠近居民，再点击交谈。");return;}
         if(g.inPhysics()){g.physics.interact(g);return;}
         if(g.inMath()){g.math.interact(g);return;}
+        if(g.inTown()&&Game.dist(g.x,g.y,480,520)<50){begin(g,-1,new String[]{"旁白|南门外的官道通向更广阔的大陆：五座校区城池、两处上古遗址，以及 masked 部落的营地。"},new String[]{"踏入开放世界","再逛一会儿"},new int[]{600,CLOSE});return;}
         if(g.inTown()&&Game.dist(g.x,g.y,1200,540)<50){g.physics.enter(g);return;}
         if(g.inTown()&&Game.dist(g.x,g.y,1140,620)<50){g.math.enter(g);return;}
         if(g.guest.near(g)){g.guest.talk(g);return;}
@@ -141,6 +145,8 @@ public final class Story {
     public void choose(Game g,int index){
         Dialogue d=dialogue;if(d==null||g.mode!=Game.DIALOGUE||!d.last()||!d.complete()||index<0||index>=d.actions.length)return;
         int action=d.actions[index];dialogue=null;g.mode=Game.PLAY;
+        if(action==600){g.startOpen();return;}
+        if(action>=500&&action<=599){g.world.action(g,action);return;}
         if(action>=400&&action<=413){g.history.action(g,action);return;}
         if(action==310){g.physics.enter(g);return;}
         if(action>=300){if(action==303){g.x=1080;g.y=660;g.announce("东庭 · 数学之门在前方");}else if(action>=320)g.physics.action(g,action);else g.math.action(g,action);return;}
@@ -182,6 +188,7 @@ public final class Story {
     public void enterTown(Game g){
         if(g.inHistory()){g.history.exit(g);return;}
         if(g.inMath()){g.math.returnTown(g);return;}
+        if(g.inOpen()){g.world.enabled=false;area=TOWN;g.x=480;g.y=520;g.enemies.clear();g.shots.clear();g.mode=g.pendingUpgrades>0?Game.UPGRADE:Game.PLAY;g.announce("回到中山大学 · 灯火为你而留");return;}
         if(g.body.enabled){g.body.returnTown(g);return;}
         if(!enabled)return;
         if(area==FOREST){forestX=g.x;forestY=g.y;}

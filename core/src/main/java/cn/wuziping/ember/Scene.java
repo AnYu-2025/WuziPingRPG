@@ -15,7 +15,7 @@ public final class Scene {
         float cx=town&&!g.inTown()?480:g.x,cy=town&&!g.inTown()?416:g.y;
         camX=Game.clamp(cx-W/4,0,Math.max(0,(town?Town.WIDTH:g.worldWidth())-W/2));camY=Game.clamp(cy-H/4,0,Math.max(0,(town?Town.HEIGHT:g.worldHeight())-H/2));
         float kick=g.mode==Game.PLAY?g.vfx.shake*(g.effectsLevel==0?.35f:1):0;camX-=(float)Math.sin(seconds*48)*kick*.5f;camY-=(float)Math.cos(seconds*37)*kick*.32f;
-        if(town)townWorld();else if(g.inPhysics()){physicsWorld();hero();impactOverlay();}else if(g.inMath()){MathRenderer.draw(p,g,camX,camY,W,H,clock);hero();impactOverlay();}else world();
+        if(town)townWorld();else if(g.inOpen()){openWorld();}else if(g.inPhysics()){physicsWorld();hero();impactOverlay();}else if(g.inMath()){MathRenderer.draw(p,g,camX,camY,W,H,clock);hero();impactOverlay();}else world();
         ui=new UiPainter(root);p=ui;anchor(0,0);
         if(g.mode==Game.TITLE){title();return;}
         if(g.mode==8){title();confirmNew();return;}
@@ -24,6 +24,7 @@ public final class Scene {
         if(g.mode==PhysicsJourney.JOURNAL){physicsJournal();return;}
         if(g.mode==BodyJourney.MAP){bodyMap();return;}
         if(g.mode==MathJourney.MAP){worldMap();return;}
+        if(g.mode==10){openMap();return;}
         if(g.mode==PhysicsJourney.MAP){physicsMap();return;}
         if(g.mode==Arsenal.MENU){armory();return;}
         hud();controls();
@@ -91,6 +92,27 @@ public final class Scene {
         p.rect(0,0,5,H,0x33101f20);p.rect(W-5,0,5,H,0x33101f20);
         impactOverlay();
     }
+    private void openWorld(){
+        OpenWorldRenderer.terrain(p,g,camX,camY,W,H,clock);
+        OpenWorldRenderer.structures(p,g,camX,camY,W,H,clock);
+        drawCount=0;
+        for(Game.Enemy e:g.enemies)addDraw(e.y,e);
+        addDraw(g.y,g);
+        for(Game.Drop d:g.drops){int id=d.type==0?8:d.type==1?9:10;float bounce=(float)Math.sin(clock*4+d.x)*1.3f;
+            int glow=d.type==1?0x33e8c27a:d.type==2?0x3391e3a0:0x339fd7c8;p.oval(sx(d.x)-12,sy(d.y)-8,24,14,glow);
+            icon(id,sx(d.x)-9,sy(d.y)-12+bounce,18);}
+        sortDraw();
+        for(int di=0;di<drawCount;di++){
+            DrawItem item=drawPool[di];
+            if(item.object instanceof Game.Enemy)enemy((Game.Enemy)item.object);else hero();
+        }
+        for(Game.Shot s:g.shots){p.line(sx(s.x-s.vx*.045f),sy(s.y-s.vy*.045f),sx(s.x),sy(s.y),3,0x66dab3dc);p.oval(sx(s.x)-7,sy(s.y)-7,14,14,0x444c94a2);p.rect(sx(s.x)-3,sy(s.y)-3,6,6,0xffdab3dc);}
+        if(g.skillFlash>0){float u=1-g.skillFlash/.48f,r=u*(68+g.upgrades[4]*9)*2;p.oval(sx(g.x)-r,sy(g.y)-14-r*.7f,r*2,r*1.4f,0x22f2c77c);}
+        if(g.swing>0)slashTrail();
+        popups();
+        impactOverlay();
+    }
+    private void openMap(){OpenWorldRenderer.bigMap(root,g,W,H,clock);}
     private void slashTrail(){
         float reach=g.inBody()?Arsenal.REACH[g.arsenal.selected]:52;
         int color=g.inBody()?Arsenal.COLORS[g.arsenal.selected]:0xffe0bb72;
@@ -325,10 +347,11 @@ public final class Scene {
         boolean save=g.activeRun;
         button(save?"继续旅程":"开启体内远征",62,273,278,53,true);
         button(save?"开启新的远征":"旅者手册",62,340,278,43,false);
-        p.rect(62,416,330,55,0x55101820);p.rect(62,416,330,1,GOLD);p.rect(62,470,330,1,0x556a4038);
-        label("档案 · 点击打开札记",72,436,12,GOLD);
-        label("最高区域  "+g.bestWave+" / 8",72,458,14,CREAM);label("累计击败  "+g.lifetimeKills,228,458,14,CREAM);
-        label(!g.activeRun?"第一次玩？先看「旅者手册」了解操作，再出发。":"双主题世界  ·  走位解谜  ·  六类兵器",62,500,12,!g.activeRun?GOLD:MUTED);
+        button("开放世界 · 五校区",62,388,278,40,false);
+        p.rect(62,436,330,55,0x55101820);p.rect(62,436,330,1,GOLD);p.rect(62,490,330,1,0x556a4038);
+        label("档案 · 点击打开札记",72,456,12,GOLD);
+        label("最高区域  "+g.bestWave+" / 8",72,478,14,CREAM);label("累计击败  "+g.lifetimeKills,228,478,14,CREAM);
+        label(!g.activeRun?"第一次玩？先看「旅者手册」了解操作，再出发。":"双主题世界  ·  走位解谜  ·  六类兵器",62,508,12,!g.activeRun?GOLD:MUTED);
         p.text(g.editorHost?"按手机返回键，随时回到天工编辑器":"v0.7.0",914,508,12,MUTED,2);
         smallToggle("修改名字 · "+g.heroName,588,454,292);
         panel(588,92,292,356);center("此行的旅者",734,124,13,GOLD);p.rect(648,136,172,1,0x55e8c27a);
@@ -338,7 +361,7 @@ public final class Scene {
         center(g.heroName,734,332,Math.min(26,250f/Math.max(1,g.heroName.codePointCount(0,g.heroName.length()))),CREAM);center("星火剑士  ·  中山大学的梦行者",734,358,12,MUTED);
         p.rect(648,376,172,1,0x336d8790);
         icon(0,640,396,24);label("挥剑",668,415,14,CREAM);icon(1,730,396,24);label("星火",758,415,14,CREAM);icon(2,818,396,24);label("闪避",846,415,14,CREAM);
-        if(save)label("已有未完成的旅程，点击主按钮继续。",62,400,12,GOLD);
+        if(save)label("已有未完成的旅程，点击主按钮继续。",62,380,12,GOLD);
     }
     private void hud(){
         if(g.inPhysics()){physicsHud();return;}
@@ -348,14 +371,17 @@ public final class Scene {
         p.rect(70,49,190,12,0xff142028);p.rect(71,50,188*g.hp/Math.max(1,g.maxHp),10,g.hp<g.maxHp*.34f?0xffe07a45:0xffc45c6a);p.rect(71,50,188*g.hp/Math.max(1,g.maxHp),2,0x66ffd5cc);center((int)g.hp+" / "+(int)g.maxHp,165,59,10,0xfffff0d4);
         label("经验 "+g.xp+" / "+g.requiredXp(),30,74,9,MUTED);
         p.rect(28,78,240,5,0xff142028);p.rect(28,78,240*(float)g.xp/g.requiredXp(),5,0xff7ec8b0);p.rect(28,78,240*(float)g.xp/g.requiredXp(),1,0x88e8fff0);
-        anchor(0,-1);panel(325,16,310,56);p.rect(340,66,280,2,0x55e8c27a);center(g.inTown()?"中山大学 · "+(g.body.enabled?"梦境据点":"灯火长明"):g.inHistory()?(g.history.stage==5?"两宋之交 · 逃难山道":g.history.stage==9?"两宋之交 · 雾中驿道":"两宋之交 · 残灯渡口"):g.inBody()?g.body.name()+" · 体内远征":"迷雾森林 · "+Game.WAVE_NAMES[g.wave-1],480,39,17,CREAM);center(g.inTown()?"安全区域  ·  可以交谈与补给":g.inHistory()?"守护归途 · 敌人 "+g.enemies.size():g.inBody()?BodyJourney.SUBTITLES[g.body.organ]+"  ·  "+time(g.elapsed):"第 "+g.wave+" / 5 波  ·  "+time(g.elapsed),480,59,11,MUTED);
+        anchor(0,-1);panel(325,16,310,56);p.rect(340,66,280,2,0x55e8c27a);center(g.inOpen()?"开放世界 · 五校区两遗址":g.inTown()?"中山大学 · "+(g.body.enabled?"梦境据点":"灯火长明"):g.inHistory()?(g.history.stage==5?"两宋之交 · 逃难山道":g.history.stage==9?"两宋之交 · 雾中驿道":"两宋之交 · 残灯渡口"):g.inBody()?g.body.name()+" · 体内远征":"迷雾森林 · "+Game.WAVE_NAMES[g.wave-1],480,39,17,CREAM);center(g.inOpen()?"自由探索 · 清剿 masked 部落":g.inTown()?"安全区域  ·  可以交谈与补给":g.inHistory()?"守护归途 · 敌人 "+g.enemies.size():g.inBody()?BodyJourney.SUBTITLES[g.body.organ]+"  ·  "+time(g.elapsed):"第 "+g.wave+" / 5 波  ·  "+time(g.elapsed),480,59,11,MUTED);
         anchor(1,-1);icon(9,646,21,23);label(""+g.gold,674,40,16,GOLD);smallToggle("札记",716,19,58);
         smallToggle(g.autoAttack?"自动 开":"自动 关",780,19,76);smallToggle("菜单",862,19,78);
         anchor(-1,-1);panel(18,107,286,83);p.rect(22,116,3,64,g.body.ending?0xff8ed0b7:GOLD);icon(11,32,118,24);label(g.inHistory()?"历史 · 残灯渡":g.math.active?"数学星庭 · 发现 "+Integer.bitCount(g.math.solved)+" / 3":g.body.enabled?(g.body.ending?"终章完成 · 梦醒时分":"梦入体内 · 净化 "+g.body.clearedCount()+" / 8"):g.story.enabled?g.story.chapterName():"当前委托",64,136,12,GOLD);
         wrapped(g.quest(),32,161,13,CREAM,254,18,2);label("点击查看任务与人物",32,182,10,MUTED);
         // Mini map deliberately omits any hidden off-screen collectible information.
         anchor(1,-1);panel(826,75,114,89);p.rect(834,83,98,73,g.inTown()?0xff3e5250:0xff203e31);
-        if(g.inTown()){
+        if(g.inOpen()){
+            OpenWorldRenderer.minimap(p,g,834,83,98,73);
+            panel(813,176,127,37);center("大陆地图 · 点击查看",876,200,10,GOLD);
+        }else if(g.inTown()){
             p.rect(834+480f/Town.WIDTH*98,83,2,73,0xff9b9b7c);p.rect(834,83+432f/Town.HEIGHT*73,98,2,0xff9b9b7c);p.rect(834+1140f/Town.WIDTH*98-2,83+620f/Town.HEIGHT*73-2,4,4,0xffa6bfe9);
             for(Town.House h:Town.HOUSES)p.rect(834+(h.x-h.w/2)/Town.WIDTH*98,83+(h.y-h.h*.45f)/Town.HEIGHT*73,h.w/Town.WIDTH*98,6,0xff9b8990);
             for(Town.Npc n:Town.NPCS)p.rect(834+n.x/Town.WIDTH*98,83+n.y/Town.HEIGHT*73,2,2,0xffdfd0a3);
@@ -385,6 +411,17 @@ public final class Scene {
         float kx=63+joyX*31,ky=406+joyY*31;p.oval(kx-2,ky+2,62,62,0x66060c10);p.oval(kx,ky,58,58,0xddc4a36a);p.oval(kx+6,ky+6,46,46,0xee1c2c34);
         p.rect(kx+27,ky+16,4,26,0x66e8c27a);p.rect(kx+16,ky+27,26,4,0x66e8c27a);
         center("移动",92,508,12,MUTED);
+        if(g.inOpen()){
+            anchor(1,1);String it=g.world.interaction(g);boolean ready=!it.isEmpty();
+            p.oval(790,372,114,114,ready?0xffc4a572:0xff677c7d);p.oval(794,376,106,106,0xee233e46);icon(11,825,405,44);
+            center(ready?it:"靠近居民交谈",847,511,12,ready?GOLD:MUTED);
+            roundButton(866,428,52,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
+            roundButton(764,449,41,1,"星火斩",g.skillCd,8,0xffc17b51);
+            roundButton(860,330,35,2,"闪避",g.dashCd,2.6f,0xff6d9b8d);
+            roundButton(748,345,30,3,"药剂 ×"+g.potions,g.potionCd,3,0xffa87063);
+            anchor(0,1);label("探索五校区 · 清剿 masked 部落 · 解锁剧情",325,508,11,MUTED);
+            return;
+        }
         if(g.inMath()){
             anchor(1,1);String interaction=g.math.interaction(g);p.oval(790,372,114,114,0xffb9acd3);p.oval(794,376,106,106,0xff1b2b43);icon(11,825,405,44);center(interaction.isEmpty()?"靠近光门":interaction,847,511,12,GOLD);smallToggle("重走 [T]",741,337,132);
             anchor(0,1);center("观察脚印与光轨 · 你的发现会写入札记",467,508,12,MUTED);return;
