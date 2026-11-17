@@ -21,7 +21,8 @@ export function planSanitize(raw){
     .filter(s=>s&&typeof s.subject==='string'&&num(s.answered,0)>0)
     .slice(0,20)
     .map(s=>({subject:s.subject,answered:clamp(Math.round(num(s.answered,0)),0,99999),rate:clamp(Math.round(num(s.rate,0)),0,100)}));
-  return {cardsDue,habitsLeft,mistakesOpen,coursesToday,focusToday,exams,subjects};
+  const topCause=typeof r.topCause==='string'?r.topCause:'';
+  return {cardsDue,habitsLeft,mistakesOpen,coursesToday,focusToday,exams,subjects,topCause};
 }
 
 /* 生成今日建议：优先级=临近DDL>到期卡片>薄弱科目>错题>打卡>专注>引导。
@@ -53,11 +54,12 @@ export function buildPlan(raw){
       reason:'这科答了 '+weak.answered+' 题只对 '+weak.rate+'%，值得专项刷一轮。',
       cta:'刷这科',mode:'medquiz',params:{auto:'quiz',subject:weak.subject}});
   }
-  /* 4 未掌握错题 */
+  /* 4 未掌握错题（结合错因画像给针对性理由） */
   if(d.mistakesOpen>0){
+    const CAUSE_TIP={'概念不清':'多为概念不清，先补概念再回顾。','审题失误':'多为审题失误，回顾时先圈关键词。','粗心计算':'多为粗心，回顾时重算一遍。','完全不会':'多为完全不会，先看解析学思路。'};
     out.push({id:'mist',icon:'📝',priority:50+Math.min(d.mistakesOpen,10),
       title:'吃透 '+d.mistakesOpen+' 道错题',
-      reason:'错题不回顾，下次还会错。',
+      reason:d.topCause&&CAUSE_TIP[d.topCause]?CAUSE_TIP[d.topCause]:'错题不回顾，下次还会错。',
       cta:'去回顾',mode:'mistakes',params:{}});
   }
   /* 5 未打卡 */

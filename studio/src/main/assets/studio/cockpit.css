@@ -20,7 +20,8 @@
 #overviewPanel,#focusPanel,#cardsPanel,#mistakesPanel,#habitsPanel,#schedulePanel,
 #novelPanel,#medquizPanel,#examsPanel,#medcalcPanel,#soundscapePanel,#modelPanel,
 #pythonPanel,#notepadPanel,#lecturePanel,#ttsPanel,#aiPanel,#photoPanel,#scanPanel{
-  background:
+  background-color:#070b14;
+  background-image:
     radial-gradient(120% 50% at 50% -10%,rgba(95,212,255,.05),transparent 60%),
     linear-gradient(180deg,#0a0f1c,#070b14 45%);
   color:var(--cp-text);
@@ -84,3 +85,18 @@ html body:not(.gameview) .statusbar #saveState{color:var(--cp-green)}
 /* 扫描线极淡叠层，不挡交互 */
 #overviewPanel::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
   background:repeating-linear-gradient(0deg,rgba(126,178,233,.015) 0 1px,transparent 1px 4px)}
+/* 学科雷达：星舰扫描图 */
+.radar-wrap{display:flex;justify-content:center;padding:4px 0}
+.radar-svg{width:100%;max-width:300px;height:auto;display:block}
+.radar-ring{fill:none;stroke:var(--cp-line);stroke-width:1}
+.radar-spoke{stroke:var(--cp-line);stroke-width:1}
+.radar-poly{fill:rgba(95,212,255,.16);stroke:var(--cp-cyan);stroke-width:1.5;stroke-linejoin:round}
+.radar-dot{fill:var(--cp-cyan)}
+.radar-dot.nodata{fill:var(--cp-muted)}
+.radar-label{font-size:10px;fill:var(--cp-text);font-family:var(--cp-mono);cursor:pointer}
+.radar-label.nodata{fill:var(--cp-muted)}
+.radar-label:hover{fill:var(--cp-cyan)}
+.radar-sweep{transform-origin:130px 130px;animation:radar-sweep 6s linear infinite}
+.radar-sweepline{stroke:rgba(95,212,255,.5);stroke-width:1.5}
+@keyframes radar-sweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.radar-sweep{animation:none}}

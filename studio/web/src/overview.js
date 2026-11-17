@@ -4,13 +4,15 @@
 
 import {focusSanitize,lastNDays} from './focus.js';
 import {deckSanitize,deckStats} from './cards.js';
-import {bookSanitize,bookStats} from './mistakes.js';
+import {bookSanitize,bookStats,causeStats} from './mistakes.js';
 import {habitsSanitize,habitsStats,currentStreak,isChecked} from './habits.js';
 import {examsSanitize,sortExams,daysUntil,examProgress} from './exams.js';
 import {scheduleSanitize,coursesOnDay,nowInfo,currentStatus} from './schedule.js';
 import {quizStatsSanitize,accuracy} from './medquiz.js';
 import {studyLogSanitize,dayCounts,lastNDaysStudy,weekReport} from './study-log.js';
 import {buildPlan,buildRecap} from './study-plan.js';
+import {radarData} from './study-radar.js';
+import {QUIZ_SUBJECTS} from './quiz-data.js';
 
 const pad=x=>String(x).padStart(2,'0');
 export function dayKey(d){
@@ -152,10 +154,12 @@ export function buildOverview(state,now){
     focusToday:todayStudy.focus,
     todayCards:todayStudy.cards,todayQuiz:todayStudy.quiz,todayChecks:todayStudy.checks,
     exams:sortExams(state&&state.exams,t).map(e=>({name:e.name,days:daysUntil(e.date,t)})),
-    subjects:Object.entries(quiz.bySubject||{}).map(([subject,v])=>({subject,answered:v.answered,rate:v.answered?Math.round(v.right/v.answered*100):0}))
+    subjects:Object.entries(quiz.bySubject||{}).map(([subject,v])=>({subject,answered:v.answered,rate:v.answered?Math.round(v.right/v.answered*100):0})),
+    topCause:causeStats(state&&state.mistakes).top
   };
   const plan=buildPlan(planInput);
   const recap=buildRecap(planInput,streak);
+  const radar=radarData(QUIZ_SUBJECTS,quiz.bySubject||{});
   const sum={
     today:dayKey(t),
     streak,
@@ -165,6 +169,7 @@ export function buildOverview(state,now){
     report,
     plan,
     recap,
+    radar,
     week,
     weekTotal:week.reduce((a,b)=>a+b.total,0),
     subjects:subjectMastery(state),

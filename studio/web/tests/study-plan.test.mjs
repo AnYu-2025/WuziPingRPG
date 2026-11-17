@@ -50,3 +50,11 @@ test('buildRecap sums today and picks tone and next',()=>{
   assert.equal(rest.tone,'rest');
   assert.equal(rest.sum,0);
 });
+
+test('mistake suggestion uses topCause advice when present',()=>{
+  const p=buildPlan({mistakesOpen:3,topCause:'粗心计算'});
+  const m=p.find(x=>x.id==='mist');
+  assert.ok(m.reason.includes('粗心'));
+  const plain=buildPlan({mistakesOpen:3});
+  assert.ok(plain.find(x=>x.id==='mist').reason.includes('回顾'));
+});

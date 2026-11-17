@@ -4,6 +4,8 @@
 
 export const SUBJECTS=['数学','物理','化学','英语','语文','生物','其他'];
 export const MASTERY=['未掌握','模糊','已掌握'];
+/* 错因画像：记「为什么错」，统计分布并给针对性建议。 */
+export const CAUSES=['概念不清','审题失误','粗心计算','完全不会'];
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 const num=(v,f)=>Number.isFinite(+v)?+v:f;
 const str=(v,max)=>typeof v==='string'?v.slice(0,max):'';
@@ -19,6 +21,7 @@ export function mistakeSanitize(raw,fallbackId){
     id:Math.max(1,Math.floor(num(r.id,fallbackId))),
     subject,title:title||question.trim().slice(0,40),
     question,answer,reason:str(r.reason,1000),
+    cause:CAUSES.includes(r.cause)?r.cause:'',
     mastery:clamp(Math.round(num(r.mastery,0)),0,2),
     created:Math.max(0,num(r.created,0)),
     updated:Math.max(0,num(r.updated,0))
@@ -72,6 +75,22 @@ export function filterMistakes(book,subject,mastery){
   return b.items
     .filter(it=>(subject==='全部'||it.subject===subject)&&(mastery<0||it.mastery===mastery))
     .sort((a,b2)=>b2.updated-a.updated||b2.id-a.id);
+}
+
+/* 错因分布 + 针对性建议：只统计已标记错因的题，不臆造。 */
+export function causeStats(book){
+  const b=bookSanitize(book);
+  const byCause={};
+  let tagged=0;
+  for(const it of b.items){if(it.cause){byCause[it.cause]=(byCause[it.cause]||0)+1;tagged++;}}
+  const top=Object.keys(byCause).sort((a,b2)=>byCause[b2]-byCause[a])[0]||'';
+  const ADVICE={
+    '概念不清':'先回教材/卡片把概念补上，再刷题巩固。',
+    '审题失误':'做题先圈关键词，读完条件再动笔。',
+    '粗心计算':'留出检查时间，分步写、回头验。',
+    '完全不会':'这类题先看解析学思路，从基础题梯度练。'
+  };
+  return {byCause,tagged,total:b.items.length,top,advice:top?ADVICE[top]:''};
 }
 
 export function bookStats(book){

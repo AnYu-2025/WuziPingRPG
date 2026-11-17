@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {SUBJECTS,mistakeSanitize,bookSanitize,addMistake,updateMistake,setMastery,removeMistake,filterMistakes,bookStats} from '../src/mistakes.js';
+import {SUBJECTS,CAUSES,mistakeSanitize,bookSanitize,addMistake,updateMistake,setMastery,removeMistake,filterMistakes,bookStats,causeStats} from '../src/mistakes.js';
 
 const NOW=1_700_000_000_000;
 
@@ -95,4 +95,32 @@ test('update does not mutate input',()=>{
   const before=JSON.stringify(b);
   updateMistake(b,1,{mastery:2},NOW+1);
   assert.equal(JSON.stringify(b),before);
+});
+
+test('cause sanitize keeps valid cause and drops invalid',()=>{
+  const ok=mistakeSanitize({title:'t',cause:'审题失误'},1);
+  assert.equal(ok.cause,'审题失误');
+  const bad=mistakeSanitize({title:'t',cause:'瞎写'},1);
+  assert.equal(bad.cause,'');
+});
+
+test('causeStats counts tagged and gives top advice',()=>{
+  let b=bookSanitize(null);
+  b=addMistake(b,{title:'a',cause:'粗心计算'},NOW).book;
+  b=addMistake(b,{title:'b',cause:'粗心计算'},NOW).book;
+  b=addMistake(b,{title:'c',cause:'概念不清'},NOW).book;
+  b=addMistake(b,{title:'d'},NOW).book;
+  const s=causeStats(b);
+  assert.equal(s.tagged,3);
+  assert.equal(s.total,4);
+  assert.equal(s.top,'粗心计算');
+  assert.ok(s.advice.includes('检查'));
+});
+
+test('causeStats empty when none tagged',()=>{
+  const b=addMistake(bookSanitize(null),{title:'a'},NOW).book;
+  const s=causeStats(b);
+  assert.equal(s.tagged,0);
+  assert.equal(s.top,'');
+  assert.equal(s.advice,'');
 });

@@ -32,7 +32,7 @@ import {renderMarkdown} from './markdown.js';
 import {DEFAULT_FOCUS,focusSanitize,focusToggle,focusReset,focusSkip,focusTick,focusSetMinutes,fmtTime,lastNDays} from './focus.js';
 import {deckSanitize,addCard,removeCard,reviewCard,previewInterval,dueCards,deckStats} from './cards.js';
 import {importCards,importMistakes,exportCards,exportMistakes,updateCard,importSummary} from './transfer.js';
-import {SUBJECTS,MASTERY,bookSanitize,addMistake,updateMistake,setMastery,removeMistake,filterMistakes,bookStats} from './mistakes.js';
+import {SUBJECTS,MASTERY,CAUSES,bookSanitize,addMistake,updateMistake,setMastery,removeMistake,filterMistakes,bookStats,causeStats} from './mistakes.js';
 import {habitsSanitize,addHabit,removeHabit,isChecked,toggleCheck,currentStreak,bestStreak,totalChecks,lastNDaysChecks,habitsStats} from './habits.js';
 import {DAYS,PERIODS,COURSE_COLORS,scheduleSanitize,addCourse,updateCourse,removeCourse,coursesOnDay,nowInfo,currentStatus,fmtMin,weeksText} from './schedule.js';
 import {splitChapters,shelfSanitize,novelSettingsSanitize,progressText} from './novel.js';
@@ -47,6 +47,7 @@ import {buildBackup,parseBackup,backupSummary} from './backup.js';
 import {studyLogSanitize,logStudy,dayCounts} from './study-log.js';
 import {fxBoot,setFx,fxEnabled,fxStored,fxPreferred,warp,materialize,hudMark,homeIn,bootSequence} from './fx.js';
 import {buildOverview} from './overview.js';
+import {radarPoints,radarPolygon} from './study-radar.js';
 import {init as initPelican} from './pelican3d.js';
 import {pelicanSanitize} from './pelican.js';
 
@@ -1710,6 +1711,7 @@ function mistOpenForm(item){
   $('mistQuestion').value=item?item.question:'';
   $('mistAnswer').value=item?item.answer:'';
   $('mistReason').value=item?item.reason:'';
+  const mc=$('mistCause');if(mc)mc.value=item&&item.cause?item.cause:'';
   $('mistForm').hidden=false;
   $('mistTitle').focus();
 }
@@ -1736,6 +1738,21 @@ function renderMistakes(){
       subBar.append(chip);
     }
   }
+  /* 错因画像：分布 + 最多错因的针对性建议，只统计已标记的题。 */
+  const causeBar=$('mistCauses');
+  if(causeBar){
+    causeBar.replaceChildren();
+    const cs=causeStats(book);
+    if(cs.tagged>0){
+      for(const c of CAUSES){
+        if(!cs.byCause[c])continue;
+        const chip=document.createElement('span');chip.className='mist-causechip'+(c===cs.top?' top':'');
+        chip.textContent=c+' '+cs.byCause[c];
+        causeBar.append(chip);
+      }
+      if(cs.advice){const a=document.createElement('p');a.className='mist-cause-advice';a.textContent='最多「'+cs.top+'」：'+cs.advice;causeBar.append(a);}
+    }
+  }
   const subject=$('mistSubject')?$('mistSubject').value:'全部';
   const mastery=$('mistMastery')?+$('mistMastery').value:-1;
   const list=$('mistList');if(!list)return;
@@ -1756,6 +1773,7 @@ function renderMistakes(){
     const badge=document.createElement('span');badge.className='mist-badge';badge.textContent=it.subject;
     const mas=document.createElement('span');mas.className='mist-mastery m'+it.mastery;mas.textContent=MASTERY[it.mastery];
     head.append(t,badge,mas);
+    if(it.cause){const cc=document.createElement('span');cc.className='mist-causebadge';cc.textContent=it.cause;head.append(cc);}
     head.onclick=()=>{if(mistOpen.has(it.id))mistOpen.delete(it.id);else mistOpen.add(it.id);renderMistakes();};
     card.append(head);
     if(mistOpen.has(it.id)){
@@ -1809,7 +1827,7 @@ on('mistCancel',()=>mistCloseForm());
  const mm=$('mistMastery');if(mm)mm.addEventListener('change',()=>renderMistakes());
  const mf=$('mistFilter');if(mf)mf.addEventListener('input',debounce(()=>renderMistakes(),120));}
 on('mistSave',()=>{
-  const fields={title:$('mistTitle').value,subject:$('mistFormSubject').value,question:$('mistQuestion').value,answer:$('mistAnswer').value,reason:$('mistReason').value};
+  const fields={title:$('mistTitle').value,subject:$('mistFormSubject').value,question:$('mistQuestion').value,answer:$('mistAnswer').value,reason:$('mistReason').value,cause:$('mistCause')?$('mistCause').value:''};
   if(!fields.title.trim()&&!fields.question.trim()){notify('至少填写标题或题目。');return;}
   const now=Date.now();
   if(mistEditId){const r=updateMistake(state.mistakes,mistEditId,fields,now);if(r.ok)state.mistakes=r.book;}
@@ -2631,6 +2649,40 @@ function runPlanAction(p){
     else if(a==='focus'){if(!(state.focus&&state.focus.running)){const b=$('focusStart');if(b)b.click();}}
   },80);
 }
+/* 学科雷达：SVG 同心环+辐条+正确率多边形+旋转扫描线，顶点标签可点直达。 */
+function renderRadar(data){
+  const wrap=$('ovRadar');if(!wrap)return;
+  wrap.replaceChildren();
+  if(!data.length)return;
+  const NS='http://www.w3.org/2000/svg';
+  const S=260,cx=S/2,cy=S/2,R=92;
+  const svg=document.createElementNS(NS,'svg');
+  svg.setAttribute('viewBox','0 0 '+S+' '+S);svg.setAttribute('class','radar-svg');
+  const pts=radarPoints(data,cx,cy,R);
+  for(const f of [.25,.5,.75,1]){
+    const ring=document.createElementNS(NS,'polygon');
+    ring.setAttribute('points',radarPolygon(data.map((d,i)=>{const ang=-Math.PI/2+i*2*Math.PI/data.length;return {x:+(cx+R*f*Math.cos(ang)).toFixed(2),y:+(cy+R*f*Math.sin(ang)).toFixed(2)};})));
+    ring.setAttribute('class','radar-ring');svg.append(ring);
+  }
+  for(const p of pts){const l=document.createElementNS(NS,'line');l.setAttribute('x1',cx);l.setAttribute('y1',cy);l.setAttribute('x2',p.lx);l.setAttribute('y2',p.ly);l.setAttribute('class','radar-spoke');svg.append(l);}
+  const sweep=document.createElementNS(NS,'g');sweep.setAttribute('class','radar-sweep');
+  const sl=document.createElementNS(NS,'line');sl.setAttribute('x1',cx);sl.setAttribute('y1',cy);sl.setAttribute('x2',cx);sl.setAttribute('y2',cy-R);sl.setAttribute('class','radar-sweepline');
+  sweep.append(sl);svg.append(sweep);
+  const poly=document.createElementNS(NS,'polygon');poly.setAttribute('points',radarPolygon(pts));poly.setAttribute('class','radar-poly');svg.append(poly);
+  for(const p of pts){
+    const dot=document.createElementNS(NS,'circle');dot.setAttribute('cx',p.x);dot.setAttribute('cy',p.y);dot.setAttribute('r',3);dot.setAttribute('class','radar-dot'+(p.hasData?'':' nodata'));svg.append(dot);
+    const ang=Math.atan2(p.ly-cy,p.lx-cx);
+    const tx=cx+(R+16)*Math.cos(ang),ty=cy+(R+16)*Math.sin(ang);
+    const t=document.createElementNS(NS,'text');t.setAttribute('x',tx);t.setAttribute('y',ty);
+    t.setAttribute('class','radar-label'+(p.hasData?'':' nodata'));
+    t.setAttribute('text-anchor',Math.abs(Math.cos(ang))<.3?'middle':(Math.cos(ang)>0?'start':'end'));
+    t.setAttribute('dominant-baseline','middle');
+    t.textContent=p.subject+(p.hasData?' '+p.rate+'%':'');
+    t.addEventListener('click',()=>{runPlanAction({mode:'medquiz',params:{auto:'quiz',subject:p.subject}});});
+    svg.append(t);
+  }
+  wrap.append(svg);
+}
 /* 学习总览：汇总各模块真实数据，点卡片直达对应模块。 */
 function ovTask(label,value,mode,zero){
   const b=document.createElement('button');
@@ -2759,6 +2811,8 @@ function renderOverview(){
       rd.className=r.delta.total>=0?'up':'down';
     }
   }
+  /* 学科雷达：星舰扫描图，顶点=各科正确率，点科目直达刷题。 */
+  renderRadar(sum.radar||[]);
   const subs=$('ovSubjects');
   const sm=$('ovSubMeta');
   if(subs){
