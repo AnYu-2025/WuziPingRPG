@@ -1,3 +1,5 @@
+import {PYTHON_LABS,normalizeLabProgress} from './python-lab.js';
+import {renderPythonLabPanel} from './python-lab-panel.js';
 import {renderStudyDesk} from './desk-study.js';
 import {renderCodeDesk,createDeskDraft,cppRunScope} from './desk-code.js';
 import {EditorView,basicSetup} from 'codemirror';
@@ -124,7 +126,7 @@ const langs={py:['Python',python],js:['JavaScript',javascript],mjs:['JavaScript'
 const extension=path=>(path.split('.').pop()||'').toLowerCase();
 const validPath=path=>typeof path==='string'&&path.length>0&&path.length<=200&&!path.startsWith('/')&&!path.split('/').some(v=>!v||v==='.'||v==='..')&&!/[\x00-\x1f\\:*?"<>|]/.test(path);
 const makeFile=(path,text,uri='',encoding='UTF-8')=>({path,text,uri,encoding,savedText:text});
-const defaults=()=>({version:1,files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null),mistakes:bookSanitize(null),habits:habitsSanitize(null),schedule:scheduleSanitize(null),novel:shelfSanitize(null),medquiz:quizStatsSanitize(null),mqSession:null,exams:examsSanitize(null),soundscape:defaultSoundscape(),studyLog:studyLogSanitize(null)});
+const defaults=()=>({version:1,pythonLabs:{},files:[makeFile('main.py','# 点右上「运行」试试。要输入内容时，先在终端的「输入」页填好\nfrom geometry import rectangle_area\nimport json\n\nname = input("你的名字：")\nprint(f"你好，{name}！")\n\nwith open("data.json", encoding="utf-8") as f:\n    shape = json.load(f)\n\narea = rectangle_area(shape["width"], shape["height"])\nprint(f"长方形面积：{area}")\n'),makeFile('geometry.py','def rectangle_area(width, height):\n    """计算长方形面积。"""\n    return width * height\n'),makeFile('data.json','{\n  "width": 8,\n  "height": 5\n}\n'),makeFile('main.cpp','// C++ 也能直接运行：和 Python 共用这套文件\n// 工作区里的其他 .cpp 会一起编译，头文件直接 include\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << "你的名字：";\n    std::getline(std::cin, name);\n    std::cout << "你好，" << name << "！\\n";\n\n    int sum = 0;\n    for (int i = 1; i <= 100; ++i) sum += i;\n    std::cout << "1 加到 100 = " << sum << std::endl;\n    return 0;\n}\n'),makeFile('index.html','<!doctype html>\n<html lang="zh-CN">\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<style>body{background:#142330;color:#b2ebda;font:18px system-ui;padding:30px}button{padding:12px;border-radius:8px}</style>\n<h1>你好，天工！</h1>\n<p>这个页面是在手机上写的。</p>\n<button onclick="this.textContent=\'点到了！\'">点我一下</button>\n</html>\n')],active:'main.py',opened:['main.py','geometry.py'],stdin:'伍子平\n',settings:{fontSize:15,wrap:true,timeLimit:15,appearance:'system',accent:'teal'},drawStrokes:[],drawView:null,tts:{voice:'',locale:'en-US',rate:1},noteTemplates:sanitizeTemplateState(),ai:aiSerialize(),model:modelSanitize(null),star:{starred:[],motion:true},focus:DEFAULT_FOCUS(),pelican:{best:0},cards:deckSanitize(null),mistakes:bookSanitize(null),habits:habitsSanitize(null),schedule:scheduleSanitize(null),novel:shelfSanitize(null),medquiz:quizStatsSanitize(null),mqSession:null,exams:examsSanitize(null),soundscape:defaultSoundscape(),studyLog:studyLogSanitize(null)});
 let state=defaults(),view,restoring=false,worker=null,cppWorker=null,runToken=0,timeout=null,saveTimer=null,revision=0,latestSaved=0,renamePath=null,ready=false,toastTimer,pendingSaves=new Map(),runFiles=[];
 /* 麦克风预热请求：id → resolve(granted)。设置超时兜底，别让录音按钮卡住。 */
 const micWaiters=new Map();let micSeq=0;
@@ -177,7 +179,7 @@ function notifyUndo(text,onUndo,ms=6000){
   toastTimer=setTimeout(()=>{undoAction=null;hideToast();},ms);
 }
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,desk:deskKind,lastCodePath,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule),novel:shelfSanitize(state.novel),medquiz:quizStatsSanitize(state.medquiz),mqSession:mqSessionSnapshot(),exams:examsSanitize(state.exams),soundscape:soundscapeSanitize(state.soundscape),studyLog:studyLogSanitize(state.studyLog)};}
+function snapshot(){return {version:1,desk:deskKind,lastCodePath,pythonLabs:state.pythonLabs,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule),novel:shelfSanitize(state.novel),medquiz:quizStatsSanitize(state.medquiz),mqSession:mqSessionSnapshot(),exams:examsSanitize(state.exams),soundscape:soundscapeSanitize(state.soundscape),studyLog:studyLogSanitize(state.studyLog)};}
 function mqSessionSnapshot(){const s=mqSession;if(!s||s.finished||!s.ids.length)return null;return {mode:s.mode,subject:s.subject,difficulty:s.difficulty,ids:s.ids,pos:s.pos,answers:s.answers,skipped:s.skipped||{},perm:s.perm};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
@@ -210,6 +212,7 @@ function loadState(data){
   const unique=new Set();const files=data.files.filter(f=>validPath(f.path)&&typeof f.text==='string'&&f.text.length<=MAX_FILE&&!unique.has(f.path)&&unique.add(f.path)).slice(0,160).map(f=>({...f,uri:typeof f.uri==='string'?f.uri:'',encoding:f.encoding||'UTF-8',savedText:typeof f.savedText==='string'?f.savedText:f.text}));
   if(!files.length)throw Error('工作区文件无法读取');
   state={...defaults(),...data,files,settings:{...defaults().settings,...data.settings}};
+  state.pythonLabs = normalizeLabProgress(data.pythonLabs);
   deskKind = data.desk === 'code' ? 'code' : 'study';
   lastCodePath = files.some(file => file.path === data.lastCodePath) ? data.lastCodePath : '';
   state.lecture=lectureSanitize(data.lecture);
@@ -267,12 +270,13 @@ function renderFiles(){
 }
 function refreshBadges(){
  const f=active();if(!f)return;
+ updateLabPanel();
  $('activePath').textContent=f.path;$('dirtyFlag').textContent=f.uri?(f.text===f.savedText?'已保存到原文件':'有修改 · 保存写回'):'本地草稿 · 自动保存';$('language').textContent=document.body.classList.contains('drawing')?'画画':language(f.path)[0];$('encoding').textContent=f.encoding||'UTF-8';$('runButton').textContent=['html','htm'].includes(extension(f.path))?'↗ 预览':'▶ 运行';
  for(const b of $('fileList').querySelectorAll('.fileopen')){const p=b.dataset.path,t=state.files.find(x=>x.path===p);if(!t)continue;const name=b.lastElementChild;if(name)name.textContent=p+(t.text!==t.savedText?' •':'');b.closest('.fileitem').classList.toggle('active',p===state.active);}
 }
 function switchFile(path){if(worker){notify('请先停止运行，再切换文件。');return;}const f=state.files.find(f=>f.path===path);if(!f)return;if(workspaceMode==='python'&&shouldRememberCodePath(path))lastCodePath=path;if(isNotepadNotePath(path)&&(workspaceMode==='notepad'||workspaceMode==='python'))lastNotePath=path;if(workspaceMode==='tts')lastTtsPath=path;editorStates.set(state.active,view.state);state.active=path;if(!state.opened.includes(path))state.opened.push(path);restoring=true;const previous=editorStates.get(path);if(previous&&previous.doc.toString()===f.text){view.setState(previous);view.dispatch({effects:[langConfig.reconfigure(language(path)[1]()),wrapConfig.reconfigure(state.settings.wrap?EditorView.lineWrapping:[]),editConfig.reconfigure(EditorState.readOnly.of(false))]});}else createEditor();restoring=false;renderFiles();document.body.classList.remove('drawer');position();scheduleSave();if(workspaceMode==='tts')ttsDocumentChanged('switched');}
 function nameDialog(path=null){if(worker)return;renamePath=path;$('nameTitle').textContent=path?'修改工作区路径':'新建文件';$('confirmName').textContent=path?'重命名':'创建';$('fileName').value=path||(workspaceMode==='notepad'?'笔记.txt':workspaceMode==='tts'?'English.txt':'new_file.py');const hint=$('nameHint');if(hint)hint.textContent=workspaceMode==='notepad'?'可带子文件夹；例如 日记/今天.txt。':workspaceMode==='tts'?'可带子文件夹；例如 Articles/chapter-one.txt。':'可带子文件夹；请写扩展名，例如 .py。';$('nameDialog').returnValue='cancel';$('nameDialog').showModal();setTimeout(()=>$('fileName').select(),50);}
-$('nameDialog').addEventListener('close',()=>{if($('nameDialog').returnValue!=='default')return;const path=$('fileName').value.trim();if(!validPath(path)){notify('路径无效，请使用文件名或 folder/file.py。');return;}if(state.files.some(f=>f.path===path)&&path!==renamePath){notify('已有同名文件。');return;}if(renamePath){const f=state.files.find(f=>f.path===renamePath);f.path=path;state.opened=state.opened.map(p=>p===renamePath?path:p);if(state.active===renamePath)state.active=path;editorStates.delete(renamePath);}else{if(state.files.length>=160){notify('当前工作区最多 160 个文件。');return;}state.files.push(makeFile(path,''));}switchFile(path);changed();});
+$('nameDialog').addEventListener('close',()=>{if($('nameDialog').returnValue!=='default')return;const path=$('fileName').value.trim();if(!validPath(path)){notify('路径无效，请使用文件名或 folder/file.py。');return;}if(state.files.some(f=>f.path===path)&&path!==renamePath){notify('已有同名文件。');return;}if(renamePath){const f=state.files.find(f=>f.path===renamePath);moveLabPath(renamePath,path);f.path=path;state.opened=state.opened.map(p=>p===renamePath?path:p);if(state.active===renamePath)state.active=path;editorStates.delete(renamePath);}else{if(state.files.length>=160){notify('当前工作区最多 160 个文件。');return;}state.files.push(makeFile(path,''));}switchFile(path);changed();});
 const themeQuery=window.matchMedia('(prefers-color-scheme: dark)');
 function prefersDark(){try{return !!themeQuery.matches;}catch(e){return false;}}
 function syncTheme(){
@@ -375,7 +379,7 @@ function saveOutputToFile(){
 }
 function setConsole(open){$('consolePanel').classList.toggle('folded',!open);$('foldConsole').setAttribute('aria-expanded',String(open));}
 function outputTab(input=false){$('output').hidden=input;$('stdin').hidden=!input;$('inputTab').classList.toggle('active',input);$('outputTab').classList.toggle('active',!input);setConsole(true);}
-function setRunning(running){$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode','menuTemplates','menuQuiz']){const el=$(id);if(el)el.disabled=running;}const save=$('saveButton');if(save)save.title=running?'运行中无法写回原文件，请先停止运行':'保存';if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
+function setRunning(running){updateLabPanel();$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode','menuTemplates','menuQuiz']){const el=$(id);if(el)el.disabled=running;}const save=$('saveButton');if(save)save.title=running?'运行中无法写回原文件，请先停止运行':'保存';if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
 /* kill=false 时保留 C++ 常驻线程（编译器留在内存，下次运行免加载）；
    停止按钮、超时、出错都走 kill=true，死循环程序必须能杀掉。 */
 function stop(reason='已停止运行',kill=true){runToken++;if(worker){if(kill||worker!==cppWorker){worker.terminate();if(worker===cppWorker)cppWorker=null;}}worker=null;clearTimeout(timeout);setRunning(false);$('runState').textContent=reason;}
@@ -388,6 +392,9 @@ async function run(){
  if(inPanelMode()){notify('当前面板不需要运行代码，回到「写代码」再运行。');return;}
  if(worker)return;const f=active(),ext=extension(f.path);if(['html','htm'].includes(ext)){preview();return;}if(!['py','js','mjs','c','cc','cpp','cxx'].includes(ext)){notify(language(f.path)[0]+' 只能编辑，不能运行。可运行 .py、.js、.cpp/.c，或预览 .html。');return;}
  const isCpp=['c','cc','cpp','cxx'].includes(ext);
+ const lab = workspaceMode === 'python' && ext === 'py' ? labForFile(f.path) : null;
+ const source = f.text;
+ let labOutput = '';
  flush();outputTab(false);$('output').replaceChildren();$('runState').textContent=ext==='py'?'准备 Python…':isCpp?(cppWorker?'编译 C/C++…':'准备 C/C++ 编译器…'):'运行 JavaScript…';
  const scope=isCpp?cppRunScope(state.files,f.path):{root:'',files:state.files};
  runFiles=scope.files.map(file=>({path:file.path,text:file.text}));const token=++runToken;
@@ -396,13 +403,21 @@ async function run(){
  setRunning(true);const started=performance.now();let hasStarted=false;
  /* C++ 首次要读 28 MB 本地工具链再编译，准备阶段给 120 秒；复用后编译很快。运行上限从 started 起算。 */
  timeout=setTimeout(()=>{if(token!==runToken)return;append('\n准备超时，已停止。'+(isCpp?'C++ 编译器首次加载较慢，请重试；多次失败请更新系统 WebView。':'可以在设置中调整运行上限。')+'\n',true);stop('准备超时');},isCpp&&!cppWorker?120000:isCpp?60000:45000);
- worker.onmessage=event=>{if(token!==runToken)return;const m=event.data||{};if(m.runId!==undefined&&m.runId!==token)return;if(m.type==='loading'){$('runState').textContent='读取本地 C++ 编译器…';}else if(m.type==='progress'){const pct=Math.round((m.value||0)*100);$('runState').textContent='读取编译器 '+pct+'%（仅首次较慢）';}else if(m.type==='started'&&!hasStarted){hasStarted=true;clearTimeout(timeout);$('runState').textContent='运行中 · 可停止';timeout=setTimeout(()=>{append('\n达到运行上限，已终止工作线程。\n',true);stop('运行超时');},state.settings.timeLimit*1000);}else if(m.type==='stdout'||m.type==='stderr')append(m.text,m.type==='stderr');else if(m.type==='done'){const elapsed=((performance.now()-started)/1000).toFixed(2);stop(m.ok?'执行完成 · '+elapsed+'s':'执行失败 · '+elapsed+'s',false);applyRunFiles(m.files);flush();}else if(m.type==='error'){append(m.text+'\n',true);stop('运行环境未能启动');}};
+ worker.onmessage=event=>{if(token!==runToken)return;const m=event.data||{};if(m.runId!==undefined&&m.runId!==token)return;if(m.type==='loading'){$('runState').textContent='读取本地 C++ 编译器…';}else if(m.type==='progress'){const pct=Math.round((m.value||0)*100);$('runState').textContent='读取编译器 '+pct+'%（仅首次较慢）';}else if(m.type==='started'&&!hasStarted){hasStarted=true;clearTimeout(timeout);$('runState').textContent='运行中 · 可停止';timeout=setTimeout(()=>{append('\n达到运行上限，已终止工作线程。\n',true);stop('运行超时');},state.settings.timeLimit*1000);}else if(m.type==='stdout'||m.type==='stderr'){
+   append(m.text,m.type==='stderr');
+   if(lab && m.type==='stdout' && labOutput.length<=2000) labOutput += m.text.slice(0,2001-labOutput.length);
+ }else if(m.type==='done'){
+   if(lab && m.ok){
+     const output = labOutput.length>2000 ? labOutput.slice(0,2000)+'\n…（仅记录前 2000 字）' : labOutput;
+     state.pythonLabs[lab.id] = {...state.pythonLabs[lab.id],hasRun:true,runSource:source,output};
+   }
+   const elapsed=((performance.now()-started)/1000).toFixed(2);stop(m.ok?'执行完成 · '+elapsed+'s':'执行失败 · '+elapsed+'s',false);applyRunFiles(m.files);flush();}else if(m.type==='error'){append(m.text+'\n',true);stop('运行环境未能启动');}};
  worker.onerror=event=>{if(token!==runToken)return;append('运行环境错误：'+event.message+'\n请确认系统 WebView 支持 WebAssembly。\n',true);stop('运行环境错误');};
  worker.postMessage({runId:token,path:f.path,code:f.text,files:runFiles,projectRoot:scope.root,stdin:$('stdin').value});
 }
 function preview(){flush();if(native){send('preview',{path:active().path,files:state.files.map(f=>({path:f.path,text:f.text}))});return;}const dlg=document.createElement('dialog');dlg.style.cssText='width:96vw;height:90vh;padding:8px;max-width:1100px';const close=document.createElement('button');close.textContent='关闭预览';close.onclick=()=>{dlg.close();dlg.remove();};const frame=document.createElement('iframe');frame.sandbox='allow-scripts';frame.style.cssText='width:100%;height:90%;background:white;border:0';let content=active().text;content=content.replace(/<link\b[^>]*href=["']([^"']+)["'][^>]*>/gi,(tag,path)=>{const f=state.files.find(f=>f.path===path);return f?'<style>'+f.text+'</style>':tag;}).replace(/<script\b[^>]*src=["']([^"']+)["'][^>]*>\s*<\/script>/gi,(tag,path)=>{const f=state.files.find(f=>f.path===path);return f?'<script>'+f.text+'</script>':tag;});frame.srcdoc=content;dlg.append(close,frame);document.body.append(dlg);dlg.showModal();}
 function saveFile(as=false){if(inPanelMode()){flush();notify('学习数据已自动存本机；要导出请用面板里的「导出 CSV」或设置里的备份。');return;}flush();const f=active(),id=String(Date.now())+'-'+Math.random();if(native){pendingSaves.set(id,{path:f.path,text:f.text});send(as||!f.uri?'export':'save',{id,path:f.path,text:f.text,uri:f.uri,encoding:f.encoding});}else{const blob=new Blob([f.text],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=f.path.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);f.savedText=f.text;changed();notify('已导出文件。');}}
-function importFiles(files){if(worker){notify('请停止运行后再导入。');return null;}let first='',backups=0,accepted=0;for(const file of files){if(!validPath(file.path)||typeof file.text!=='string'||file.text.length>MAX_FILE)continue;let path=file.path;const existing=state.files.find(f=>f.path===path);if(existing&&existing.uri!==file.uri){if(state.files.length>=159){notify('文件过多，请先另存草稿后重试。');break;}const backup='_草稿备份/'+Date.now()+'_'+path.split('/').pop().slice(-140);existing.path=backup;existing.uri='';state.opened=state.opened.map(p=>p===path?backup:p);editorStates.delete(path);backups++;}else if(existing){if(existing.text!==existing.savedText){notify('文件存在未写回的编辑，已保留草稿。');continue;}Object.assign(existing,makeFile(path,file.text,file.uri,file.encoding));accepted++;if(!first)first=path;continue;}if(state.files.length>=160)break;state.files.push(makeFile(path,file.text,file.uri||'',file.encoding||'UTF-8'));accepted++;if(!first)first=path;}if(first)switchFile(first);changed();if(backups)notify('导入文件保留原名；同名旧稿已移到 _草稿备份。');return {accepted,backups};}
+function importFiles(files){if(worker){notify('请停止运行后再导入。');return null;}let first='',backups=0,accepted=0;for(const file of files){if(!validPath(file.path)||typeof file.text!=='string'||file.text.length>MAX_FILE)continue;let path=file.path;const existing=state.files.find(f=>f.path===path);if(existing&&existing.uri!==file.uri){if(state.files.length>=159){notify('文件过多，请先另存草稿后重试。');break;}const backup='_草稿备份/'+Date.now()+'_'+path.split('/').pop().slice(-140);moveLabPath(path,backup);existing.path=backup;existing.uri='';state.opened=state.opened.map(p=>p===path?backup:p);editorStates.delete(path);backups++;}else if(existing){if(existing.text!==existing.savedText){notify('文件存在未写回的编辑，已保留草稿。');continue;}Object.assign(existing,makeFile(path,file.text,file.uri,file.encoding));accepted++;if(!first)first=path;continue;}if(state.files.length>=160)break;state.files.push(makeFile(path,file.text,file.uri||'',file.encoding||'UTF-8'));accepted++;if(!first)first=path;}if(first)switchFile(first);changed();if(backups)notify('导入文件保留原名；同名旧稿已移到 _草稿备份。');return {accepted,backups};}
 async function browserImport(event){const files=[];let skipped=0;for(const f of [...event.target.files].slice(0,160)){if(f.size>MAX_FILE){skipped++;continue;}try{const bytes=new Uint8Array(await f.arrayBuffer());if(bytes.includes(0))throw Error('binary');const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);files.push({path:f.webkitRelativePath||f.name,text,uri:'browser:'+f.name});}catch(e){skipped++;}}const result=importFiles(files);notify(`已接收 ${result?.accepted||0} / ${files.length} 个文本文件${skipped?'，另跳过 '+skipped+' 个非文本或过大文件':''}`);event.target.value='';}
 window.StudioNative={receive(m){
   if(!m)return;
@@ -447,6 +462,7 @@ function showGame(){flush();closeDrawer();closeMenu();$('lounge').hidden=false;d
 function showCode(){closeMenu();$('workbench').hidden=false;$('lounge').hidden=true;document.body.classList.remove('gameview');const gameTab=$('gameTab');if(gameTab)gameTab.classList.remove('selected');const codeTab=$('codeTab');if(codeTab)codeTab.classList.add('selected');renderFiles();if(view)view.requestMeasure();}
 function setWorkspaceMode(mode){
   workspaceMode=selectedMode=mode;
+  updateLabPanel();
   updateDeskShortcut();
   const drawToggle=$('drawToggle');if(drawToggle)drawToggle.hidden=mode!=='notepad';
   const mdToggle=$('mdToggle');if(mdToggle)mdToggle.hidden=mode!=='notepad';
@@ -970,6 +986,60 @@ const MODE_KEY='ember-studio-mode';
 let deskKind='study';
 const deskPositions={study:0,code:0};
 const deskExamples=defaults().files;
+let labPanelView = null;
+
+function labForFile(path) {
+  return PYTHON_LABS.find(lab => state.pythonLabs[lab.id]?.path === path);
+}
+
+function moveLabPath(from, to) {
+  const lab = labForFile(from);
+  if (lab) state.pythonLabs[lab.id].path = to;
+}
+
+function openPythonLab(id) {
+  const lab = PYTHON_LABS.find(item => item.id === id);
+  if (!lab) return;
+  const progress = state.pythonLabs[id];
+  let file = state.files.find(item => item.path === progress?.path);
+  const needsDraft = !file || extension(file.path) !== 'py';
+  if (needsDraft && state.files.length >= 160) {
+    notify('工作区已满，请先整理文件再开始新实验。');
+    return;
+  }
+  if (!enterCodeDeskEditor()) return;
+  if (needsDraft) {
+    const base = '实验-' + id;
+    let path = base + '.py', suffix = 2;
+    while (state.files.some(item => item.path === path || item.path.startsWith(path + '/'))) {
+      path = base + '-' + suffix++ + '.py';
+    }
+    file = makeFile(path, file ? file.text : lab.starter);
+    state.files.push(file);
+    state.pythonLabs[id] = {prediction:'',hasRun:false,output:'',runSource:'',...progress,path};
+  }
+  switchFile(file.path);
+}
+
+function updateLabPanel() {
+  const file = active();
+  const lab = workspaceMode === 'python' && extension(file.path) === 'py' ? labForFile(file.path) : null;
+  const progress = lab ? state.pythonLabs[lab.id] : null;
+  const modified = !!progress?.hasRun && progress.runSource !== file.text;
+  const running = !!worker;
+  if (labPanelView && labPanelView.progress === progress &&
+      labPanelView.modified === modified && labPanelView.running === running) return;
+  labPanelView = {progress, modified, running};
+  renderPythonLabPanel($('pythonLabPanel'), {
+    lab, progress: progress && {...progress, modified, running},
+    onPredict(value) {
+      progress.prediction = value;
+      scheduleSave();
+    },
+    onRun: run
+  });
+}
+
 function updateDeskShortcut(){
   const next=workspaceMode==='python'?'学习区':'编程区';
   for(const id of ['deskSwitch','aiDeskSwitch']){
@@ -1005,7 +1075,8 @@ function renderDesk(){
     },
     importCodeFile:()=>{if(enterCodeDeskEditor())$('openFile').click();}
   });
-  else renderStudyDesk(pane,{state,openMode:enterHomeMode,runStudyAction:runPlanAction});
+  else renderStudyDesk(pane,{state,openMode:enterHomeMode,runStudyAction:runPlanAction,
+    labProgress:state.pythonLabs,openLab:openPythonLab});
   $('deskScroll').scrollTop=deskPositions[deskKind];
 }
 function enterCodeDeskEditor(){

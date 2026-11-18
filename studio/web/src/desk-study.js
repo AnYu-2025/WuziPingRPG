@@ -1,6 +1,7 @@
 import {buildOverview} from './overview.js';
+import {PYTHON_LABS, normalizeLabProgress} from './python-lab.js';
 
-export function renderStudyDesk(container, {state, openMode, runStudyAction}) {
+export function renderStudyDesk(container, {state, openMode, runStudyAction, labProgress, openLab}) {
   const summary = buildOverview(state, Date.now());
   const doc = container.ownerDocument;
   function element(tag, className, text) {
@@ -61,7 +62,26 @@ export function renderStudyDesk(container, {state, openMode, runStudyAction}) {
     row('医学刷题', '按学科练习或重做错题', () => openMode('medquiz')),
     row('专注计时', '安排一段学习时间', () => openMode('focus')),
   ];
-  const sections = [feature, section('我的学习进度', progress)];
+  const sections = [feature];
+  if (openLab) {
+    const labs = normalizeLabProgress(labProgress);
+    const ran = Object.values(labs).filter(entry => entry.hasRun).length;
+    const book = element('details', 'desk-section desk-lab-book');
+    book.dataset.pythonLabs = '';
+    const heading = element('summary', 'desk-section-head', 'Python 实验册');
+    heading.append(element('span', 'desk-lab-count', `已运行 ${ran} / ${PYTHON_LABS.length}`));
+    const list = element('div', 'desk-list');
+    for (const lab of PYTHON_LABS) {
+      const entry = labs[lab.id];
+      const status = entry?.hasRun ? '已运行 · 再试一次' : entry ? '继续' : '新学';
+      const button = row(lab.title, status, () => openLab(lab.id));
+      button.dataset.labId = lab.id;
+      list.append(button);
+    }
+    book.append(heading, list);
+    sections.push(book);
+  }
+  sections.push(section('我的学习进度', progress));
   if (upNext.length) {
     sections.push(section('接下来', upNext.map(action =>
       row(action.title, action.reason, () => runStudyAction(action)))));

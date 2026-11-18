@@ -1,0 +1,94 @@
+#pythonLabPanel {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 43%;
+  max-height: min(43%, 300px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-bottom: 1px solid var(--line-strong);
+  border-inline-start: 3px solid var(--accent);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+#pythonLabPanel[hidden], #pythonLabPanel [hidden] { display: none; }
+#labToggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-height: 40px;
+  padding: 6px 14px;
+  box-sizing: border-box;
+  background: var(--surface-2);
+  cursor: pointer;
+  list-style: none;
+}
+#labToggle::-webkit-details-marker { display: none; }
+#labTitle { flex: 1; color: var(--text-strong); }
+#labStatus { flex: none; color: var(--muted); font-size: 12px; }
+#labToggle::after {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0 3px;
+  border-right: 2px solid var(--accent-strong);
+  border-bottom: 2px solid var(--accent-strong);
+  transform: rotate(45deg) translateY(-2px);
+}
+#pythonLabPanel details[open] #labToggle::after { transform: rotate(225deg) translate(-1px, -1px); }
+#labBody { display: grid; gap: 7px; padding: 10px 14px 12px; }
+#labBody p, #labBody h3, #labBody pre { margin: 0; }
+#labBody h3, #labBody label { color: var(--text-strong); font-size: 14px; font-weight: 600; }
+#labPrompt, #labReason, #labChallenge { white-space: pre-wrap; overflow-wrap: anywhere; }
+#labPrediction {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 9px;
+  min-height: 42px;
+  resize: vertical;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-strong);
+  font: inherit;
+}
+#labPrediction:focus, #labToggle:focus-visible, #labBody button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+#labBody button {
+  justify-self: start;
+  min-height: 36px;
+  padding: 5px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-strong);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+#labBody #labRun { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+#labBody button:disabled { opacity: .65; cursor: default; }
+#labResult, #labExplanation { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+#labRunContext, #labComparison { color: var(--muted); font-size: 13px; }
+#labOutput, #labExpectedOutput {
+  min-width: 0;
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text-strong);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 13px/1.45 ui-monospace, monospace;
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  #pythonLabPanel { max-height: 46%; }
+  #labToggle { min-height: 34px; padding: 4px 12px; position: static; }
+  #labBody { padding: 6px 12px 8px; }
+}

@@ -122,3 +122,6 @@ button.desk-switch { flex: none; min-height: 40px; padding: 0 7px; border: 0; ba
   .desk-scroll { padding-top: 10px; }
   .desk-tabs { margin: 6px 0 8px; }
 }
+#workspaceDesk .desk-lab-book { padding-top: 0; padding-bottom: 0; }
+#workspaceDesk .desk-lab-book > summary { padding: 13px 0; line-height: 1.5; }
+.desk-lab-count { float: right; color: var(--muted); font-size: 13px; font-weight: 500; }

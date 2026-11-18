@@ -44,7 +44,8 @@ html[data-theme="dark"][data-fx="on"] body::before{opacity:.85}
 html[data-fx="on"] #landing{z-index:80}
 html[data-fx="on"] #aiPanel{z-index:30}
 html[data-fx="on"] .appbar{position:relative;z-index:10}
-html[data-fx="on"] #workbench,
+/* Let the fixed file drawer and backdrop stack above the toolbar when open. */
+html[data-fx="on"] body:not(.drawer) #workbench,
 html[data-fx="on"] #modelPanel{position:relative;z-index:1}
 html[data-fx="on"] #lounge,
 html[data-fx="on"] #focusPanel,
@@ -142,7 +143,7 @@ html[data-fx="on"] #workbench::before{
   mask-image:radial-gradient(120% 92% at 50% 0,#000 18%,transparent 76%);
   -webkit-mask-image:radial-gradient(120% 92% at 50% 0,#000 18%,transparent 76%);
 }
-html[data-fx="on"] #workbench>*{position:relative;z-index:1}
+html[data-fx="on"] #workbench>.workspace{z-index:1}
 
 /* HUD 框：四角亮括 + 内描边 + 顶部渐隐光，常驻可见 */
 html[data-fx="on"] .fx-hud{
