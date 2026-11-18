@@ -17,6 +17,7 @@ public final class MainActivity extends Activity {
         immersive();saveFile=new AtomicFile(new File(getFilesDir(),"journey-v1.bin"));
         Game g=new Game();
         try(InputStream in=saveFile.openRead()){g=Game.load(in);}catch(FileNotFoundException firstJourney){/* No journey has been created yet. */}catch(Exception e){Toast.makeText(this,"旧存档无法读取，已进入新营地。",Toast.LENGTH_LONG).show();}
+        g.memorial=true;g.autoEnter();
         view=new GameView(this,g);setContentView(view);
     }
     private void immersive(){

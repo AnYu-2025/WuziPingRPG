@@ -3,13 +3,26 @@ android {
     namespace 'cn.wuziping.ember'
     compileSdk 34
     defaultConfig {
-        applicationId 'cn.wuziping.ember'
+        /* 纪念版独立封装：与天工工作台（cn.wuziping.ember）包名不同，可同机共存。 */
+        applicationId 'cn.wuziping.ember.memorial'
         minSdk 23
         targetSdk 34
-        versionCode 8
-        versionName '0.7.1'
+        versionCode 1
+        versionName '1.0'
     }
     sourceSets { main.java.srcDirs += '../core/src/main/java' }
     compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
-    buildTypes { release { minifyEnabled false } }
+    /* 与天工同一把原始开发密钥，便于同设备管理。 */
+    signingConfigs {
+        manual {
+            storeFile rootProject.file('build/manual/debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    buildTypes {
+        debug { signingConfig signingConfigs.manual }
+        release { minifyEnabled false; signingConfig signingConfigs.manual }
+    }
 }

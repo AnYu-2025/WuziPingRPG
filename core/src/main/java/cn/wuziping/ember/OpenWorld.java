@@ -2,7 +2,7 @@ package cn.wuziping.ember;
 
 import java.io.*;
 
-/** 开放世界主大陆：参考真实地理的五校区城池、上古遗址与 masked 部落营地。
+/** 开放世界主大陆：参考真实地理的五校区城池、上古遗址与面具部落营地。
  *  地形由确定性噪声生成（珠江水系、北湖、南海岸、东山），城池为手工布局。
  *  坐标为世界像素，16px 一格；渲染按 2x 像素风绘制。 */
 public final class OpenWorld {
@@ -85,14 +85,14 @@ public final class OpenWorld {
         public final int id,region,tier;public final float x,y;
         Camp(int i,int r,int t,float a,float b){id=i;region=r;tier=t;x=a;y=b;}
     }
-    /** masked 部落营地： tier 决定强度与掉落，区域决定台词与掉落主题。 */
+    /** 面具部落营地： tier 决定强度与掉落，区域决定台词与掉落主题。 */
     public static final Camp[] CAMPS={
         new Camp(0,SOUTH,1,620,1780),new Camp(1,SOUTH,1,1400,1200),
         new Camp(2,NORTH,1,600,420),new Camp(3,NORTH,2,1400,420),
         new Camp(4,EAST,2,2100,1000),new Camp(5,EAST,2,2900,1700),
         new Camp(6,ZHUHAI,2,600,2450),new Camp(7,ZHUHAI,3,1500,2600),
         new Camp(8,SHENZHEN,3,2800,400),new Camp(9,SHENZHEN,3,3500,1100),
-        new Camp(10,RUIN_ANCIENT,3,550,1050),new Camp(11,RUIN_MED,2,1700,1900)
+        new Camp(10,RUIN_ANCIENT,3,610,1130),new Camp(11,RUIN_MED,2,1770,1975)
     };
     public static final class Road{public final float ax,ay,bx,by;Road(float a,float b,float c,float d){ax=a;ay=b;bx=c;by=d;}}
     public static final Road[] ROADS={
@@ -128,10 +128,14 @@ public final class OpenWorld {
             float x=tx*16+8,y=ty*16+8;
             float n=noise(x*.012f,y*.012f);
             int t=GRASS;
-            // 东部山地（深圳光明山）：海拔噪声越高越岩，峰顶积雪
-            float m=noise(x*.006f+40,y*.006f+9);
-            if(x>2600&&m>.62f)t=ROCK;
-            if(x>2600&&m>.8f)t=SNOW;
+            // 东部山脉（深圳光明山）：以山脊为轴的双 octave 高度场，成带成片而非碎斑。
+            if(x>2560){
+                float ridge=Game.clamp((x-2560)/1100f,0,1);          // 越往东越高
+                float band=1f-Math.min(1,Math.abs(y-1500)/1500f);      // 中部山脊最高
+                float m=ridge*.62f+band*.22f+noise(x*.0022f+40,y*.0022f+9)*.34f;
+                if(m>.72f)t=ROCK;
+                if(m>.93f)t=SNOW;
+            }
             // 北部湖泊（越秀山麓湖）与深圳山湖
             if(Game.dist(x,y,1500,430)<150+noise(x*.02f,y*.02f)*40)t=LAKE;
             if(Game.dist(x,y,3450,500)<110+noise(x*.02f+7,y*.02f)*30)t=LAKE;
@@ -223,8 +227,36 @@ public final class OpenWorld {
         for(Npc n:NPCS){float d=Game.dist(x,y,n.x,n.y);if(d<bd){bd=d;best=n;}}
         return best;
     }
+    /** 指引坐标：遗址区指向未净化营地，校区指向可接委托的居民。 */
+    public float[] guideTarget(Game g){
+        int here=regionAt(g.x,g.y);
+        if(here>=0&&!REGIONS[here].city){
+            for(Camp c:CAMPS)if(c.region==here&&(clearedCamps&(1<<c.id))==0)return new float[]{c.x,c.y};
+            return null;
+        }
+        Npc n=guideNpc(g);
+        return n==null?null:new float[]{n.x,n.y};
+    }
+    /** 任务指引：优先当前区域里委托未完成的居民；本区没有则指向最近的可接委托者。 */
+    public Npc guideNpc(Game g){
+        int here=regionAt(g.x,g.y);
+        Npc best=null;float bd=Float.MAX_VALUE;
+        for(Npc n:NPCS){
+            if(stage[n.region]>=2)continue;
+            if(here>=0&&n.region!=here)continue;
+            float d=Game.dist(g.x,g.y,n.x,n.y);
+            if(d<bd){bd=d;best=n;}
+        }
+        if(best!=null)return best;
+        for(Npc n:NPCS){
+            if(stage[n.region]>=2)continue;
+            float d=Game.dist(g.x,g.y,n.x,n.y);
+            if(d<bd){bd=d;best=n;}
+        }
+        return best;
+    }
 
-    /* ---------- 营地刷怪（masked 部落） ---------- */
+    /* ---------- 营地刷怪（面具部落） ---------- */
     public void tick(Game g,float dt){
         time+=dt;
         int r=regionAt(g.x,g.y);
@@ -234,7 +266,7 @@ public final class OpenWorld {
             if(Game.dist(g.x,g.y,c.x,c.y)>420)continue;
             int alive=0;for(Game.Enemy e:g.enemies)if(e.id<0&&e.campId==c.id)alive++;
             if(alive>=4)continue;
-            // 在营地周围找可站立点刷一只 masked 小怪
+            // 在营地周围找可站立点刷一只面具部落小怪
             for(int n=0;n<24;n++){
                 double ang=g.rand()*Math.PI*2;float rad=30+g.rand()*70;
                 float a=c.x+(float)Math.cos(ang)*rad,b=c.y+(float)Math.sin(ang)*rad;
@@ -275,7 +307,7 @@ public final class OpenWorld {
             pages=new String[]{
                 n.name+"|"+welcome(r,n),
                 n.name+"|"+quest(r),
-                Game.HERO+"|我明白了。这就去把郊外的 masked 部落清一清。"
+                Game.HERO+"|我明白了。这就去把郊外的面具部落清一清。"
             };
             opts=new String[]{"接下委托","再逛逛"};acts=new int[]{500+r*10+1,500};
         }else if(st==1){
@@ -284,7 +316,7 @@ public final class OpenWorld {
                 pages=new String[]{n.name+"|"+thanks(r),Game.HERO+"|郊外已经安静多了。"};
                 opts=new String[]{"交付委托 · 领取奖励","稍后再来"};acts=new int[]{500+r*10+2,500};
             }else{
-                pages=new String[]{n.name+"|"+quest(r)+"（"+done+"/"+need+"）",n.name+"|masked 部落就在城外营地，小心它们的投石手。"};
+                pages=new String[]{n.name+"|"+quest(r)+"（"+done+"/"+need+"）",n.name+"|面具部落就在城外营地，小心它们的投石手。"};
                 opts=new String[]{"我这就去","再准备一下"};acts=new int[]{500,500};
             }
         }else{
@@ -306,12 +338,12 @@ public final class OpenWorld {
     }
     private String quest(int r){
         switch(r){
-            case SOUTH:return "城外 masked 部落翻乱了岭南的田埂。替我清剿六只，让书声重新安静。";
-            case NORTH:return "越秀山麓的 masked 部落惊扰了药圃。清剿六只，采药人才敢出门。";
-            case EAST:return "岛外的 masked 部落偷拆实验器材。清剿六只，格致城才能安心做实验。";
-            case ZHUHAI:return "海岸的 masked 部落掀翻了渔排。清剿六只，渔家才敢出海。";
-            case SHENZHEN:return "山道的 masked 部落堵了材料运输。清剿六只，炉火才能续上。";
-            default:return "遗址周围不太平，清剿六只 masked 部落吧。";
+            case SOUTH:return "城外面具部落翻乱了岭南的田埂。替我清剿六只，让书声重新安静。";
+            case NORTH:return "越秀山麓的面具部落惊扰了药圃。清剿六只，采药人才敢出门。";
+            case EAST:return "岛外的面具部落偷拆实验器材。清剿六只，格致城才能安心做实验。";
+            case ZHUHAI:return "海岸的面具部落掀翻了渔排。清剿六只，渔家才敢出海。";
+            case SHENZHEN:return "山道的面具部落堵了材料运输。清剿六只，炉火才能续上。";
+            default:return "遗址周围不太平，清剿六只面具部落吧。";
         }
     }
     private String thanks(int r){
@@ -347,10 +379,18 @@ public final class OpenWorld {
     }
     public String objective(Game g){
         int r=regionAt(g.x,g.y);
-        if(r>=0&&stage[r]==1)return REGIONS[r].name+" 委托 · 清剿 masked 部落 "+Math.min(6,campKillsForRegion(r))+"/6";
-        if(r>=0&&stage[r]==0)return "与"+REGIONS[r].name+"的居民交谈";
+        if(r>=0&&!REGIONS[r].city){
+            int done=0;for(Camp c:CAMPS)if(c.region==r)done+=campProgress[c.id];
+            boolean clean=(clearedCamps&(1<<ruinCamp(r)))!=0;
+            String shortName=r==RUIN_MED?"中山医大遗址":"上古遗址";
+            return clean?shortName+" 已净化 · 残垣归于寂静":"清剿"+shortName+"的面具部落 "+Math.min(8,done)+"/8";
+        }
+        String city=r>=0?REGIONS[r].name.split(" · ")[0]:"";
+        if(r>=0&&stage[r]==1)return city+"委托 · 清剿面具部落 "+Math.min(6,campKillsForRegion(r))+"/6";
+        if(r>=0&&stage[r]==0)return "与"+city+"的居民交谈";
         return "自由探索 · 发现五校区与两处遗址";
     }
+    private int ruinCamp(int region){for(Camp c:CAMPS)if(c.region==region)return c.id;return 0;}
 
     /* ---------- 存档 ---------- */
     public void write(DataOutputStream o)throws IOException{

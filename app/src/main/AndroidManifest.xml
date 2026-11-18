@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-feature android:glEsVersion="0x00020000" android:required="false" />
-    <application android:allowBackup="false" android:label="伍子平 · 星火远征"
+    <application android:allowBackup="false" android:label="星火远征 · 纪念版"
         android:icon="@drawable/icon" android:theme="@android:style/Theme.Material.NoActionBar"
         android:supportsRtl="true" android:hardwareAccelerated="true">
         <activity android:name="cn.wuziping.ember.MainActivity" android:exported="true" android:screenOrientation="sensorLandscape" android:resizeableActivity="true"

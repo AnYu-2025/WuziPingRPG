@@ -34,6 +34,14 @@ public final class Game {
     public String heroName=HERO;public boolean renamePending=false;public int effectsLevel=1;
     /** True while the game runs embedded behind the 天工 editor (show editor-return hints). */
     public boolean editorHost=false;
+    /** 纪念版：独立封装，启动直接踏入开放世界，标题页显示铭牌。 */
+    public boolean memorial=false;
+    /** 纪念版首次启动（无存档）时直接进入开放世界。 */
+    public void autoEnter(){
+        if(!memorial||activeRun)return;
+        startOpen();
+        story.dialogue=null;mode=pendingUpgrades>0?UPGRADE:PLAY;
+    }
     public final Vfx vfx=new Vfx();
     private final BodyNavigation bodyNavigation=new BodyNavigation();
     private final ArrayList<Enemy> enemySnapshot=new ArrayList<>();
@@ -102,7 +110,9 @@ public final class Game {
     public void pause(){if(mode==PLAY)mode=PAUSE;}
     public void title(){if(inHistory())history.exit(this);mode=TITLE;}
     public void announce(String s){bannerText=s;banner=3;}
-    public void openMap(){openMapReturn=mode==TITLE?TITLE:PLAY;mode=10;}
+    /** 开放世界大陆地图。编号避开 BodyJourney.MAP(10)/Arsenal.MENU(11)/Math(12)/Physics(13,14)。 */
+    public static final int OPEN_MAP=15;
+    public void openMap(){openMapReturn=mode==TITLE?TITLE:PLAY;mode=OPEN_MAP;}
     public int openMapReturn=TITLE;
     private void sound(String s){if(sounds.size()<32)sounds.add(s);}
     public void update(float dt,Input in){
@@ -299,7 +309,7 @@ public final class Game {
     }
     public void finish(boolean won){
         if(!activeRun)return;
-        if(inOpen()){if(!won){hp=Math.max(1,maxHp*.5f);lastCause=lastCause.isEmpty()?"masked 部落的围攻":lastCause;mode=DEAD;}else mode=VICTORY;return;}
+        if(inOpen()){if(!won){hp=Math.max(1,maxHp*.5f);lastCause=lastCause.isEmpty()?"面具部落的围攻":lastCause;mode=DEAD;}else mode=VICTORY;return;}
         if(inOpen()){hp=maxHp;potions=Math.max(1,potions);enemies.clear();shots.clear();drops.clear();x=1000;y=1520;invuln=1.5f;mode=PLAY;announce("回到康乐园 · 休整再出发");return;}
         if(inHistory()){history.defeat(this);return;}
         if(inMath()){math.defeat(this);return;}

@@ -78,6 +78,12 @@ public class OpenWorldTest {
         raw[4]=0;raw[5]=0;raw[6]=0;raw[7]=11;
         Game g4=Game.load(new ByteArrayInputStream(raw));
         check(!g4.world.enabled,"v11 save loads with default world");
+        // 纪念版：首次启动直接踏入开放世界；已有存档则不覆盖
+        Game m=new Game();m.memorial=true;m.autoEnter();
+        check(m.inOpen()&&m.mode==Game.PLAY,"memorial auto-enters open world");
+        check(m.story.dialogue==null,"memorial skips opening dialogue");
+        Game m2=new Game();m2.memorial=true;m2.startDream();m2.autoEnter();
+        check(!m2.inOpen(),"memorial keeps existing journey");
         System.out.println("RESULT pass="+pass+" fail="+fail);
         if(fail>0)System.exit(1);
     }

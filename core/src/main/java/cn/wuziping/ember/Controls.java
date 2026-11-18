@@ -25,14 +25,14 @@ public final class Controls {
         }
         if(g.mode==Game.TITLE){
             if(box(x,y,588,454,292,31)){g.renamePending=true;return;}
-            if(box(x,y,62,273,278,53)){if(g.activeRun)g.resume();else g.startDream();clear();}
+            if(box(x,y,62,273,278,53)){if(g.activeRun)g.resume();else if(g.memorial)g.startOpen();else g.startDream();clear();}
             else if(box(x,y,62,340,278,43)){if(g.activeRun)g.mode=8;else{helpReturn=Game.TITLE;g.mode=Game.HELP;}clear();}
-            else if(box(x,y,62,388,278,40)){g.startOpen();clear();}
+            else if(box(x,y,62,388,278,40)){if(g.memorial)g.startDream();else g.startOpen();clear();}
             else if(box(x,y,62,436,330,55)){journalReturn=Game.TITLE;g.mode=Game.JOURNAL;}
             return;
         }
-        if(g.mode==8){if(box(x,y,310,294,340,46)){g.startDream();clear();}else if(box(x,y,310,355,340,40))g.mode=Game.TITLE;return;}
-        if(g.mode==10){g.mode=g.openMapReturn;clear();return;}
+        if(g.mode==8){if(box(x,y,310,294,340,46)){if(g.memorial)g.startOpen();else g.startDream();clear();}else if(box(x,y,310,355,340,40))g.mode=Game.TITLE;return;}
+        if(g.mode==Game.OPEN_MAP){g.mode=g.openMapReturn;clear();return;}
         if(g.mode==BodyJourney.MAP){if(box(x,y,340,450,280,38)){g.mode=mapReturn;clear();}return;}
         if(g.mode==MathJourney.MAP){
             if(box(x,y,340,455,280,37)){g.mode=mapReturn;clear();return;}
@@ -84,7 +84,7 @@ public final class Controls {
             boolean talked=false;
             for(OpenWorld.Npc n:OpenWorld.NPCS)if(circle(x,y,(n.x-camX)*2,(n.y-camY)*2-18,30)){if(Game.dist(g.x,g.y,n.x,n.y)<43)g.world.talk(g,n);else g.announce("再靠近"+n.name+"一些，就可以交谈。");talked=true;clear();break;}
             if(talked)return;
-            if(circle(rx,by,847,429,57)){g.story.interact(g);clear();return;}
+            if(circle(rx,by,640,472,44)){g.story.interact(g);clear();return;}
             if(circle(rx,by,866,428,55)){attackPointer=pointer;input.attack=true;}
             else if(circle(rx,by,764,449,44))input.skill=true;
             else if(circle(rx,by,860,330,38))input.dash=true;
@@ -130,7 +130,7 @@ public final class Controls {
     public void pulsesConsumed(){input.skill=input.dash=input.potion=input.ultimate=false;}
     public void back(Game g){
         dirty=true;clear();
-        if(g.mode==Game.PLAY)g.pause();else if(g.mode==Game.PAUSE)g.resume();else if(g.mode==Game.HELP)g.mode=helpReturn;else if(g.mode==Game.JOURNAL||g.mode==PhysicsJourney.JOURNAL)g.mode=journalReturn;else if(g.mode==BodyJourney.MAP||g.mode==MathJourney.MAP||g.mode==PhysicsJourney.MAP)g.mode=mapReturn;else if(g.mode==10)g.mode=g.openMapReturn;else if(g.mode==Arsenal.MENU)g.mode=Game.PLAY;else if(g.mode==8)g.title();else if(g.mode==Game.DIALOGUE){g.story.dialogue=null;g.mode=Game.PLAY;}
+        if(g.mode==Game.PLAY)g.pause();else if(g.mode==Game.PAUSE)g.resume();else if(g.mode==Game.HELP)g.mode=helpReturn;else if(g.mode==Game.JOURNAL||g.mode==PhysicsJourney.JOURNAL)g.mode=journalReturn;else if(g.mode==BodyJourney.MAP||g.mode==MathJourney.MAP||g.mode==PhysicsJourney.MAP)g.mode=mapReturn;else if(g.mode==Game.OPEN_MAP)g.mode=g.openMapReturn;else if(g.mode==Arsenal.MENU)g.mode=Game.PLAY;else if(g.mode==8)g.title();else if(g.mode==Game.DIALOGUE){g.story.dialogue=null;g.mode=Game.PLAY;}
     }
     public void key(Game g,String key,boolean pressed){
         if("ESCAPE".equals(key)){if(pressed)back(g);return;}

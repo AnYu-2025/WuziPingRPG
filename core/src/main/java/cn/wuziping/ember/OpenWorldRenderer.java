@@ -86,7 +86,7 @@ public final class OpenWorldRenderer {
             if(!cleared){float f=(float)Math.sin(clock*8+c.id)*2;p.oval(x+26,y-8,10,8,0xffe07a45);p.rect(x+29,y-14-f,4,6,0xffffd37a);}
             // 图腾
             p.rect(x-32,y-34,6,34,0xff5a4a3a);p.rect(x-34,y-40,10,8,cleared?0xff6a6a62:0xffc45c6a);
-            tag(p,camX,camY,cleared?"营地 · 已净化":"masked 部落",c.x,c.y+8,cleared?0xff9fd3b3:0xffe5a29e);
+            tag(p,camX,camY,cleared?"营地 · 已净化":"面具部落",c.x,c.y+8,cleared?0xff9fd3b3:0xffe5a29e);
         }
         // NPC
         for(OpenWorld.Npc n:OpenWorld.NPCS){
@@ -135,6 +135,38 @@ public final class OpenWorldRenderer {
         else{float gl=(float)Math.sin(clock*2)*.5f+.5f;p.oval(x-14,y-30,28,20,((int)(gl*120)<<24)|0x9fd8cc);}
         tag(p,camX,camY,rg.name,rg.x,rg.y+26,med?0xffc8c8c0:0xff9fd8cc);
     }
+    /** 面具部落：戴木质面具的小怪，按兵种换配色与持械，不复用森林史莱姆贴图。 */
+    public static void tribesman(Painter p,Game g,Game.Enemy e,float camX,float camY,float clock){
+        float x=(e.x-camX)*2,y=(e.y-camY)*2;
+        boolean big=e.type==2,shaman=e.type==3;
+        float s=big?1.35f:1f;
+        float bob=(float)Math.sin(clock*(big?4:6)+e.id)*1.6f;
+        int cloth=shaman?0xff5c6ea8:big?0xff8a5a3c:0xff7a6a4a;
+        int mask=shaman?0xffd8cfe8:0xffe0cfa8;
+        p.oval(x-14*s,y-5,28*s,10,0x77101a14);
+        // 腿
+        p.rect(x-8*s,y-12*s,5*s,12*s,0xff4a3a2a);p.rect(x+3*s,y-12*s,5*s,12*s,0xff4a3a2a);
+        // 躯干（草编护甲）
+        p.rect(x-11*s,y-30*s+bob,22*s,20*s,cloth);
+        p.rect(x-11*s,y-24*s+bob,22*s,2,0x33000000);
+        // 手臂
+        p.rect(x-15*s,y-28*s+bob,5*s,14*s,cloth);p.rect(x+10*s,y-28*s+bob,5*s,14*s,cloth);
+        // 木面具
+        p.rect(x-10*s,y-46*s+bob,20*s,17*s,mask);
+        p.rect(x-10*s,y-46*s+bob,20*s,3,0xffb89a68);
+        // 面具眼孔与刻纹
+        p.rect(x-6*s,y-40*s+bob,4*s,4*s,0xff241a12);p.rect(x+2*s,y-40*s+bob,4*s,4*s,0xff241a12);
+        p.rect(x-4*s,y-33*s+bob,8*s,2,0xffa8845c);
+        // 头饰：萨满羽冠 / 巨汉角
+        if(shaman){p.rect(x-2*s,y-56*s+bob,4*s,11*s,0xffc45c6a);p.rect(x-8*s,y-52*s+bob,4*s,8,0xffe8c27a);p.rect(x+4*s,y-52*s+bob,4*s,8,0xffe8c27a);}
+        else if(big){p.rect(x-13*s,y-50*s+bob,5*s,6,0xffd8c8a0);p.rect(x+8*s,y-50*s+bob,5*s,6,0xffd8c8a0);}
+        // 持械：萨满法杖 / 巨汉石斧 / 普通木棒
+        if(shaman){p.rect(x+15*s,y-44*s+bob,3*s,34*s,0xff6a5038);p.oval(x+13*s,y-50*s+bob,8*s,8*s,0xff9fd8cc);}
+        else if(big){p.rect(x+14*s,y-40*s+bob,3*s,28*s,0xff6a5038);p.rect(x+11*s,y-44*s+bob,12*s,9*s,0xff8a8a92);}
+        else{p.rect(x+14*s,y-34*s+bob,3*s,22*s,0xff6a5038);}
+        if(e.hit>0){int a=(int)(e.hit/.15f*150);p.oval(x-14*s,y-46*s,28*s,36*s,(a<<24)|0xfff6e2);}
+        if(e.hp<e.maxHp){float w=34*s;p.rect(x-w/2-1,y-56*s,w+2,6,0xff132320);p.rect(x-w/2,y-55*s,w*Math.max(0,e.hp/e.maxHp),4,0xffc97b65);}
+    }
     private static void tag(Painter p,float camX,float camY,String text,float x,float y,int color){
         float sx=(x-camX)*2,sy=(y-camY)*2;
         float w=text.length()*10+14;
@@ -163,8 +195,10 @@ public final class OpenWorldRenderer {
     /** 大地图全屏：五校区 + 遗址 + 营地 + 道路，标注发现状态。 */
     public static void bigMap(Painter p,Game g,float W,float H,float clock){
         p.rect(0,0,W,H,0xf00a1418);
-        float mw=Math.min(W-160,760),mh=mw*OpenWorld.H/OpenWorld.W;
-        float mx=(W-mw)/2,my=(H-mh)/2;
+        // 顶部留标题、底部留提示，按可用高度反算宽度，避免地图顶出屏幕。
+        float top=64,bottom=42,availH=Math.max(120,H-top-bottom);
+        float mw=Math.min(W-120,availH*OpenWorld.W/OpenWorld.H),mh=mw*OpenWorld.H/OpenWorld.W;
+        float mx=(W-mw)/2,my=top+(availH-mh)/2;
         p.rect(mx-4,my-4,mw+8,mh+8,0xffe6d2a2);p.rect(mx-2,my-2,mw+4,mh+4,0xff6a4038);
         float sx=mw/OpenWorld.W,sy=mh/OpenWorld.H;
         for(int ty=0;ty<OpenWorld.H/16;ty+=2)for(int tx=0;tx<OpenWorld.W/16;tx+=2){
@@ -198,7 +232,8 @@ public final class OpenWorldRenderer {
         // 玩家
         float px=mx+g.x*sx,py=my+g.y*sy;
         p.oval(px-4,py-4,8,8,0xffb1ead3);
-        p.text("开放世界 · 中山大学五校区两遗址",W/2,my-16,16,0xffe8c27a,1);
-        p.text("点击地图外或按返回键回到旅程",W/2,my+mh+22,11,0xffa9bbb6,1);
+        p.text("大陆全图 · 中山大学五校区两遗址",W/2,34,18,0xffe8c27a,1);
+        p.text("金 校区   青 遗址   红面具部落营地   绿 已净化   浅绿 你的位置",W/2,52,11,0xffa9bbb6,1);
+        p.text("点击任意处或按返回键回到旅程 · 已发现 "+Integer.bitCount(g.world.discovered)+" / 7",W/2,H-18,11,0xffa9bbb6,1);
     }
 }
