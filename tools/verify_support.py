@@ -19,6 +19,17 @@ VERSION_CODE_RE = re.compile(r"versionCode\s+(\d+)")
 VERSION_NAME_RE = re.compile(r"versionName\s+'([^']+)'")
 CHECKSUM_RE = re.compile(r"^([0-9a-fA-F]{64})\s+\*?(\S.*?)\s*$")
 SAFE_VERSION_NAME = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._+-]*$")
+DEVELOPMENT_SIGNER_SHA256 = "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335aebf0214d5aca"
+
+
+def verify_apk_signature(signature: str) -> str:
+    """Check apksigner verify --verbose --print-certs output for our current releases."""
+    if "Verified using v2 scheme (APK Signature Scheme v2): true" not in signature.splitlines():
+        raise ValueError("APK Signature Scheme v2 was not verified")
+    signers = re.findall(r"^Signer #\d+ certificate SHA-256 digest: ([a-fA-F0-9]{64})\s*$", signature, re.MULTILINE)
+    if [digest.lower() for digest in signers] != [DEVELOPMENT_SIGNER_SHA256]:
+        raise ValueError("expected one signer with the original development certificate")
+    return DEVELOPMENT_SIGNER_SHA256
 
 
 @dataclass(frozen=True)

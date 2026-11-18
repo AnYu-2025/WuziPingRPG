@@ -2,16 +2,19 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import verify_support
+from verify_studio_assets import PAGES, check_apk_shell
 
 
 def load_interface():
@@ -74,6 +77,16 @@ class GradleAndTools(unittest.TestCase):
         self.assertEqual(verify_support.bytes_match(b"a\r\nb", b"a\nb"), "newline")
         self.assertEqual(verify_support.bytes_match(b"a\nb", b"a\nb"), "exact")
         self.assertIsNone(verify_support.bytes_match(b"\xff", b"\xfe"))
+
+    def test_release_signature_requires_v2_and_exactly_the_expected_signer(self):
+        v2 = "Verified using v2 scheme (APK Signature Scheme v2): true"
+        digest = verify_support.DEVELOPMENT_SIGNER_SHA256
+        signer = f"Signer #1 certificate SHA-256 digest: {digest}"
+        self.assertEqual(verify_support.verify_apk_signature(f"{v2}\n{signer}"), digest)
+        for report in (signer, v2, f"{v2}\n{signer}\n{signer.replace('#1', '#2')}",
+                       f"{v2}\nSigner #1 certificate SHA-256 digest: {'0' * 64}"):
+            with self.subTest(report=report), self.assertRaises(ValueError):
+                verify_support.verify_apk_signature(report)
 
     def test_suite_lists_include_physics_and_history(self):
         desktop = verify_support.read_suite_names(ROOT / "tools" / "java-suites-desktop.txt")
@@ -147,9 +160,8 @@ class Entrypoints(unittest.TestCase):
             self.assertEqual(entries.get(name), digest, checksum)
         game = verify_support.read_gradle_version(ROOT / "app" / "build.gradle")
         game_sums = verify_support.checksum_map(ROOT / "dist" / "SHA256SUMS.txt")
-        for suffix in ("debug", "parallel-debug"):
-            game_name = f"WuziPing-Emberbound-{game.version_name}-{suffix}.apk"
-            self.assertEqual(game_sums.get(game_name), verify_support.sha256_file(ROOT / "dist" / game_name))
+        game_name = f"星火远征-纪念版-{game.version_name}.apk"
+        self.assertEqual(game_sums.get(game_name), verify_support.sha256_file(ROOT / "dist" / game_name))
 
 
 class Gate(unittest.TestCase):
@@ -264,9 +276,9 @@ class BuildToolsSelection(unittest.TestCase):
         directory = root / "build-tools" / version
         (directory / "lib").mkdir(parents=True)
         if "zipalign" in tools:
-            (directory / "zipalign").write_bytes(b"")
+            (directory / verify_support.executable_name("zipalign")).write_bytes(b"")
         if "aapt" in tools:
-            (directory / "aapt").write_bytes(b"")
+            (directory / verify_support.executable_name("aapt")).write_bytes(b"")
         if "apksigner.jar" in tools:
             (directory / "lib" / "apksigner.jar").write_bytes(b"")
         return directory
@@ -332,46 +344,52 @@ class BuildToolsSelection(unittest.TestCase):
 
 
 class PublishedPackages(unittest.TestCase):
-    def test_dev_check_does_not_claim_a_finished_release(self):
-        for script in ("tools/verify-release.py", "tools/verify-studio-release.py"):
-            completed = subprocess.run(
-                ["python3", script],
-                cwd=ROOT,
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(completed.returncode, 0, completed.stderr)
-            self.assertIn("EXIT: INCOMPLETE", completed.stdout)
-            self.assertNotIn("EXIT: PASS", completed.stdout)
-            self.assertIn("mode=dev", completed.stdout)
+    def test_published_packages_with_missing_sdk(self):
+        # Exercise real packages, with only the SDK missing regardless of the host.
+        with tempfile.TemporaryDirectory() as empty_sdk:
+            for script in ("tools/verify-release.py", "tools/verify-studio-release.py"):
+                for flags, code, verdict in [((), 0, "INCOMPLETE"), (("--strict",), 1, "FAIL")]:
+                    with self.subTest(script=script, flags=flags):
+                        result = subprocess.run(
+                            [sys.executable, "-X", "utf8", script, "--sdk-root", empty_sdk, *flags],
+                            cwd=ROOT, capture_output=True, encoding="utf-8",
+                        )
+                        self.assertEqual(result.returncode, code, result.stdout + result.stderr)
+                        self.assertIn("FAIL=0", result.stdout)
+                        self.assertIn("KNOWN=0", result.stdout)
+                        self.assertRegex(result.stdout, r"SKIP=[1-9][0-9]*")
+                        self.assertIn(f"EXIT: {verdict}", result.stdout)
 
-    def test_strict_gate_fails_on_the_published_gaps(self):
-        game = subprocess.run(
-            ["python3", "tools/verify-release.py", "--strict"],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        self.assertNotEqual(game.returncode, 0)
-        self.assertIn("EXIT: FAIL", game.stdout)
-        self.assertIn("HistoryJourney", game.stdout)
-        self.assertIn("history_road.png", game.stdout)
-        self.assertTrue(verify_support.summary_is_known_gap_only(game.stdout), game.stdout)
-        self.assertNotIn("java or apksigner", game.stdout)
-        studio = subprocess.run(
-            ["python3", "tools/verify-studio-release.py", "--strict"],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        self.assertNotEqual(studio.returncode, 0)
-        self.assertIn("EXIT: FAIL", studio.stdout)
-        self.assertIn("editor.page", studio.stdout)
-        self.assertTrue(verify_support.summary_is_known_gap_only(studio.stdout), studio.stdout)
-        self.assertNotIn("java/zipalign/aapt/apksigner not all present", studio.stdout)
+
+class StudioShell(unittest.TestCase):
+    def test_packed_pages_scripts_and_styles(self):
+        files = dict.fromkeys(PAGES, b"home\n")
+        files.update({"studio/app.js": b"start();\n", "studio/star-home.css": b".home{}\n"})
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "studio").mkdir()
+            for name, data in files.items():
+                (root / name).write_bytes(data.replace(b"\n", b"\r\n"))
+            index = root / "studio/index.html"
+            cases = [
+                ("LF and CRLF", {}),
+                ("stale fallback", {"studio/editor.page": b"stale"}),
+                ("stale root fallback", {"editor.page": b"stale"}),
+                ("stale bundle", {"studio/app.js": b"stale"}),
+                ("stale stylesheet", {"studio/star-home.css": b"stale"}),
+                ("obsolete chunk", {"studio/chunk-00000000.js": b"unused"}),
+                ("missing bundle", {"studio/app.js": None}),
+            ]
+            for label, updates in cases:
+                with self.subTest(label=label), zipfile.ZipFile(io.BytesIO(), "w") as archive:
+                    for name, data in (files | updates).items():
+                        if data is not None:
+                            archive.writestr("assets/" + name, data)
+                    if updates:
+                        with self.assertRaises((KeyError, ValueError)):
+                            check_apk_shell(archive, root, index)
+                    else:
+                        self.assertEqual(check_apk_shell(archive, root, index), len(files))
 
 
 class ScriptsRun(unittest.TestCase):

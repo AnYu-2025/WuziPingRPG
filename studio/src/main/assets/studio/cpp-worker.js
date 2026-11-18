@@ -61,6 +61,9 @@ self.onmessage=async({data})=>{
     const stdinLines=String(data.stdin||'').split('\n');
     if(stdinLines[stdinLines.length-1]==='')stdinLines.pop();
     let inputIndex=0;
+    const rootPrefix=data.projectRoot && valid(data.projectRoot) && data.path.startsWith(data.projectRoot+'/')
+      ? data.projectRoot+'/' : '';
+    const runtimeFiles=rootPrefix ? files.filter(f=>f.path.startsWith(rootPrefix)).map(f=>({path:f.path.slice(rootPrefix.length),text:f.text})) : files;
     const runStarted=performance.now();
     let host=null;
     const result=await chain.execute(built.result,{
@@ -69,7 +72,7 @@ self.onmessage=async({data})=>{
       stdin:()=>inputIndex<stdinLines.length?stdinLines[inputIndex++]+'\n':null,
       stdout:chunk=>emit('stdout',chunk),
       stderr:chunk=>emit('stderr',chunk),
-      files:files.map(f=>({path:f.path,contents:f.text})),
+      files:runtimeFiles.map(f=>({path:f.path,contents:f.text})),
       /* execute 不直接返回文件系统；extraImports 是文档化的扩展点，
          在这里拿到 host 引用，运行结束后读程序写出的文件。 */
       extraImports:context=>{host=context.host;return {};}
@@ -89,7 +92,7 @@ self.onmessage=async({data})=>{
           else if(node&&node.data){
             const bytes=node.data instanceof Uint8Array?node.data:new Uint8Array(node.data);
             if(bytes.length>2*1024*1024||total+bytes.length>12*1024*1024||bytes.includes(0))continue;
-            try{const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);if(valid(path)&&!files.some(f=>f.path===path&&f.text===text)){outFiles.push({path,text});total+=bytes.length;}}catch(e){}
+            try{const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);const target=rootPrefix+path;if(valid(target)&&!files.some(f=>f.path===target&&f.text===text)){outFiles.push({path:target,text});total+=bytes.length;}}catch(e){}
           }
         }
       };

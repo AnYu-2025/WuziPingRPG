@@ -1,0 +1,124 @@
+#landing[data-surface="desk"] {
+  display: block;
+  padding: 0;
+  background: #f4f2ec;
+}
+#landing[data-surface="desk"][hidden],
+#landing[data-surface="desk"] > :not(#workspaceDesk),
+#landing[data-surface="desk"]::before,
+#landing[data-surface="desk"]::after,
+#landing[data-surface="catalog"] > #workspaceDesk { display: none !important; }
+
+#workspaceDesk {
+  --paper: #f5f3ed;
+  --panel: #fffefa;
+  --ink: #282b31;
+  --muted: #595d62;
+  --line: #d9d8ce;
+  --accent: #a34128;
+  --on-accent: #fff;
+  --soft: #f5e5d7;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.52 system-ui, sans-serif;
+  text-align: left;
+  color-scheme: light;
+}
+#workspaceDesk[data-workspace="code"] {
+  --paper: #131724;
+  --panel: #1d2332;
+  --ink: #eff0fb;
+  --muted: #b2b9d1;
+  --line: #363d51;
+  --accent: #c9c2ff;
+  --on-accent: #20223a;
+  --soft: #30334c;
+  color-scheme: dark;
+}
+html[data-theme="dark"] #workspaceDesk[data-workspace="study"] {
+  --paper: #201d20; --panel: #2b2729; --ink: #f5eae0; --muted: #c6b8b2;
+  --line: #4a403f; --accent: #f4b28b; --soft: #473634; color-scheme: dark;
+}
+#workspaceDesk *, #workspaceDesk *::before, #workspaceDesk *::after { box-sizing: border-box; }
+#workspaceDesk h1, #workspaceDesk h2, #workspaceDesk h3, #workspaceDesk p { margin: 0; }
+#workspaceDesk button, #catalogHome, button.desk-switch { font-family: inherit; cursor: pointer; }
+#workspaceDesk button { color: inherit; min-height: 44px; font-size: inherit; border: 0; box-shadow: none; }
+#workspaceDesk :focus-visible, #catalogHome:focus-visible { outline: 3px solid #5896e6; outline-offset: -3px; }
+#workspaceDesk .desk-bar {
+  flex: none; display: flex; align-items: center; justify-content: space-between;
+  min-height: 54px; padding: 0 max(20px,calc((100% - 960px)/2));
+  border-bottom: 1px solid var(--line); background: var(--panel);
+}
+#workspaceDesk .desk-bar strong { font-size: 19px; letter-spacing: .12em; }
+#workspaceDesk .desk-bar button {
+  display: inline-flex; align-items: center; gap: 9px; padding: 0 3px;
+  border-radius: 4px; background: transparent; font-size: 14px; font-weight: 650;
+}
+#workspaceDesk .desk-bar button span { color: var(--accent); font-size: 20px; }
+.desk-scroll {
+  width: 100%; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: 22px max(18px,calc((100% - 960px)/2)) calc(28px + env(safe-area-inset-bottom));
+}
+.desk-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+#workspaceDesk .desk-heading h1 { font-size: clamp(26px,4.5vw,38px); line-height: 1.25; letter-spacing: -.04em; font-weight: 780; }
+.desk-heading time { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.desk-tabs { display: inline-flex; padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 13px; margin: 15px 0 18px; }
+#workspaceDesk .desk-tabs button { min-width: 88px; padding: 0 19px; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 650; }
+#workspaceDesk .desk-tabs button[aria-selected="true"] { background: var(--ink); color: var(--paper); }
+#deskBody { display: grid; gap: 15px; align-items: start; }
+.desk-feature {
+  position: relative; isolation: isolate; overflow: hidden; grid-column: 1/-1;
+  padding: 20px 23px; border-radius: 19px; color: #fffaf2; background: #292527;
+}
+.desk-feature::before {
+  content: ""; position: absolute; z-index: -1; inset: 0;
+  background: linear-gradient(102deg,#39292c 3%,rgba(59,42,51,.94) 38%,rgba(34,29,54,.42) 100%),
+              url("meteor-sky.webp") center 45% / cover;
+}
+[data-workspace="code"] .desk-feature::before {
+  background: linear-gradient(102deg,#24263e 3%,rgba(45,45,83,.93) 38%,rgba(36,41,77,.42) 100%),
+              url("meteor-sky.webp") center 65% / cover;
+}
+#workspaceDesk .desk-kicker { display: block; font-size: 13px; font-weight: 700; letter-spacing: .08em; color: #ffd7b5; }
+#workspaceDesk[data-workspace="code"] .desk-kicker { color: #cdc9ff; }
+#workspaceDesk .desk-title { margin: 6px 0; color: #fffaf5; font-size: clamp(23px,4vw,34px); line-height: 1.3; overflow-wrap: anywhere; }
+.desk-detail { font-size: 14px; line-height: 1.55; color: var(--muted); }
+#workspaceDesk .desk-feature .desk-detail { color: #f0e6e3; max-width: 52ch; }
+#workspaceDesk .desk-primary { margin-top: 14px; padding: 0 20px; background: #ffddbd; color: #35232b; border-radius: 9px; font-weight: 740; }
+#workspaceDesk[data-workspace="code"] .desk-primary { background: #d2caff; color: #282441; }
+.desk-section { min-width: 0; padding: 15px 16px 4px; border: 1px solid var(--line); border-radius: 15px; background: var(--panel); }
+#workspaceDesk .desk-section-head, #workspaceDesk .desk-section-title { font-size: 16px; font-weight: 730; color: var(--ink); }
+#workspaceDesk .desk-section-head { padding-bottom: 9px; }
+.desk-section > .desk-detail { padding: 2px 0 14px; }
+.desk-list { display: grid; }
+#workspaceDesk .desk-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; min-height: 48px;
+  padding: 10px 2px; border-top: 1px solid var(--line); border-radius: 0; background: transparent;
+}
+#workspaceDesk .desk-row:hover, #workspaceDesk .desk-row:active { background: var(--soft); }
+.desk-row-copy { display: grid; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+#workspaceDesk .desk-row-title { color: var(--ink); font-size: 15px; font-weight: 640; }
+#workspaceDesk .desk-row-meta { margin-top: 1px; color: var(--muted); font-size: 12.5px; }
+#workspaceDesk .desk-mark { flex: none; color: var(--accent); font-size: 17px; }
+#workspaceDesk details summary { cursor: pointer; min-height: 42px; }
+#catalogHome {
+  position: absolute; z-index: 8; top: calc(7px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  min-height: 40px; padding: 0 13px; color: #f1f3fa; background: #222b3c; border: 1px solid #778399; border-radius: 9px;
+}
+button.desk-switch { flex: none; min-height: 40px; padding: 0 7px; border: 0; background: transparent; color: #c5c9fb; font-size: 13px; }
+@media (min-width: 700px) {
+  #deskBody { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+  .desk-scroll { padding-top: 28px; }
+  .desk-feature { padding: 25px 30px; }
+}
+@media (max-height: 490px) {
+  #workspaceDesk .desk-bar { min-height: 44px; }
+  .desk-scroll { padding-top: 10px; }
+  .desk-tabs { margin: 6px 0 8px; }
+}

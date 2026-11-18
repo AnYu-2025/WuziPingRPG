@@ -122,6 +122,8 @@ body.starhome .home-scroll::-webkit-scrollbar-thumb{background:rgba(148,190,233,
 body.starhome.listview #landing{background:linear-gradient(180deg,#0a0f1c 0%,#0b1220 55%,#0a101c 100%)}
 body.starhome.listview #landing::before{opacity:.25}
 body.starhome.listview .home-scroll{scroll-snap-type:y proximity}
+body.starhome.listview .home-scroll.restored-position{scroll-snap-type:none;overflow-anchor:none}
+body.starhome.listview .home-hero{scroll-snap-align:start}
 body.starhome.listview .home-group{scroll-snap-align:start;scroll-margin-top:12px}
 body.starhome.listview .home-brand strong,body.starhome.listview .home-scroll h1,body.starhome.listview .home-ghead h2,body.starhome.listview .home-copy strong{color:#e8f0fa}
 body.starhome.listview .brandsub,body.starhome.listview .home-lead,body.starhome.listview .home-ghead span,body.starhome.listview .home-copy small,body.starhome.listview .home-foot{color:#8aa5c0}

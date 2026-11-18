@@ -51,4 +51,5 @@ rm -f "$APK.idsig"
 "$JDK_ROOT/bin/java" -jar "$BT/lib/apksigner.jar" verify --verbose "$APK" | head -4
 "$BT/zipalign" -c 4 "$APK"
 "$BT/aapt" dump badging "$APK" | head -6
+"$PY" "$ROOT/tools/verify_support.py" --merge-checksums "$DIST/SHA256SUMS.txt" "$(basename "$APK")"
 echo "Memorial APK ready: $APK"

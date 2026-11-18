@@ -1,11 +1,23 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"><meta name="theme-color" content="#ffffff"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 23V9h4v5.4L17.2 9h5.2l-5.8 6.1L23 23h-5.2l-3.7-5.4L12 19.4V23z' fill='white'/%3E%3C/svg%3E"><meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'"><title>天工</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lecture.css"><link rel="stylesheet" href="tts.css"><link rel="stylesheet" href="ai.css"><link rel="stylesheet" href="model.css"><link rel="stylesheet" href="star-home.css"><link rel="stylesheet" href="shell.css"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="cockpit.css"><script src="theme-boot.js"></script></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"><meta name="theme-color" content="#ffffff"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 23V9h4v5.4L17.2 9h5.2l-5.8 6.1L23 23h-5.2l-3.7-5.4L12 19.4V23z' fill='white'/%3E%3C/svg%3E"><meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'"><title>天工</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lecture.css"><link rel="stylesheet" href="tts.css"><link rel="stylesheet" href="ai.css"><link rel="stylesheet" href="model.css"><link rel="stylesheet" href="star-home.css"><link rel="stylesheet" href="shell.css"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="cockpit.css"><link rel="stylesheet" href="workspace.css"><script src="theme-boot.js"></script></head>
 <body>
-<section id="landing" class="home" aria-label="天工首页" data-ready="0">
+<section id="landing" class="home" aria-label="天工首页" data-ready="0" data-surface="desk">
+<section id="workspaceDesk" data-workspace="study" aria-label="我的工作区">
+  <header class="desk-bar"><strong>天工</strong><button id="deskCatalog" type="button">全部工具 <span aria-hidden="true">↗</span></button></header>
+  <div class="desk-scroll" id="deskScroll">
+    <div class="desk-heading"><h1>我的工作区</h1><time id="deskDate"></time></div>
+    <div class="desk-tabs" role="tablist" aria-label="工作区">
+      <button id="deskStudy" type="button" role="tab" aria-controls="deskBody" aria-selected="true">学习</button>
+      <button id="deskCode" type="button" role="tab" aria-controls="deskBody" aria-selected="false" tabindex="-1">编程</button>
+    </div>
+    <div id="deskBody" role="tabpanel" aria-labelledby="deskStudy" aria-busy="true"><p>正在读取本机工作区…</p></div>
+  </div>
+</section>
+<button id="catalogHome" type="button">‹ 工作区</button>
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.4.2</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.5.0</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -123,13 +135,13 @@
  <p class="home-foot">东西都会自动存好。想把改动写回手机上的原文件，打开文件点「保存」就行。</p>
 </div>
 <div class="home-pages" id="homePages" aria-hidden="true"></div>
-<div id="starHoleSheet" class="star-hole-sheet" hidden>
+<div id="starHoleSheet" class="star-hole-sheet" role="dialog" aria-modal="false" aria-label="黑洞收纳" hidden>
  <div class="star-hole-head"><strong>黑洞收纳</strong><button id="starHoleClose" type="button" aria-label="关闭">✕</button></div>
  <div id="starHoleList"></div>
  <p class="star-hole-note">收进来的星星只是隐藏，随时放回或打开，不影响任何草稿。</p>
 </div>
 </section>
-<header class="appbar"><button id="homeButton" class="homeback" type="button" aria-label="回到首页" title="回到首页"><span class="homeback-chev" aria-hidden="true">‹</span><span class="homeback-label">首页</span></button><button id="filesToggle" class="icon" aria-label="文件列表" title="文件列表">☰</button><div class="doc"><strong id="activePath">main.py</strong><small id="dirtyFlag">本地草稿</small></div><button id="drawToggle" class="icon drawtoggle" aria-label="画画" title="画画" aria-pressed="false" hidden>🖌️</button><button id="mdToggle" class="icon mdtoggle" aria-label="Markdown 预览" title="Markdown 预览" aria-pressed="false" hidden>👁</button><button id="saveButton" class="icon saveicon" aria-label="保存" title="保存">保存</button><button id="runButton" class="primary">▶ 运行</button><button id="stopButton" class="danger" hidden>■ 停止</button><button id="moreButton" class="icon" aria-label="更多操作" title="更多操作">⋯</button></header>
+<header class="appbar"><button id="homeButton" class="homeback" type="button" aria-label="回到首页" title="回到首页"><span class="homeback-chev" aria-hidden="true">‹</span><span class="homeback-label">首页</span></button><button id="deskSwitch" class="desk-switch" type="button">切换工作区</button><button id="filesToggle" class="icon" aria-label="文件列表" title="文件列表">☰</button><div class="doc"><strong id="activePath">main.py</strong><small id="dirtyFlag">本地草稿</small></div><button id="drawToggle" class="icon drawtoggle" aria-label="画画" title="画画" aria-pressed="false" hidden>🖌️</button><button id="mdToggle" class="icon mdtoggle" aria-label="Markdown 预览" title="Markdown 预览" aria-pressed="false" hidden>👁</button><button id="saveButton" class="icon saveicon" aria-label="保存" title="保存">保存</button><button id="runButton" class="primary">▶ 运行</button><button id="stopButton" class="danger" hidden>■ 停止</button><button id="moreButton" class="icon" aria-label="更多操作" title="更多操作">⋯</button></header>
 <section id="lectureBar" aria-label="上课录音控制" data-state="idle"><span class="recdot" aria-hidden="true"></span><button id="recordBtn" data-role="rec"><span id="recordLabel">🎙 开始录音</span></button><button id="pauseBtn" class="recalt" hidden>⏸ 暂停</button><button id="stopBtn" class="recstop" hidden>⏹ 停止</button><button id="newRecBtn" class="recalt" hidden>🎙 新录音</button><strong id="recordTimer">00:00</strong><label class="rec-translate" id="translateToggle"><input type="checkbox" id="translateCheck"><span class="reccheck"></span><span class="reclabel">翻译</span></label><span class="grow"></span><button id="anchorBtn" class="recanchor" hidden>📌<span class="anchorbtntext"> 标记锚点</span></button></section>
 <section id="ttsBar" aria-label="英文朗读控制" data-state="idle">
 <div class="tts-main"><span class="tts-mark" aria-hidden="true">EN</span><div class="tts-summary"><strong>英文朗读</strong><small id="ttsMeta" aria-live="off">在编辑器里输入或打开英文文本</small></div><button id="ttsPlay" class="tts-play" aria-label="开始英语朗读"><span id="ttsPlayText">朗读</span></button><button id="ttsStop" class="tts-stop" aria-label="停止英语朗读" title="停止">■</button></div>
@@ -672,7 +684,7 @@
  </div></div>
 </aside>
 <div class="ai-main">
- <header class="ai-head"><button id="aiHome" class="homeback" type="button" aria-label="回到首页"><span class="homeback-chev" aria-hidden="true">‹</span><span class="homeback-label">首页</span></button><h2 id="aiTitle">AI 助手</h2><button id="aiSettingsToggle" type="button" aria-expanded="false" aria-controls="aiPanel">设置</button><span class="ai-status" id="aiStatus">联网未开启</span><span class="grow"></span>
+ <header class="ai-head"><button id="aiHome" class="homeback" type="button" aria-label="回到首页"><span class="homeback-chev" aria-hidden="true">‹</span><span class="homeback-label">首页</span></button><button id="aiDeskSwitch" class="desk-switch" type="button">切换工作区</button><h2 id="aiTitle">AI 助手</h2><button id="aiSettingsToggle" type="button" aria-expanded="false" aria-controls="aiPanel">设置</button><span class="ai-status" id="aiStatus">联网未开启</span><span class="grow"></span>
   <div class="ai-headtools"><select id="aiLang" aria-label="语言"><option value="zh">中文</option><option value="en">English</option></select>
   <select id="aiTheme" aria-label="主题"><option value="jade">青绿</option><option value="ink">墨蓝</option><option value="amber">琥珀</option><option value="rose">胭脂</option><option value="ocean">湖蓝</option><option value="violet">紫藤</option></select>
   <select id="aiView" aria-label="视图"><option value="chat">对话</option><option value="web">网页</option></select>

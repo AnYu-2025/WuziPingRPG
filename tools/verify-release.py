@@ -1,4 +1,4 @@
-"""Verify the current game APKs. Read-only: it does not rewrite checksums or release notes.
+"""Verify the standalone memorial game APK without changing published files.
 
 The version comes from app/build.gradle. The historical 0.7.0 log
 (artifacts/verification-v0.7.log, 354 checks) is not a pass condition.
@@ -22,6 +22,7 @@ from verify_support import (
     read_gradle_version,
     render_gate,
     sha256_file,
+    verify_apk_signature,
 )
 
 
@@ -32,19 +33,17 @@ GAME_CLASSES = (
     "MainActivity",
     "GameView",
     "PhysicsJourney",
+    "HistoryJourney",
+    "OpenWorld",
+    "OpenWorldRenderer",
+    "AcademyTrial",
 )
+PACKAGE = "cn.wuziping.ember.memorial"
 RESULTS: list[tuple[str, str, str]] = []
 
 
 def record(name: str, status: str, detail: str) -> None:
     RESULTS.append((name, status, detail))
-
-
-def apk_names(version_name: str) -> list[tuple[str, str]]:
-    return [
-        (f"WuziPing-Emberbound-{version_name}-debug.apk", "cn.wuziping.ember"),
-        (f"WuziPing-Emberbound-{version_name}-parallel-debug.apk", "cn.wuziping.ember.preview07"),
-    ]
 
 
 def packaged_assets(archive: zipfile.ZipFile) -> dict[str, str]:
@@ -101,9 +100,8 @@ def run_sdk_checks(path: Path, package: str, version, tools) -> None:
             encoding="utf-8",
             errors="replace",
         )
-        if "Verified using v2 scheme (APK Signature Scheme v2): true" not in signature:
-            raise AssertionError("v2 signature was not verified")
-        record(f"signature {path.name}", "PASS", "v2 signature verified")
+        digest = verify_apk_signature(signature)
+        record(f"signature {path.name}", "PASS", f"v2; certificate SHA-256 {digest}")
     if tools.zipalign:
         subprocess.run([str(tools.zipalign), "-c", "4", str(path)], check=True)
         record(f"alignment {path.name}", "PASS", f"zipalign -c 4 ({tools.build_tools.name})")
@@ -155,12 +153,11 @@ def main(argv: list[str] | None = None) -> int:
         return finish(args.strict)
 
     checksums = checksum_map(ROOT / "dist" / "SHA256SUMS.txt")
-    dexes: list[bytes] = []
-    for name, package in apk_names(version.version_name):
-        path = ROOT / "dist" / name
-        if not path.is_file():
-            record(name, "FAIL", "file is not in dist/")
-            continue
+    name = f"星火远征-纪念版-{version.version_name}.apk"
+    path = ROOT / "dist" / name
+    if not path.is_file():
+        record(name, "FAIL", "file is not in dist/")
+    else:
         digest = sha256_file(path)
         listed = checksums.get(name)
         if listed != digest:
@@ -173,44 +170,26 @@ def main(argv: list[str] | None = None) -> int:
                 if bad_zip is not None:
                     raise AssertionError(f"corrupt zip entry {bad_zip}")
                 dex = archive.read("classes.dex")
-                dexes.append(dex)
                 missing = [cls for cls in GAME_CLASSES if f"Lcn/wuziping/ember/{cls};".encode() not in dex]
                 if missing:
                     raise AssertionError("dex missing " + ", ".join(missing))
-                if b"Lcn/wuziping/ember/HistoryJourney;" not in dex:
-                    record(
-                        f"history class {name}",
-                        "KNOWN",
-                        "published dex has no HistoryJourney; source has the class, APK was not rebuilt",
-                    )
-                else:
-                    record(f"history class {name}", "PASS", "HistoryJourney is in classes.dex")
+                record(f"dex {name}", "PASS", ", ".join(GAME_CLASSES))
                 bad, newlines, extra = check_assets(archive)
                 if bad:
                     raise AssertionError("; ".join(bad[:6]))
+                if extra:
+                    raise AssertionError("assets missing from APK: " + ", ".join(extra))
                 detail = f"{len(packaged_assets(archive))} packaged assets match source"
                 if newlines:
                     detail += f"; newline-only: {', '.join(newlines)}"
                 record(f"assets {name}", "PASS", detail)
-                if extra:
-                    record(
-                        f"assets ahead of {name}",
-                        "KNOWN",
-                        "source files not in this published APK: " + ", ".join(extra),
-                    )
-            record(f"zip {name}", "PASS", f"package {package}")
+            record(f"zip {name}", "PASS", "CRC verified")
             try:
-                run_sdk_checks(path, package, version, tools)
+                run_sdk_checks(path, PACKAGE, version, tools)
             except Exception as error:
                 record(f"sdk {name}", "FAIL", f"{type(error).__name__}: {error}")
         except Exception as error:
             record(name, "FAIL", f"{type(error).__name__}: {error}")
-
-    if len(dexes) == 2:
-        if dexes[0] == dexes[1]:
-            record("dex identity", "PASS", "debug and parallel-debug classes.dex match")
-        else:
-            record("dex identity", "FAIL", "debug and parallel-debug classes.dex differ")
 
     print_table()
     return finish(args.strict)

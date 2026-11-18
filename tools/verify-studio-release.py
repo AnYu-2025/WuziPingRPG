@@ -1,9 +1,7 @@
 """Verify the current Studio APK named by studio/build.gradle. Read-only.
 
 It does not rewrite dist/STUDIO-SHA256SUMS.txt or emit a release JSON file.
-0.2.7 / versionCode 39 is not the expected current package. Signature,
-alignment and badging run only when the SDK tools exist. This does not build
-or sign an APK.
+Signature, alignment and badging run only when the SDK tools exist.
 """
 from __future__ import annotations
 
@@ -20,7 +18,9 @@ from verify_support import (
     read_gradle_version,
     render_gate,
     sha256_file,
+    verify_apk_signature,
 )
+from verify_studio_assets import check_apk_shell
 
 
 REQUIRED = (
@@ -182,19 +182,8 @@ def main(argv: list[str] | None = None) -> int:
             for retired in (b"game", b"pelican", b"novel", b"soundscape"):
                 if b'data-mode="' + retired + b'"' in html:
                     raise AssertionError(f"retired module still on home: {retired.decode()}")
-            fallback = zip_entry(archive, "assets/studio/editor.page")
-            if bytes_match(fallback, html) is None:
-                record(
-                    "apk editor.page fallback",
-                    "KNOWN",
-                    "published assets/studio/editor.page is not the current index; PackedAssets tries index.html first. APK was not rebuilt",
-                )
-            else:
-                record("apk editor.page fallback", "PASS", "fallback matches index.html")
-            root_page = zip_entry(archive, "assets/editor.page")
-            page_kind = bytes_match(root_page, html)
-            if page_kind is None:
-                raise AssertionError("assets/editor.page differs from index.html")
+            count = check_apk_shell(archive, ROOT / "studio/src/main/assets", ROOT / "studio/web/src/index.html")
+            record("apk shell", "PASS", f"{count} pages, scripts and styles match, including both editor.page fallbacks")
             dex = b"".join(
                 archive.read(name) for name in names if name.startswith("classes") and name.endswith(".dex")
             )
@@ -223,8 +212,8 @@ def main(argv: list[str] | None = None) -> int:
                 encoding="utf-8",
                 errors="replace",
             )
-            if "Verified using v2 scheme (APK Signature Scheme v2): true" not in signature:
-                raise AssertionError("v2 signature was not verified")
+            certificate = verify_apk_signature(signature)
+            record("signature", "PASS", f"v2 verified, certificate SHA-256 {certificate}")
             meta = subprocess.check_output(
                 [str(tools.aapt), "dump", "badging", str(path)],
                 text=True,

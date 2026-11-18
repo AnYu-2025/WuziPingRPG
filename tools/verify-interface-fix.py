@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -14,6 +12,7 @@ import zipfile
 from pathlib import Path
 
 from verify_support import bytes_match, read_gradle_version, render_gate
+from verify_studio_assets import HASHED_SCRIPT, check_apk_shell, check_shell_file, shell_files
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "studio" / "web"
@@ -29,10 +28,6 @@ WORKSPACE_BUNDLE = ASSETS / "app.js"
 STAGED_BUILD_FILES = ("build.mjs", "build-photo.mjs", "package.json", "package-lock.json")
 
 results: list[tuple[str, str, str]] = []
-
-
-def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def record(name: str, action) -> None:
@@ -55,15 +50,14 @@ def check_index_link():
     return "PASS", marker
 
 
-def check_asset_hash():
+def check_asset_css():
     source = WEB / "src" / "ai.css"
     bundled = ASSETS / "ai.css"
     require(source.is_file(), f"missing source: {source.relative_to(ROOT)}")
     require(bundled.is_file(), f"missing bundled asset: {bundled.relative_to(ROOT)}")
-    source_hash = sha256(source)
-    bundled_hash = sha256(bundled)
-    require(source_hash == bundled_hash, f"hash mismatch: source={source_hash} bundled={bundled_hash}")
-    return "PASS", f"sha256={source_hash}"
+    kind = bytes_match(source.read_bytes(), bundled.read_bytes())
+    require(kind is not None, "workspace ai.css differs from source")
+    return "PASS", f"ai.css matches source ({kind})"
 
 
 def check_copy_manifest():
@@ -155,66 +149,45 @@ def check_bundle_sync():
     if not PHOTO_BUILD_SCRIPT.is_file():
         return "FAIL", "studio/web/build-photo.mjs is missing"
 
-    workspace_hash = sha256(WORKSPACE_BUNDLE)
     with tempfile.TemporaryDirectory(prefix="wuziping-interface-verify-") as temp_name:
         temp = Path(temp_name)
         temp_web = stage_web_tree(temp)
         temp_out = temp / "studio" / "src" / "main" / "assets" / "studio"
 
         npm = shutil.which("npm.cmd") or shutil.which("npm")
-        command = [npm, "run", "build"] if npm else [node, "build.mjs"]
-        completed = subprocess.run(
-            command,
-            cwd=temp_web,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-        if completed.returncode != 0:
-            output = (completed.stderr or completed.stdout or "").strip().splitlines()
-            tail = " | ".join(output[-16:]) if output else "no build output"
-            raise RuntimeError(f"temporary build failed: {tail}")
-        generated = temp_out / "app.js"
-        require(generated.is_file(), "temporary build did not create app.js")
-        generated_hash = sha256(generated)
-        runner = "npm run build" if npm else "node build.mjs (npm script target)"
-        require(
-            generated_hash == workspace_hash,
-            f"bundle mismatch: generated={generated_hash} workspace={workspace_hash}",
-        )
-        return "PASS", f"{runner}; sha256={workspace_hash}"
+        commands = [[npm, "run", "build"]] if npm else [[node, "build.mjs"], [node, "build-photo.mjs"]]
+        for command in commands:
+            completed = subprocess.run(command, cwd=temp_web, capture_output=True, text=True,
+                                       encoding="utf-8", errors="replace")
+            if completed.returncode != 0:
+                output = (completed.stderr or completed.stdout or "").strip().splitlines()
+                tail = " | ".join(output[-16:]) if output else "no build output"
+                raise RuntimeError(f"temporary build failed: {tail}")
+        emitted = shell_files(temp_out.parent)
+        workspace = shell_files(ASSETS.parent)
+        require(emitted == workspace, "shell file list differs: " + ", ".join(sorted(emitted ^ workspace)))
+        for name in sorted(emitted):
+            check_shell_file(name, (ASSETS.parent / name).read_bytes(), (temp_out.parent / name).read_bytes())
+        return "PASS", f"{len(emitted)} workspace pages, scripts and styles match the clean build"
 
 
-def check_apk_ai_css():
+def check_orphan_chunks():
+    chunks = sorted(path.name for path in ASSETS.iterdir() if path.is_file() and HASHED_SCRIPT.search(path.name))
+    if not chunks:
+        return "PASS", "no hashed scripts in Studio shell"
+    refs = WORKSPACE_BUNDLE.read_text(encoding="utf-8") + INDEX.read_text(encoding="utf-8")
+    orphans = [name for name in chunks if name not in refs]
+    require(not orphans, "unreferenced generated chunks: " + ", ".join(orphans))
+    return "PASS", f"{len(chunks)} referenced scripts"
+
+
+def check_apk_assets():
     apk = current_studio_apk()
     if not apk.is_file():
         return "FAIL", f"{apk.relative_to(ROOT)} is not in the checkout"
-    source = (WEB / "src" / "ai.css").read_bytes()
     with zipfile.ZipFile(apk) as archive:
-        try:
-            packed = archive.read("assets/studio/ai.css")
-        except KeyError:
-            return "FAIL", "assets/studio/ai.css is missing from the APK"
-    kind = bytes_match(packed, source)
-    require(kind is not None, f"ai.css differs from source in {apk.name}")
-    return "PASS", f"{apk.name} ai.css matches source ({kind})"
-
-
-def check_apk_bundle():
-    apk = current_studio_apk()
-    if not apk.is_file():
-        return "FAIL", f"{apk.relative_to(ROOT)} is not in the checkout"
-    workspace = WORKSPACE_BUNDLE.read_bytes()
-    with zipfile.ZipFile(apk) as archive:
-        try:
-            packed = archive.read("assets/studio/app.js")
-        except KeyError:
-            return "FAIL", "assets/studio/app.js is missing from the APK"
-    kind = bytes_match(packed, workspace)
-    require(kind is not None, f"app.js differs from the workspace bundle in {apk.name}")
-    digest = hashlib.sha256(packed).hexdigest()
-    return "PASS", f"{apk.name} app.js matches workspace ({kind}); sha256={digest}"
+        count = check_apk_shell(archive, ASSETS.parent, INDEX)
+    return "PASS", f"{apk.name}: {count} packaged pages, scripts and styles match"
 
 
 def print_table() -> None:
@@ -230,7 +203,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--strict", action="store_true", help="Release gate: a skipped bundle or APK check exits non-zero.")
     args = parser.parse_args(argv)
     record("index ai.css link", check_index_link)
-    record("asset ai.css hash", check_asset_hash)
+    record("asset ai.css", check_asset_css)
     record("build ai.css copy", check_copy_manifest)
     record("fallback ai.css read", check_ai_read)
     record("fallback ai.css inline", check_ai_inline_replace)
@@ -239,8 +212,8 @@ def main(argv: list[str] | None = None) -> int:
     record("fallback tts.css", check_stylesheet("tts.css", "ttsCss"))
     record("fallback ai.css inline list", check_stylesheet("ai.css", "aiCss"))
     record("generated bundle sync", check_bundle_sync)
-    record("APK ai.css", check_apk_ai_css)
-    record("APK app.js", check_apk_bundle)
+    record("orphan asset chunks", check_orphan_chunks)
+    record("APK shell", check_apk_assets)
 
     print_table()
     code, text = render_gate(results, args.strict)

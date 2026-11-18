@@ -2,42 +2,82 @@ package cn.wuziping.ember.tests;
 
 import cn.wuziping.ember.*;
 import java.io.*;
-import java.util.Arrays;
 
-/** Emits exact historical tails, so migration tests never feed new fields to old formats. */
+/** Writes historical fixtures directly, independent of the current save format. */
 final class LegacySaves {
-    private interface Section { void write(DataOutputStream out)throws IOException; }
-    private static byte[] bytes(Section section)throws IOException{
-        ByteArrayOutputStream out=new ByteArrayOutputStream();DataOutputStream data=new DataOutputStream(out);section.write(data);data.flush();return out.toByteArray();
+    private static void ints(DataOutputStream out, int... values) throws IOException {
+        for (int value : values) out.writeInt(value);
     }
-    /** Format 8 is the live save. 7 drops the seventh forge level and tuned launch parameters. */
-    static byte[] snapshot(Game g,int version)throws IOException{
-        if(version<1||version>10)throw new IllegalArgumentException("Unsupported legacy fixture version");
-        ByteArrayOutputStream current=new ByteArrayOutputStream();g.save(current);byte[] currentBytes=current.toByteArray();
-        byte[] story=bytes(g.story::write),body=bytes(g.body::write),guest=bytes(g.guest::write);
-        byte[] arsenal=bytes(g.arsenal::write),math=bytes(g.math::write),physics=bytes(g.physics::write);
-        byte[] oldArsenal=bytes(out->g.arsenal.write(out,false));
-        byte[] oldPhysics=bytes(out->g.physics.write(out,false));
-        byte[] profile=bytes(out->{out.writeUTF(g.heroName);out.writeInt(g.effectsLevel);});
-        byte[] history=bytes(g.history::write);
-        int prefix=currentBytes.length-story.length-body.length-guest.length-arsenal.length-math.length-physics.length-profile.length-history.length;
-        if(prefix<12)throw new IOException("Invalid current snapshot layout");
-        byte[] tail=Arrays.copyOfRange(currentBytes,prefix,currentBytes.length);
-        ByteArrayOutputStream expected=new ByteArrayOutputStream();
-        expected.write(story);expected.write(body);expected.write(guest);expected.write(arsenal);expected.write(math);expected.write(physics);expected.write(profile);expected.write(history);
-        if(!Arrays.equals(tail,expected.toByteArray()))throw new IOException("Snapshot tail does not match section writers");
-        if(version==10){byte[] v=Arrays.copyOf(currentBytes,currentBytes.length);v[7]=10;return v;}
-        if(version==8||version==9){int omit=version==8?history.length:history.length-4;byte[] v=Arrays.copyOf(currentBytes,currentBytes.length-omit);v[7]=(byte)version;return v;}
-        ByteArrayOutputStream out=new ByteArrayOutputStream();out.write(currentBytes,0,prefix);DataOutputStream d=new DataOutputStream(out);
-        if(version>=2)d.write(story);
-        if(version>=5)d.write(body);
-        else if(version>=3){
-            BodyJourney b=g.body;d.writeBoolean(b.enabled);d.writeBoolean(b.briefed);d.writeBoolean(b.ending);d.writeInt(b.organ);d.writeInt(b.cured);d.writeInt(b.weaponLevel);
-            for(int i=0;i<5;i++)d.writeInt(b.kills[i]);for(int i=0;i<10;i++){d.writeInt(b.supply[i]);d.writeFloat(b.supplyX[i]);d.writeFloat(b.supplyY[i]);d.writeFloat(b.fall[i]);}
+
+    private static void floats(DataOutputStream out, float... values) throws IOException {
+        for (float value : values) out.writeFloat(value);
+    }
+
+    private static void writeCombat(DataOutputStream out, Game g) throws IOException {
+        ints(out, g.wave, g.level, g.xp, g.kills, g.gold, g.potions, g.waveSpawned, g.waveKilled, g.pendingUpgrades);
+        floats(out, g.x, g.y, g.hp, g.maxHp, g.attack, g.speed, g.attackDelay, g.attackCd,
+                g.skillCd, g.dashCd, g.potionCd, g.invuln, g.elapsed, g.facing, g.spawnTimer, g.intermission);
+        out.writeLong(710221L); // Fixed RNG state for reproducible migration fixtures.
+        ints(out, g.upgrades);
+        ints(out, g.choices);
+        out.writeInt(g.enemies.size());
+        for (Game.Enemy enemy : g.enemies) {
+            ints(out, enemy.type, enemy.id);
+            floats(out, enemy.x, enemy.y, enemy.hp, enemy.maxHp, enemy.cd, enemy.hit, enemy.windup,
+                    enemy.targetX, enemy.targetY, enemy.knockX, enemy.knockY);
+            out.writeBoolean(enemy.bossAttack);
         }
-        if(version>=4)d.write(guest);
-        if(version>=5)d.write(oldArsenal);
-        if(version>=6){d.write(math);if(version>=7)d.write(oldPhysics);d.write(profile);}
-        d.flush();byte[] result=out.toByteArray();result[7]=(byte)version;return result;
+        out.writeInt(g.drops.size());
+        for (Game.Drop drop : g.drops) {
+            floats(out, drop.x, drop.y);
+            ints(out, drop.type, drop.value);
+        }
+        out.writeInt(g.shots.size());
+        for (Game.Shot shot : g.shots) {
+            floats(out, shot.x, shot.y, shot.vx, shot.vy, shot.life);
+            out.writeInt(shot.damage);
+        }
+    }
+
+    static byte[] snapshot(Game g, int version) throws IOException {
+        if (version < 1 || version > 11) throw new IllegalArgumentException("Unsupported legacy fixture version");
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        DataOutputStream out = new DataOutputStream(buffer);
+        ints(out, 0x575A5052, version, g.totalRuns, g.bestWave, g.lifetimeKills, g.bank);
+        out.writeBoolean(g.sound);
+        out.writeBoolean(g.autoAttack);
+        out.writeBoolean(g.activeRun);
+        if (g.activeRun) writeCombat(out, g);
+        if (version >= 2) g.story.write(out);
+        if (version >= 5) g.body.write(out);
+        else if (version >= 3) {
+            BodyJourney body = g.body;
+            out.writeBoolean(body.enabled);
+            out.writeBoolean(body.briefed);
+            out.writeBoolean(body.ending);
+            ints(out, body.organ, body.cured, body.weaponLevel);
+            for (int i = 0; i < 5; i++) out.writeInt(body.kills[i]);
+            for (int i = 0; i < 10; i++) {
+                out.writeInt(body.supply[i]);
+                floats(out, body.supplyX[i], body.supplyY[i], body.fall[i]);
+            }
+        }
+        if (version >= 4) g.guest.write(out);
+        if (version >= 5) g.arsenal.write(out, version >= 8);
+        if (version >= 6) {
+            g.math.write(out);
+            if (version >= 7) g.physics.write(out, version >= 8);
+            out.writeUTF(g.heroName);
+            out.writeInt(g.effectsLevel);
+        }
+        if (version >= 9) out.writeInt(g.history.stage);
+        if (version >= 10) {
+            byte[] suspended = g.history.suspended;
+            if (suspended.length > 0) suspended = snapshot(Game.load(new ByteArrayInputStream(suspended)), version);
+            out.writeInt(suspended.length);
+            out.write(suspended);
+        }
+        out.flush();
+        return buffer.toByteArray();
     }
 }

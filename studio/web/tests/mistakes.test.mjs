@@ -1,8 +1,42 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {SUBJECTS,CAUSES,mistakeSanitize,bookSanitize,addMistake,updateMistake,setMastery,removeMistake,filterMistakes,bookStats,causeStats} from '../src/mistakes.js';
+import {recordQuizMistake,unfiledQuizMistakes,makeMistakeCard} from '../src/mistakes.js';
+import {deckSanitize,dueCards,removeCard} from '../src/cards.js';
 
 const NOW=1_700_000_000_000;
+
+const question={id:'b:demo',q:'选择正确的选项',subject:'解剖',options:['甲','乙'],answer:1,explain:'选乙的依据'};
+
+test('复习错题保留题干、选项、解析、原科目与学习者的批注',()=>{
+  let book=recordQuizMistake(bookSanitize(null),question,NOW).book;
+  const item=book.items[0];
+  assert.equal(item.subject,'解剖');
+  assert.equal(item.answer,'乙\n选乙的依据');
+  assert.equal(item.question,'选择正确的选项\nA. 甲\nB. 乙');
+  book=updateMistake(book,item.id,{reason:'读错了',cause:'审题失误',mastery:2},NOW+1).book;
+  book=recordQuizMistake(bookSanitize(book),question,NOW+2).book;
+  assert.equal(book.items.length,1);
+  assert.equal(book.items[0].reason,'读错了');
+  assert.equal(book.items[0].cause,'审题失误');
+  assert.equal(book.items[0].mastery,0);
+  assert.equal(book.items[0].created,NOW);
+  assert.deepEqual(unfiledQuizMistakes(book,{[question.id]:1,unavailable:3},[question]),[]);
+  assert.deepEqual(unfiledQuizMistakes(bookSanitize(null),{[question.id]:2,unavailable:3},[question]),[question]);
+});
+
+test('从错题制卡会进入到期队列，能恢复关联，删卡后可以重新制卡',()=>{
+  const book=addMistake(bookSanitize(null),{title:'纸上录入',answer:'答案'},NOW).book;
+  const result=makeMistakeCard(book,deckSanitize(null),book.items[0].id,NOW);
+  assert.ok(result.ok);
+  assert.equal(dueCards(result.deck,NOW)[0].front,'纸上录入');
+  const restored=bookSanitize(result.book);
+  assert.equal(makeMistakeCard(restored,deckSanitize(result.deck),1,NOW).ok,false);
+  const empty=removeCard(result.deck,restored.items[0].reviewCardId);
+  const next=makeMistakeCard(restored,empty,1,NOW+1);
+  assert.equal(next.book.items[0].reviewCardId,next.deck.cards[0].id);
+  assert.equal(next.deck.cards.length,1);
+});
 
 test('mistakeSanitize requires title or question, defaults subject',()=>{
   assert.equal(mistakeSanitize({},1),null);

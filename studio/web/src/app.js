@@ -1,3 +1,5 @@
+import {renderStudyDesk} from './desk-study.js';
+import {renderCodeDesk,createDeskDraft,cppRunScope} from './desk-code.js';
 import {EditorView,basicSetup} from 'codemirror';
 import {EditorState,Compartment} from '@codemirror/state';
 import {keymap} from '@codemirror/view';
@@ -17,7 +19,7 @@ import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAf
 import {initTTS,ttsExtensions,ttsSerialize,ttsSanitize,ttsAfterRestore,ttsModeEnter,ttsModeLeave,ttsHideBar,ttsShowBar,ttsDocumentChanged,ttsStatusText,ttsReceive,ttsDebug} from './tts.js';
 import {initDraw,ensureDrawUI,enterDrawMode,exitDrawMode,isDrawMode,getDrawStrokes,loadDrawStrokes,getDrawView,loadDrawView} from './draw.js';
 import {initAI,aiSerialize,aiSanitize,aiRestore,aiModeEnter,aiModeLeave,aiHidePanel,aiEnterPanel,aiStatusText,aiReceive,aiDebug} from './ai.js';
-import {BACK,resolveBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS,HOME_ACTIONS as MODULES,moduleById,isNativeModule,moduleAvailability} from './back.js';
+import {BACK,resolveBack,resolveEscapeBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS,HOME_ACTIONS as MODULES,moduleById,isNativeModule,moduleAvailability} from './back.js';
 import {NOTE_TEMPLATES,templateById,templateFileName,sanitizeTemplateState,insertTemplate,noteTemplateAction,notepadTarget,isNotepadNotePath,shouldRememberCodePath} from './note-templates.js';
 import {createQuizRequester,quizAIAvailability,normalizeQuizCount,gradeQuiz,retryWrongQuiz,quizToMarkdown,quizFileName,QUIZ_TYPE_LABELS,QUIZ_NOTE_LIMIT} from './quiz.js';
 import {modelSanitize} from './model-data.js';
@@ -32,7 +34,7 @@ import {renderMarkdown} from './markdown.js';
 import {DEFAULT_FOCUS,focusSanitize,focusToggle,focusReset,focusSkip,focusTick,focusSetMinutes,fmtTime,lastNDays} from './focus.js';
 import {deckSanitize,addCard,removeCard,reviewCard,previewInterval,dueCards,deckStats} from './cards.js';
 import {importCards,importMistakes,exportCards,exportMistakes,updateCard,importSummary} from './transfer.js';
-import {SUBJECTS,MASTERY,CAUSES,bookSanitize,addMistake,updateMistake,setMastery,removeMistake,filterMistakes,bookStats,causeStats} from './mistakes.js';
+import {SUBJECTS,MASTERY,CAUSES,bookSanitize,addMistake,updateMistake,setMastery,removeMistake,filterMistakes,bookStats,causeStats,recordQuizMistake,unfiledQuizMistakes,makeMistakeCard} from './mistakes.js';
 import {habitsSanitize,addHabit,removeHabit,isChecked,toggleCheck,currentStreak,bestStreak,totalChecks,lastNDaysChecks,habitsStats} from './habits.js';
 import {DAYS,PERIODS,COURSE_COLORS,scheduleSanitize,addCourse,updateCourse,removeCourse,coursesOnDay,nowInfo,currentStatus,fmtMin,weeksText} from './schedule.js';
 import {splitChapters,shelfSanitize,novelSettingsSanitize,progressText} from './novel.js';
@@ -45,7 +47,7 @@ import {createSoundscapeAudio} from './soundscape-audio.js';
 import {createSoundscapeVisual} from './soundscape-visual.js';
 import {buildBackup,parseBackup,backupSummary} from './backup.js';
 import {studyLogSanitize,logStudy,dayCounts} from './study-log.js';
-import {fxBoot,setFx,fxEnabled,fxStored,fxPreferred,warp,materialize,hudMark,homeIn,bootSequence} from './fx.js';
+import {fxBoot,setFx,fxEnabled,fxStored,fxPreferred,warp,materialize,hudMark,homeIn} from './fx.js';
 import {buildOverview} from './overview.js';
 import {radarPoints,radarPolygon} from './study-radar.js';
 import {init as initPelican} from './pelican3d.js';
@@ -175,7 +177,7 @@ function notifyUndo(text,onUndo,ms=6000){
   toastTimer=setTimeout(()=>{undoAction=null;hideToast();},ms);
 }
 function send(type,data={}){if(native)window.StudioBridge.postMessage(JSON.stringify({type,...data}));}
-function snapshot(){return {version:1,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule),novel:shelfSanitize(state.novel),medquiz:quizStatsSanitize(state.medquiz),mqSession:mqSessionSnapshot(),exams:examsSanitize(state.exams),soundscape:soundscapeSanitize(state.soundscape),studyLog:studyLogSanitize(state.studyLog)};}
+function snapshot(){return {version:1,desk:deskKind,lastCodePath,files:state.files,active:state.active,opened:state.opened,stdin:$('stdin').value,settings:state.settings,noteTemplates:sanitizeTemplateState(state.noteTemplates),lecture:lectureSerialize(),tts:ttsSerialize(),drawStrokes:state.drawStrokes||[],drawView:getDrawView(),ai:aiSerialize(),model:modelSanitize(state.model),star:starSanitize(state.star,MODULES.map(m=>m.id)),focus:focusSanitize(state.focus),pelican:pelicanSanitize(state.pelican),cards:deckSanitize(state.cards),mistakes:bookSanitize(state.mistakes),habits:habitsSanitize(state.habits),schedule:scheduleSanitize(state.schedule),novel:shelfSanitize(state.novel),medquiz:quizStatsSanitize(state.medquiz),mqSession:mqSessionSnapshot(),exams:examsSanitize(state.exams),soundscape:soundscapeSanitize(state.soundscape),studyLog:studyLogSanitize(state.studyLog)};}
 function mqSessionSnapshot(){const s=mqSession;if(!s||s.finished||!s.ids.length)return null;return {mode:s.mode,subject:s.subject,difficulty:s.difficulty,ids:s.ids,pos:s.pos,answers:s.answers,skipped:s.skipped||{},perm:s.perm};}
 /* 保存前先做体积预算：超限就明确告诉用户“哪一部分太大、要删什么”，
    不再让原生静默 return 掉整份草稿。 */
@@ -208,6 +210,8 @@ function loadState(data){
   const unique=new Set();const files=data.files.filter(f=>validPath(f.path)&&typeof f.text==='string'&&f.text.length<=MAX_FILE&&!unique.has(f.path)&&unique.add(f.path)).slice(0,160).map(f=>({...f,uri:typeof f.uri==='string'?f.uri:'',encoding:f.encoding||'UTF-8',savedText:typeof f.savedText==='string'?f.savedText:f.text}));
   if(!files.length)throw Error('工作区文件无法读取');
   state={...defaults(),...data,files,settings:{...defaults().settings,...data.settings}};
+  deskKind = data.desk === 'code' ? 'code' : 'study';
+  lastCodePath = files.some(file => file.path === data.lastCodePath) ? data.lastCodePath : '';
   state.lecture=lectureSanitize(data.lecture);
   state.tts=ttsSanitize(data.tts);
   state.ai=(data&&data.ai&&typeof data.ai==='object')?data.ai:aiSerialize();
@@ -266,7 +270,7 @@ function refreshBadges(){
  $('activePath').textContent=f.path;$('dirtyFlag').textContent=f.uri?(f.text===f.savedText?'已保存到原文件':'有修改 · 保存写回'):'本地草稿 · 自动保存';$('language').textContent=document.body.classList.contains('drawing')?'画画':language(f.path)[0];$('encoding').textContent=f.encoding||'UTF-8';$('runButton').textContent=['html','htm'].includes(extension(f.path))?'↗ 预览':'▶ 运行';
  for(const b of $('fileList').querySelectorAll('.fileopen')){const p=b.dataset.path,t=state.files.find(x=>x.path===p);if(!t)continue;const name=b.lastElementChild;if(name)name.textContent=p+(t.text!==t.savedText?' •':'');b.closest('.fileitem').classList.toggle('active',p===state.active);}
 }
-function switchFile(path){if(worker){notify('请先停止运行，再切换文件。');return;}const f=state.files.find(f=>f.path===path);if(!f)return;if(isNotepadNotePath(path)&&(workspaceMode==='notepad'||workspaceMode==='python'))lastNotePath=path;if(workspaceMode==='tts')lastTtsPath=path;editorStates.set(state.active,view.state);state.active=path;if(!state.opened.includes(path))state.opened.push(path);restoring=true;const previous=editorStates.get(path);if(previous&&previous.doc.toString()===f.text){view.setState(previous);view.dispatch({effects:[langConfig.reconfigure(language(path)[1]()),wrapConfig.reconfigure(state.settings.wrap?EditorView.lineWrapping:[]),editConfig.reconfigure(EditorState.readOnly.of(false))]});}else createEditor();restoring=false;renderFiles();document.body.classList.remove('drawer');position();scheduleSave();if(workspaceMode==='tts')ttsDocumentChanged('switched');}
+function switchFile(path){if(worker){notify('请先停止运行，再切换文件。');return;}const f=state.files.find(f=>f.path===path);if(!f)return;if(workspaceMode==='python'&&shouldRememberCodePath(path))lastCodePath=path;if(isNotepadNotePath(path)&&(workspaceMode==='notepad'||workspaceMode==='python'))lastNotePath=path;if(workspaceMode==='tts')lastTtsPath=path;editorStates.set(state.active,view.state);state.active=path;if(!state.opened.includes(path))state.opened.push(path);restoring=true;const previous=editorStates.get(path);if(previous&&previous.doc.toString()===f.text){view.setState(previous);view.dispatch({effects:[langConfig.reconfigure(language(path)[1]()),wrapConfig.reconfigure(state.settings.wrap?EditorView.lineWrapping:[]),editConfig.reconfigure(EditorState.readOnly.of(false))]});}else createEditor();restoring=false;renderFiles();document.body.classList.remove('drawer');position();scheduleSave();if(workspaceMode==='tts')ttsDocumentChanged('switched');}
 function nameDialog(path=null){if(worker)return;renamePath=path;$('nameTitle').textContent=path?'修改工作区路径':'新建文件';$('confirmName').textContent=path?'重命名':'创建';$('fileName').value=path||(workspaceMode==='notepad'?'笔记.txt':workspaceMode==='tts'?'English.txt':'new_file.py');const hint=$('nameHint');if(hint)hint.textContent=workspaceMode==='notepad'?'可带子文件夹；例如 日记/今天.txt。':workspaceMode==='tts'?'可带子文件夹；例如 Articles/chapter-one.txt。':'可带子文件夹；请写扩展名，例如 .py。';$('nameDialog').returnValue='cancel';$('nameDialog').showModal();setTimeout(()=>$('fileName').select(),50);}
 $('nameDialog').addEventListener('close',()=>{if($('nameDialog').returnValue!=='default')return;const path=$('fileName').value.trim();if(!validPath(path)){notify('路径无效，请使用文件名或 folder/file.py。');return;}if(state.files.some(f=>f.path===path)&&path!==renamePath){notify('已有同名文件。');return;}if(renamePath){const f=state.files.find(f=>f.path===renamePath);f.path=path;state.opened=state.opened.map(p=>p===renamePath?path:p);if(state.active===renamePath)state.active=path;editorStates.delete(renamePath);}else{if(state.files.length>=160){notify('当前工作区最多 160 个文件。');return;}state.files.push(makeFile(path,''));}switchFile(path);changed();});
 const themeQuery=window.matchMedia('(prefers-color-scheme: dark)');
@@ -371,7 +375,7 @@ function saveOutputToFile(){
 }
 function setConsole(open){$('consolePanel').classList.toggle('folded',!open);$('foldConsole').setAttribute('aria-expanded',String(open));}
 function outputTab(input=false){$('output').hidden=input;$('stdin').hidden=!input;$('inputTab').classList.toggle('active',input);$('outputTab').classList.toggle('active',!input);setConsole(true);}
-function setRunning(running){$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode','menuTemplates','menuQuiz']){const el=$(id);if(el)el.disabled=running;}if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
+function setRunning(running){$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode','menuTemplates','menuQuiz']){const el=$(id);if(el)el.disabled=running;}const save=$('saveButton');if(save)save.title=running?'运行中无法写回原文件，请先停止运行':'保存';if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
 /* kill=false 时保留 C++ 常驻线程（编译器留在内存，下次运行免加载）；
    停止按钮、超时、出错都走 kill=true，死循环程序必须能杀掉。 */
 function stop(reason='已停止运行',kill=true){runToken++;if(worker){if(kill||worker!==cppWorker){worker.terminate();if(worker===cppWorker)cppWorker=null;}}worker=null;clearTimeout(timeout);setRunning(false);$('runState').textContent=reason;}
@@ -384,7 +388,9 @@ async function run(){
  if(inPanelMode()){notify('当前面板不需要运行代码，回到「写代码」再运行。');return;}
  if(worker)return;const f=active(),ext=extension(f.path);if(['html','htm'].includes(ext)){preview();return;}if(!['py','js','mjs','c','cc','cpp','cxx'].includes(ext)){notify(language(f.path)[0]+' 只能编辑，不能运行。可运行 .py、.js、.cpp/.c，或预览 .html。');return;}
  const isCpp=['c','cc','cpp','cxx'].includes(ext);
- flush();outputTab(false);$('output').replaceChildren();$('runState').textContent=ext==='py'?'准备 Python…':isCpp?(cppWorker?'编译 C/C++…':'准备 C/C++ 编译器…'):'运行 JavaScript…';runFiles=state.files.map(f=>({path:f.path,text:f.text}));const token=++runToken;
+ flush();outputTab(false);$('output').replaceChildren();$('runState').textContent=ext==='py'?'准备 Python…':isCpp?(cppWorker?'编译 C/C++…':'准备 C/C++ 编译器…'):'运行 JavaScript…';
+ const scope=isCpp?cppRunScope(state.files,f.path):{root:'',files:state.files};
+ runFiles=scope.files.map(file=>({path:file.path,text:file.text}));const token=++runToken;
  /* C++ 线程常驻复用：编译器只加载一次；Python/JS 仍每次新建。 */
  worker=isCpp?(cppWorker||(cppWorker=new Worker('cpp-worker.js'))):new Worker(ext==='py'?'python-worker.js':'javascript-worker.js');
  setRunning(true);const started=performance.now();let hasStarted=false;
@@ -392,7 +398,7 @@ async function run(){
  timeout=setTimeout(()=>{if(token!==runToken)return;append('\n准备超时，已停止。'+(isCpp?'C++ 编译器首次加载较慢，请重试；多次失败请更新系统 WebView。':'可以在设置中调整运行上限。')+'\n',true);stop('准备超时');},isCpp&&!cppWorker?120000:isCpp?60000:45000);
  worker.onmessage=event=>{if(token!==runToken)return;const m=event.data||{};if(m.runId!==undefined&&m.runId!==token)return;if(m.type==='loading'){$('runState').textContent='读取本地 C++ 编译器…';}else if(m.type==='progress'){const pct=Math.round((m.value||0)*100);$('runState').textContent='读取编译器 '+pct+'%（仅首次较慢）';}else if(m.type==='started'&&!hasStarted){hasStarted=true;clearTimeout(timeout);$('runState').textContent='运行中 · 可停止';timeout=setTimeout(()=>{append('\n达到运行上限，已终止工作线程。\n',true);stop('运行超时');},state.settings.timeLimit*1000);}else if(m.type==='stdout'||m.type==='stderr')append(m.text,m.type==='stderr');else if(m.type==='done'){const elapsed=((performance.now()-started)/1000).toFixed(2);stop(m.ok?'执行完成 · '+elapsed+'s':'执行失败 · '+elapsed+'s',false);applyRunFiles(m.files);flush();}else if(m.type==='error'){append(m.text+'\n',true);stop('运行环境未能启动');}};
  worker.onerror=event=>{if(token!==runToken)return;append('运行环境错误：'+event.message+'\n请确认系统 WebView 支持 WebAssembly。\n',true);stop('运行环境错误');};
- worker.postMessage({runId:token,path:f.path,code:f.text,files:runFiles,stdin:$('stdin').value});
+ worker.postMessage({runId:token,path:f.path,code:f.text,files:runFiles,projectRoot:scope.root,stdin:$('stdin').value});
 }
 function preview(){flush();if(native){send('preview',{path:active().path,files:state.files.map(f=>({path:f.path,text:f.text}))});return;}const dlg=document.createElement('dialog');dlg.style.cssText='width:96vw;height:90vh;padding:8px;max-width:1100px';const close=document.createElement('button');close.textContent='关闭预览';close.onclick=()=>{dlg.close();dlg.remove();};const frame=document.createElement('iframe');frame.sandbox='allow-scripts';frame.style.cssText='width:100%;height:90%;background:white;border:0';let content=active().text;content=content.replace(/<link\b[^>]*href=["']([^"']+)["'][^>]*>/gi,(tag,path)=>{const f=state.files.find(f=>f.path===path);return f?'<style>'+f.text+'</style>':tag;}).replace(/<script\b[^>]*src=["']([^"']+)["'][^>]*>\s*<\/script>/gi,(tag,path)=>{const f=state.files.find(f=>f.path===path);return f?'<script>'+f.text+'</script>':tag;});frame.srcdoc=content;dlg.append(close,frame);document.body.append(dlg);dlg.showModal();}
 function saveFile(as=false){if(inPanelMode()){flush();notify('学习数据已自动存本机；要导出请用面板里的「导出 CSV」或设置里的备份。');return;}flush();const f=active(),id=String(Date.now())+'-'+Math.random();if(native){pendingSaves.set(id,{path:f.path,text:f.text});send(as||!f.uri?'export':'save',{id,path:f.path,text:f.text,uri:f.uri,encoding:f.encoding});}else{const blob=new Blob([f.text],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=f.path.split('/').pop();a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);f.savedText=f.text;changed();notify('已导出文件。');}}
@@ -441,6 +447,7 @@ function showGame(){flush();closeDrawer();closeMenu();$('lounge').hidden=false;d
 function showCode(){closeMenu();$('workbench').hidden=false;$('lounge').hidden=true;document.body.classList.remove('gameview');const gameTab=$('gameTab');if(gameTab)gameTab.classList.remove('selected');const codeTab=$('codeTab');if(codeTab)codeTab.classList.add('selected');renderFiles();if(view)view.requestMeasure();}
 function setWorkspaceMode(mode){
   workspaceMode=selectedMode=mode;
+  updateDeskShortcut();
   const drawToggle=$('drawToggle');if(drawToggle)drawToggle.hidden=mode!=='notepad';
   const mdToggle=$('mdToggle');if(mdToggle)mdToggle.hidden=mode!=='notepad';
   if(mode!=='notepad')setMdPreview(false);
@@ -940,7 +947,19 @@ for(const b of document.querySelectorAll('.quickkeys button')){
   view.focus();
  });
 }
-document.addEventListener('keydown',event=>{const mod=event.ctrlKey||event.metaKey;if(mod&&event.key.toLowerCase()==='s'){event.preventDefault();if(!worker)saveFile(event.shiftKey);}else if(event.key==='F5'||mod&&event.key==='Enter'){event.preventDefault();run();}else if(mod&&event.key.toLowerCase()==='o'){event.preventDefault();$('openFile').click();}else if(mod&&event.key.toLowerCase()==='n'){event.preventDefault();nameDialog();}else if(event.key==='Escape'&&document.body.classList.contains('drawer')){closeDrawer();}});
+function handleEscape(event){
+  const target=event&&event.target;
+  if(target&&target.closest&&target.closest('.cm-search'))return;
+  const {openDialog,ctx}=backContext();
+  const decision=resolveEscapeBack(ctx);
+  if(!decision.action)return;
+  if(decision.action===BACK.SEARCH){
+    const active=document.activeElement;
+    if(active&&active.closest&&active.closest('.cm-search'))return;
+  }
+  if(applyBackDecision(decision,{openDialog,escape:true}))event.preventDefault();
+}
+document.addEventListener('keydown',event=>{const mod=event.ctrlKey||event.metaKey;if(mod&&event.key.toLowerCase()==='s'){event.preventDefault();if(worker)notify('运行中无法写回原文件，请先停止运行');else saveFile(event.shiftKey);}else if(event.key==='F5'||mod&&event.key==='Enter'){event.preventDefault();run();}else if(mod&&event.key.toLowerCase()==='o'){event.preventDefault();$('openFile').click();}else if(mod&&event.key.toLowerCase()==='n'){event.preventDefault();nameDialog();}else if(event.key==='Escape'){handleEscape(event);}});
 window.addEventListener('pagehide',flush);document.addEventListener('visibilitychange',()=>{if(document.hidden)flush();});
 const onViewportChange=()=>{if((window.visualViewport?window.visualViewport.height:innerHeight)<520)setConsole(false);};
 window.addEventListener('resize',onViewportChange);if(window.visualViewport)window.visualViewport.addEventListener('resize',onViewportChange);
@@ -948,8 +967,93 @@ window.addEventListener('resize',onViewportChange);if(window.visualViewport)wind
 const landing=$('landing'),landingBack=$('landingBack'),landingStatus=$('landingStatus');
 const homeCards=[...document.querySelectorAll('.home-card')];
 const MODE_KEY='ember-studio-mode';
+let deskKind='study';
+const deskPositions={study:0,code:0};
+const deskExamples=defaults().files;
+function updateDeskShortcut(){
+  const next=workspaceMode==='python'?'学习区':'编程区';
+  for(const id of ['deskSwitch','aiDeskSwitch']){
+    const button=$(id);
+    button.textContent=next;
+    button.setAttribute('aria-label','切换到'+next);
+  }
+}
+function renderDesk(){
+  const code=deskKind==='code';
+  $('workspaceDesk').dataset.workspace=deskKind;
+  for(const [id,selected] of [['deskStudy',!code],['deskCode',code]]){
+    const tab=$(id);
+    tab.setAttribute('aria-selected',String(selected));
+    tab.tabIndex=selected?0:-1;
+    tab.disabled=!ready;
+  }
+  $('deskCatalog').disabled=!ready;
+  const pane=$('deskBody');
+  pane.setAttribute('aria-busy',String(!ready));
+  pane.setAttribute('aria-labelledby',code?'deskCode':'deskStudy');
+  $('deskDate').textContent=new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'short'}).format(new Date());
+  if(!ready)return;
+  if(code)renderCodeDesk(pane,{state,exampleFiles:deskExamples,lastCodePath,
+    openCode:()=>enterHomeMode('python'),
+    openCodeFile:path=>{if(enterCodeDeskEditor())switchFile(path);},
+    newCodeFile:ext=>{
+      if(state.files.length>=160){notify('工作区已有 160 个文件，请先整理文件。');return;}
+      if(!enterCodeDeskEditor())return;
+      const draft=createDeskDraft(state.files,ext);
+      state.files.push({...makeFile(draft.path,draft.text),...draft});
+      switchFile(draft.path);
+    },
+    importCodeFile:()=>{if(enterCodeDeskEditor())$('openFile').click();}
+  });
+  else renderStudyDesk(pane,{state,openMode:enterHomeMode,runStudyAction:runPlanAction});
+  $('deskScroll').scrollTop=deskPositions[deskKind];
+}
+function enterCodeDeskEditor(){
+  if(worker){notify('请先停止正在运行的程序。');return false;}
+  enterHomeMode('python');
+  return !landingOpen&&workspaceMode==='python';
+}
+function showDesk(kind){
+  const fromCatalog=landing.dataset.surface==='catalog';
+  if(!fromCatalog&&landingOpen)deskPositions[deskKind]=$('deskScroll').scrollTop;
+  if(starActive){starApi.leave();starActive=false;}
+  document.body.classList.remove('starhome','listview');
+  landing.dataset.surface='desk';
+  deskKind=kind==='code'?'code':'study';
+  if(!landingOpen)openLanding(true);
+  else renderDesk();
+  if(ready)flush();
+  $(deskKind==='code'?'deskCode':'deskStudy').focus({preventScroll:true});
+}
+function openDeskCatalog(){
+  if(!ready)return;
+  deskPositions[deskKind]=$('deskScroll').scrollTop;
+  landing.dataset.surface='catalog';
+  markLandingReady();
+  $('catalogHome').focus({preventScroll:true});
+}
+function switchModuleDesk(){
+  if(worker||lectureBusy()){
+    notify(worker?'请先停止正在运行的程序，再切换工作区。':'请先停止录音，再切换工作区。');
+    return;
+  }
+  showDesk(workspaceMode==='python'?'study':'code');
+}
+on('deskStudy',()=>showDesk('study'));
+on('deskCode',()=>showDesk('code'));
+on('deskCatalog',openDeskCatalog);
+on('catalogHome',()=>showDesk(deskKind));
+on('deskSwitch',switchModuleDesk);
+on('aiDeskSwitch',switchModuleDesk);
+$('workspaceDesk').querySelector('[role="tablist"]').addEventListener('keydown',event=>{
+  if(!ready||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+  event.preventDefault();
+  const next=event.key==='Home'?'study':event.key==='End'?'code':deskKind==='code'?'study':'code';
+  showDesk(next);
+});
 const KNOWN_MODES=HOME_ACTIONS.map(item=>item.id);
-let landingOpen=true,landingTimer=0,selectedMode='',workspaceMode='python',lastCodePath='',lastTtsPath='',lastNotePath='',homeFromSession=false,lastOpened='';
+let landingOpen=true,landingTimer=0,selectedMode='',workspaceMode='python',lastCodePath='',lastTtsPath='',lastNotePath='',homeFromSession=false,lastOpened='',homeScrollTop=0;
+updateDeskShortcut();
 /* 原生侧在 ready 之后发 capabilities；浏览器预览里修图页可以直接打开，扫描需要相机。 */
 let moduleCaps={native,browserPhoto:!native,sdk:0};
 try{const savedMode=localStorage.getItem(MODE_KEY);if(KNOWN_MODES.includes(savedMode))selectedMode=savedMode;}catch(e){}
@@ -975,9 +1079,27 @@ function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(land
   /* 星穹在首页可见时启动；WebGL 不可用则保持卡片。 */
   /* 必须先让 #starStage 参与布局再 enter：否则量到 0 尺寸，
      WebGL 画布被建成 1×1 再拉伸满屏，整页糊成一片浅色。 */
+  if(landing.dataset.surface==='desk'){renderDesk();return;}
   if(!starActive&&landingOpen&&!landing.hidden){document.body.classList.add('starhome');starActive=starApi.enter();if(starActive){setStarView(!(state.star&&state.star.view==='sky'));}else{document.body.classList.remove('starhome');}}
 }
-function hideLanding(){if(!landingOpen||!landing)return;if(starActive&&starApi)starApi.leave();if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model'&&modelApi)modelApi.enter();if(workspaceMode==='pelican'&&pelicanApi)pelicanApi.enter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},fxEnabled()?310:280);}
+function hideLanding(){if(!landingOpen||!landing)return;if(starActive&&starApi)starApi.leave();if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model'&&modelApi)modelApi.enter();if(workspaceMode==='pelican'&&pelicanApi)pelicanApi.enter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&['python','notepad','lecture','tts'].includes(workspaceMode))view.focus();},fxEnabled()?310:280);}
+function homeHoleOpen(){return !!landingOpen&&!!starApi&&typeof starApi.holeOpen==='function'&&starApi.holeOpen();}
+function homeListLayerOpen(){return !!landingOpen&&starActive&&document.body.classList.contains('listview');}
+function closeHomeHole(){
+  const sheet=$('starHoleSheet');if(!sheet||sheet.hidden)return false;
+  const btn=$('starHoleBtn');
+  const target=btn&&btn.getClientRects().length?btn:document.querySelector('.home-card:not([disabled])')||document.body;
+  if(starApi&&typeof starApi.closeHole==='function')starApi.closeHole(false);else sheet.hidden=true;
+  if(target&&typeof target.focus==='function')target.focus({preventScroll:true});
+  return true;
+}
+function rememberHomeScroll(){
+  const scroll=$('homeScroll');
+  if(scroll&&scroll.clientHeight)homeScrollTop=scroll.scrollTop;
+}
+function resumeHomeSnap(){
+  $('homeScroll').classList.remove('restored-position');
+}
 function openLanding(reopen=false){
   if(!landing)return;
   if(reopen&&workspaceMode==='tts')ttsHideBar();
@@ -994,9 +1116,19 @@ function openLanding(reopen=false){
   try{renderTodayStrip(currentStatus(state.schedule,schedInfo()));}catch(e){}
   if(reopen&&KNOWN_MODES.includes(workspaceMode)){selectedMode=workspaceMode;lastOpened=workspaceMode;}
   refreshHomeTitle();refreshResume();
+  if(landing.dataset.surface==='desk'){renderDesk();return;}
   if(starActive&&starApi)starApi.enter();
   /* 回到首页：跃迁收束 + 卡片错峰浮现 */
-  if(reopen){homeIn();materialize('homeScroll','.home-group');}
+  if(reopen){
+    homeIn();materialize('homeScroll','.home-group');
+    const sc=$('homeScroll');
+    if(sc&&sc.clientHeight){
+      // Showing the resume card can move snap targets. Keep the saved position
+      // until the user scrolls again, including throughout the entrance animation.
+      sc.classList.add('restored-position');
+      sc.scrollTop=homeScrollTop;
+    }
+  }
   initHomePages();
 }
 /* 滚动多主页：右侧页指示点随滚动高亮当前组，点按跳到对应组，
@@ -1007,7 +1139,7 @@ function initHomePages(){
   const groups=[...sc.querySelectorAll('.home-group')];
   /* 只构建一次，避免重复绑定 scroll 监听导致高亮落在旧节点上。 */
   if(!homePagesBound){
-    const dots=groups.map((g,i)=>{const d=document.createElement('button');d.type='button';d.className='home-page-dot';d.title=(g.querySelector('h2')||{}).textContent||('第'+(i+1)+'页');d.setAttribute('aria-label',d.title);d.onclick=()=>g.scrollIntoView({behavior:'smooth',block:'start'});wrap.append(d);return d;});
+    const dots=groups.map((g,i)=>{const d=document.createElement('button');d.type='button';d.className='home-page-dot';d.title=(g.querySelector('h2')||{}).textContent||('第'+(i+1)+'页');d.setAttribute('aria-label',d.title);d.onclick=()=>{resumeHomeSnap();g.scrollIntoView({behavior:'smooth',block:'start'});};wrap.append(d);return d;});
     const setActive=()=>{
       const mid=sc.scrollTop+sc.clientHeight*.4;let idx=0;
       groups.forEach((g,i)=>{if(g.offsetTop<=mid)idx=i;});
@@ -1015,6 +1147,11 @@ function initHomePages(){
       wrap.hidden=document.body.classList.contains('starhome')&&!document.body.classList.contains('listview');
     };
     sc.addEventListener('scroll',()=>requestAnimationFrame(setActive),{passive:true});
+    sc.addEventListener('wheel',resumeHomeSnap,{passive:true});
+    sc.addEventListener('touchmove',resumeHomeSnap,{passive:true});
+    sc.addEventListener('keydown',event=>{
+      if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(event.key))resumeHomeSnap();
+    });
     homePagesBound=true;
     setActive();
   }else{
@@ -1038,52 +1175,74 @@ const MODULE_LAYERS=[
 function moduleLayers(){return MODULE_LAYERS.filter(layer=>(!layer.mode||layer.mode===workspaceMode)&&layer.open()).map(layer=>layer.id);}
 function closeModuleLayer(id){const layer=MODULE_LAYERS.find(item=>item.id===id);if(layer)layer.close();}
 function setAISettings(open){const panel=$('aiPanel'),btn=$('aiSettingsToggle');if(!panel)return;panel.classList.toggle('settings-open',!!open);if(btn){btn.setAttribute('aria-expanded',open?'true':'false');btn.textContent=open?'收起设置':'设置';}}
-function handleSystemBack(){
+function backContext(){
   const openDialog=document.querySelector('dialog[open]');
-  try{
-    const decision=resolveBack({
+  return {
+    openDialog,
+    ctx:{
       dialogOpen:!!openDialog,
       drawerOpen:document.body.classList.contains('drawer'),
       drawing:isDrawMode()||document.body.classList.contains('drawing')||($('drawLayer')&&!$('drawLayer').hidden),
       searchOpen:!!(view&&view.dom&&view.dom.querySelector('.cm-search')),
       homeOpen:landingOpen,
+      homeLayerOpen:homeHoleOpen(),
+      /* WebGL unavailable: the list is the root, so it is not an in-app layer
+         and the HOME branch below falls through to the native exit prompt. */
+      homeListOpen:homeListLayerOpen(),
       loungeOpen:!!$('lounge')&&!$('lounge').hidden,
       layers:moduleLayers(),
       mode:workspaceMode,
-      lectureTab:document.body.dataset.lectureTab||'notes'    });
-    switch(decision.action){
-      case BACK.DIALOG:
-        if(openDialog)openDialog.close('cancel');
-        return true;
-      case BACK.DRAWER:
-        document.body.classList.remove('drawer');
-        return true;
-      case BACK.DRAW:
-        exitDrawMode();
-        setTimeout(()=>{if(view)view.focus();},0);
-        return true;
-      case BACK.SEARCH:
-        closeSearchPanel(view);
-        if(view)view.focus();
-        return true;
-      case BACK.LAYER:
-        closeModuleLayer(decision.layer);
-        return true;
-      case BACK.LECTURE_TAB:
-        setLectureTab('notes');
-        return true;
-      case BACK.EDITOR:
-        showCode();
-        return true;
-      case BACK.HOME:
-        flush();
-        openLanding(true);
-        return true;
-      case BACK.EXIT:
-        flush();
-        return false;
-      default:return false;
+      lectureTab:document.body.dataset.lectureTab||'notes'
     }
+  };
+}
+function applyBackDecision(decision,{openDialog=null,escape=false}={}){
+  switch(decision.action){
+    case BACK.DIALOG:
+      if(openDialog)openDialog.close('cancel');
+      return true;
+    case BACK.HOME_LAYER:
+      closeHomeHole();
+      return true;
+    case BACK.HOME_LIST:
+      setStarView(false,{persist:false});
+      return true;
+    case BACK.DRAWER:
+      document.body.classList.remove('drawer');
+      return true;
+    case BACK.DRAW:
+      exitDrawMode();
+      setTimeout(()=>{if(view)view.focus();},0);
+      return true;
+    case BACK.SEARCH:
+      closeSearchPanel(view);
+      if(view)view.focus();
+      return true;
+    case BACK.LAYER:
+      closeModuleLayer(decision.layer);
+      return true;
+    case BACK.LECTURE_TAB:
+      setLectureTab('notes');
+      return true;
+    case BACK.EDITOR:
+      showCode();
+      return true;
+    case BACK.HOME:
+      flush();
+      openLanding(true);
+      return true;
+    case BACK.EXIT:
+      if(landingOpen && landing.dataset.surface==='catalog'){showDesk(deskKind);return true;}
+      if(escape)return false;
+      flush();
+      return false;
+    default:return false;
+  }
+}
+function handleSystemBack(){
+  try{
+    const {openDialog,ctx}=backContext();
+    return applyBackDecision(resolveBack(ctx),{openDialog});
   }catch(error){
     console.error('[Studio] back handling failed',error);
     return true;  }
@@ -1361,6 +1520,8 @@ function nativeReturned(id){
 }
 function enterHomeMode(mode){
   if(!ready||!landingOpen||!KNOWN_MODES.includes(mode))return;
+  if(landing.dataset.surface==='desk')deskPositions[deskKind]=$('deskScroll').scrollTop;
+  rememberHomeScroll();
   if(isNativeModule(mode)){openNativeModule(mode);return;}
   /* Re-opening the mode already on screen is a cancel, not another applyMode. */
   if(homeFromSession&&mode===workspaceMode){hideLanding();return;}
@@ -1369,14 +1530,11 @@ function enterHomeMode(mode){
 }
 for(const card of homeCards)card.addEventListener('click',()=>enterHomeMode(card.dataset.mode));
 const resume=$('resumeCard');if(resume)resume.addEventListener('click',()=>enterHomeMode(rememberedMode()));
-if(landingBack)landingBack.addEventListener('click',()=>hideLanding());
+if(landingBack)landingBack.addEventListener('click',()=>{rememberHomeScroll();hideLanding();});
 on('homeButton',()=>{flush();openLanding(true);});
 on('aiHome',()=>{flush();openLanding(true);});
 on('aiSettingsToggle',()=>{const panel=$('aiPanel');setAISettings(!(panel&&panel.classList.contains('settings-open')));});
 window.__studioLandingReady=true;
-/* 启动序列 + 首屏实体化：本次会话只放一次，不阻塞交互。 */
-bootSequence();
-materialize('homeScroll','.home-group');
 initLecture({
   notify,
   send:(type,payload)=>send(type,payload),
@@ -1460,11 +1618,11 @@ const pelicanApi=initPelican({
 });
 /* 星穹首页：WebGL 可用时把功能做成恒星；不可用保留卡片列表。 */
 let starActive=false;
-function setStarView(list){
+function setStarView(list,{persist=true}={}){
   document.body.classList.toggle('listview',!!list);
   const sky=$('homeSkyBtn');if(sky)sky.hidden=!starActive||!list;
   /* 记住用户选的视图，下次打开首页照旧。 */
-  if(state.star){state.star.view=list?'list':'sky';scheduleSave();}
+  if(persist&&state.star){state.star.view=list?'list':'sky';scheduleSave();}
   initHomePages();
 }
 on('homeSkyBtn',()=>setStarView(false));
@@ -1720,6 +1878,24 @@ function renderMistakes(){
   const book=state.mistakes||bookSanitize(null);
   const st=bookStats(book);
   const stats=$('mistStats');if(stats)stats.textContent='共 '+st.total+' 题 · 已掌握 '+st.mastered+' · 掌握率 '+st.rate+'%';
+  if(stats && Object.keys(state.medquiz.wrong).length){
+    const pending=unfiledQuizMistakes(book,state.medquiz.wrong,mqBank());
+    if(pending.length){
+      const recover=document.createElement('button');
+      recover.type='button';recover.textContent='收录以往刷错的 '+pending.length+' 道题';
+      recover.onclick=()=>{
+        let added=0;
+        for(const question of pending){
+          const result=recordQuizMistake(state.mistakes,question,Date.now());
+          if(!result.ok)break;
+          state.mistakes=result.book;added++;
+        }
+        if(added)scheduleSave();
+        renderMistakes();notify('已收录 '+added+' 道'+(added<pending.length?'，错题本已满。':'。'));
+      };
+      stats.append(' ',recover);
+    }
+  }
   /* 分科条：每科错题数 + 掌握率，点一下按该科筛选（再点取消）。 */
   const subBar=$('mistSubjects');
   if(subBar){
@@ -1806,7 +1982,16 @@ function renderMistakes(){
           renderMistakes();scheduleSave();notify('错题已恢复。');
         });
       };
-      act.append(edit,del);card.append(act);
+      const toCard=document.createElement('button');toCard.type='button';
+      const hasCard=state.cards.cards.some(c=>c.id===it.reviewCardId);
+      toCard.textContent=hasCard?'已制卡':'制成复习卡';toCard.disabled=hasCard;
+      toCard.onclick=()=>{
+        const result=makeMistakeCard(state.mistakes,state.cards,it.id,Date.now());
+        if(!result.ok){notify(result.message);return;}
+        state.mistakes=result.book;state.cards=result.deck;
+        renderMistakes();scheduleSave();notify('已加入记忆卡片，今天可以复习。');
+      };
+      act.append(toCard,edit,del);card.append(act);
     }
     return card;
   };
@@ -1831,7 +2016,7 @@ on('mistSave',()=>{
   if(!fields.title.trim()&&!fields.question.trim()){notify('至少填写标题或题目。');return;}
   const now=Date.now();
   if(mistEditId){const r=updateMistake(state.mistakes,mistEditId,fields,now);if(r.ok)state.mistakes=r.book;}
-  else{const r=addMistake(state.mistakes,fields,now);if(r.ok)state.mistakes=r.book;}
+  else{const r=addMistake(state.mistakes,fields,now);if(!r.ok){notify('错题本已满，最多可保存 500 道。');return;}state.mistakes=r.book;}
   mistCloseForm();renderMistakes();scheduleSave();notify('已保存错题');
 });
 
@@ -2219,7 +2404,14 @@ function mqAnswer(i){
   const bank=mqBank();
   const qid=s.ids[s.pos];
   mqSession=mqAnswerFn(s,qid,i,bank);
+  if(mqSession===s)return;
   state.medquiz=mqGrade(state.medquiz,qid,i,bank);
+  const question=bank.find(q=>q.id===qid);
+  if(question && i!==question.answer){
+    const result=recordQuizMistake(state.mistakes,question,Date.now());
+    state.mistakes=result.book;
+    if(!result.ok)notify('错题本已满，这道题仍可在刷题的「错题重练」里找到。');
+  }
   state.studyLog=logStudy(state.studyLog,todayStr(),'quiz');
   mqPersist();mqRenderQuestion();
 }
@@ -2256,7 +2448,11 @@ function mqShowResult(){
   const b=document.createElement('b');b.textContent=sum.right+' / '+sum.total;
   let txt='答对 '+sum.right+' 题，答错 '+sum.wrong+' 题。';
   if(sum.skipped)txt+='跳过 '+sum.skipped+' 题（不计对错）。';
-  txt+='错题已收进错题本。';
+  if(sum.wrong){
+    const recorded=new Set(state.mistakes.items.map(item=>item.quizId));
+    const filed=mqWrongList(mqSession,mqBank()).filter(item=>recorded.has(item.id)).length;
+    txt+='其中 '+filed+' 道已收进错题本。';
+  }
   sc.append(b,document.createTextNode(txt));
   $('mqRetryWrong').hidden=sum.wrong===0;
   const wrong=mqWrongList(mqSession,mqBank());
@@ -2637,10 +2833,14 @@ on('backupImport',()=>$('backupFile').click());
 /* 驾驶舱一键直达：切到模块并按建议参数自动开始（复习/刷题/专注）。 */
 function runPlanAction(p){
   if(!p||!p.mode)return;
-  if(!applyMode(p.mode))return;
+  if(landingOpen){
+    enterHomeMode(p.mode);
+    if(landingOpen)return;
+  }else if(!applyMode(p.mode))return;
   selectedMode=p.mode;
   const a=(p.params||{}).auto;
   setTimeout(()=>{
+    if(landingOpen||workspaceMode!==p.mode)return;
     if(a==='review'){const b=$('cardsStart');if(b)b.click();}
     else if(a==='quiz'){
       if(p.params.subject){const s=$('mqSubject');if(s)s.value=p.params.subject;}

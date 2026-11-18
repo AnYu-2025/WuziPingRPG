@@ -12,6 +12,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const assert = require('node:assert/strict');
 
 function repoRoot() {
   return path.resolve(__dirname, '..');
@@ -69,6 +70,133 @@ function staticCheck(root) {
   };
 }
 
+async function checkWorkspaces(page) {
+  const desk = page.locator('#workspaceDesk');
+  const study = page.locator('#deskStudy');
+  const code = page.locator('#deskCode');
+  const body = desk.locator('#deskBody');
+  await desk.waitFor({state: 'visible'});
+  assert.equal(await study.getAttribute('aria-selected'), 'true', 'new workspaces start in study');
+  await code.click();
+  assert.equal(await code.getAttribute('aria-selected'), 'true');
+  await page.reload({waitUntil: 'networkidle'});
+  await page.waitForSelector('#landing[data-ready="1"]');
+  assert.equal(await code.getAttribute('aria-selected'), 'true', 'programming tab must survive reload');
+
+  const oldFiles = await page.evaluate(() => window.Studio.getState().files.map(file => file.path));
+  await body.getByRole('button', {name: '新建 Python', exact: true}).click();
+  await page.locator('#landing').waitFor({state: 'hidden'});
+  const draft = await page.evaluate(() => window.Studio.getState().active);
+  assert(draft.endsWith('.py') && !oldFiles.includes(draft), 'create a new, independent Python file');
+  const editor = page.locator('#workbench .cm-content');
+  await editor.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  const sample = 'print(6 * 7)';
+  await page.keyboard.insertText(sample);
+  await page.locator('#runButton').click();
+  await page.waitForFunction(() => /执行完成|执行失败|超时|未能启动/.test(document.querySelector('#runState').textContent), null, {timeout: 60000});
+  const status = await page.locator('#runState').innerText();
+  const pythonOutput = (await page.locator('#output').innerText()).trim();
+  assert.match(status, /^执行完成/, status + '\n' + pythonOutput);
+  assert.equal(pythonOutput, '42', 'offline Python worker should print 42');
+  assert.equal(await page.evaluate(() => window.Studio.back()), true);
+  await desk.waitFor({state: 'visible'});
+  assert.equal(await code.getAttribute('aria-selected'), 'true');
+  await page.reload({waitUntil: 'networkidle'});
+  await page.waitForSelector('#landing[data-ready="1"]');
+  assert.equal(await page.evaluate(path => window.Studio.getState().files.find(f => f.path === path)?.text, draft), sample);
+
+  await study.click();
+  await body.getByRole('button', {name: /记忆卡片/}).click();
+  await page.locator('#landing').waitFor({state: 'hidden'});
+  assert.equal(await page.evaluate(() => window.Studio.getState().mode), 'cards');
+  assert.equal(await page.evaluate(() => window.Studio.back()), true);
+  await desk.waitFor({state: 'visible'});
+  assert.equal(await study.getAttribute('aria-selected'), 'true');
+  return {draft, pythonOutput};
+}
+
+async function checkHomeNavigation(page) {
+  const inList = () => page.evaluate(() => document.body.classList.contains('listview'));
+  const back = () => page.evaluate(() => window.Studio.back());
+  const focusedId = () => page.evaluate(() => document.activeElement.id);
+  const home = page.locator('#landing');
+  const scroll = page.locator('#homeScroll');
+  await page.locator('#deskCatalog').click();
+  await page.locator('#catalogHome').waitFor({state: 'visible'});
+  assert(await page.evaluate(() => document.body.classList.contains('starhome')), 'WebGL star home must be available');
+  if (!await inList()) await page.locator('#starListBtn').click();
+  await scroll.evaluate(el => el.scrollTo(0, 0));
+  // The mobile scroll container used to snap past its own navigation button.
+  await page.locator('#homeSkyBtn').click({timeout: 5000});
+  assert.equal(await inList(), false);
+
+  const sheet = page.locator('#starHoleSheet');
+  for (const dismissal of ['close', 'escape', 'back']) {
+    await page.locator('#starHoleBtn').click();
+    await sheet.waitFor({state: 'visible'});
+    assert.equal(await focusedId(), 'starHoleClose');
+    if (dismissal === 'close') await page.locator('#starHoleClose').click();
+    if (dismissal === 'escape') await page.keyboard.press('Escape');
+    if (dismissal === 'back') assert.equal(await back(), true);
+    await sheet.waitFor({state: 'hidden'});
+    assert.equal(await focusedId(), 'starHoleBtn', 'restore focus on ' + dismissal);
+  }
+
+  await page.locator('#starListBtn').click();
+  const moduleCard = page.locator('.home-card[data-mode="ai"]');
+  await moduleCard.scrollIntoViewIfNeeded();
+  // Playwright may finish scrolling the control into view as part of the click.
+  // Sample where the user actually entered the card, after that scroll.
+  await moduleCard.evaluate(el => el.addEventListener('click', () => {
+    window.__scrollAtModuleEntry = document.querySelector('#homeScroll').scrollTop;
+  }, { capture: true, once: true }));
+  await moduleCard.click();
+  const before = await page.evaluate(() => window.__scrollAtModuleEntry);
+  assert(before > 50, 'test must enter a module from below the first screen');
+  await home.waitFor({state: 'hidden'});
+  await page.keyboard.press('Escape');
+  assert.equal(await home.isVisible(), false, 'Escape must leave the module open');
+  assert.equal(await back(), true);
+  await home.waitFor({state: 'visible'});
+  assert.equal(await inList(), true);
+  await page.waitForFunction(() => !document.querySelector('#homeScroll').classList.contains('fx-in'));
+  const position = await scroll.evaluate(el => ({top:el.scrollTop, max:el.scrollHeight-el.clientHeight}));
+  const after = position.top;
+  assert(Math.abs(Math.min(before, position.max) - after) <= 4, 'list position changed from ' + before + ' to ' + JSON.stringify(position));
+  assert.equal(await back(), true);
+  assert.equal(await inList(), false);
+  assert.equal(await back(), true, 'star-home root returns to workspaces');
+  await page.locator('#workspaceDesk').waitFor({state: 'visible'});
+  assert.equal(await back(), false, 'workspace root hands back to the native shell');
+  return {scrollBefore: before, scrollAfter: after};
+}
+
+async function checkFallbackCatalog(browser, url) {
+  const page = await browser.newPage({viewport: {width: 412, height: 800}});
+  try {
+    await page.addInitScript(() => {
+      const normalContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function(kind, ...args) {
+        return /webgl/i.test(kind) ? null : normalContext.call(this, kind, ...args);
+      };
+    });
+    await page.goto(url, {waitUntil: 'networkidle'});
+    await page.waitForSelector('#landing[data-ready="1"]');
+    await page.locator('#deskCatalog').click();
+    await page.locator('.home-card[data-mode="python"]').waitFor({state: 'visible'});
+    assert.equal(await page.evaluate(() => document.body.classList.contains('starhome')), false);
+    await page.locator('#catalogHome').click();
+    await page.locator('#workspaceDesk').waitFor({state: 'visible'});
+    await page.locator('#deskCatalog').click();
+    assert.equal(await page.evaluate(() => window.Studio.back()), true);
+    await page.locator('#workspaceDesk').waitFor({state: 'visible'});
+    assert.equal(await page.evaluate(() => window.Studio.back()), false);
+  } finally {
+    await page.close();
+  }
+}
+
 async function browserCheck(root) {
   const url = process.env.STUDIO_PREVIEW_URL;
   if (!url) throw new Error('Set STUDIO_PREVIEW_URL to a page Playwright can open');
@@ -78,8 +206,9 @@ async function browserCheck(root) {
   } catch (error) {
     throw new Error('Playwright is not installed; static check does not need it. ' + error.message);
   }
-  const browser = await playwright.chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  // Headless CI uses Chromium's software WebGL renderer for the star-home controls.
+  const browser = await playwright.chromium.launch({ args: ['--enable-unsafe-swiftshader'] });
+  const page = await browser.newPage({ viewport: { width: 412, height: 800 } });
   const errors = [];
   page.on('pageerror', (error) => errors.push(String(error)));
   await page.addInitScript(() => {
@@ -91,9 +220,12 @@ async function browserCheck(root) {
         setTimeout(() => {
           if (message.type === 'ready') {
             window.StudioNative.receive({ type: 'capabilities', scan: true, photo: true, game: true, sdk: 34 });
-            window.StudioNative.receive({ type: 'restore', data: null });
+            window.StudioNative.receive({ type: 'restore', data: JSON.parse(sessionStorage.getItem('test-workspace') || 'null') });
           }
-          if (message.type === 'snapshot') window.StudioNative.receive({ type: 'snapshotSaved', id: message.id, ok: true });
+          if (message.type === 'snapshot') {
+            sessionStorage.setItem('test-workspace', JSON.stringify(message.data));
+            window.StudioNative.receive({ type: 'snapshotSaved', id: message.id, ok: true });
+          }
         }, 0);
       }
     };
@@ -106,12 +238,12 @@ async function browserCheck(root) {
     if (JSON.stringify(cards) !== JSON.stringify(expected)) {
       throw new Error('rendered cards ' + JSON.stringify(cards) + ' != ' + JSON.stringify(expected));
     }
+    const {draft, pythonOutput} = await checkWorkspaces(page);
+    const mistakeReview = await require('./tests/mistake-review.cjs')(page);
+    const navigation = await checkHomeNavigation(page);
+    await checkFallbackCatalog(browser, url);
     if (errors.length) throw new Error(errors.join('\n'));
-    const outDir = path.join(root, 'artifacts', 'studio-v0.1');
-    fs.mkdirSync(outDir, { recursive: true });
-    const result = { cards, browser: true, consoleErrors: errors, android_device_tested: false };
-    fs.writeFileSync(path.join(outDir, 'merge-ui-static.json'), JSON.stringify(result, null, 2));
-    return result;
+    return { cards, browser: true, draft, pythonOutput, mistakeReview, navigation, catalogWithoutWebGL: true, consoleErrors: errors, android_device_tested: false };
   } finally {
     await browser.close();
   }

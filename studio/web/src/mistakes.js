@@ -2,7 +2,10 @@
  * 每条错题 {id,subject,title,question,answer,reason,mastery,created,updated}
  * mastery: 0=未掌握 1=模糊 2=已掌握。按科目筛选、按掌握度统计。 */
 
-export const SUBJECTS=['数学','物理','化学','英语','语文','生物','其他'];
+import {QUIZ_SUBJECTS} from './quiz-data.js';
+import {addCard} from './cards.js';
+
+export const SUBJECTS=['数学','物理','化学','英语','语文','生物',...QUIZ_SUBJECTS,'其他'];
 export const MASTERY=['未掌握','模糊','已掌握'];
 /* 错因画像：记「为什么错」，统计分布并给针对性建议。 */
 export const CAUSES=['概念不清','审题失误','粗心计算','完全不会'];
@@ -21,6 +24,8 @@ export function mistakeSanitize(raw,fallbackId){
     id:Math.max(1,Math.floor(num(r.id,fallbackId))),
     subject,title:title||question.trim().slice(0,40),
     question,answer,reason:str(r.reason,1000),
+    ...(typeof r.quizId==='string' && r.quizId ? {quizId:r.quizId} : {}),
+    ...(Number.isSafeInteger(r.reviewCardId) && r.reviewCardId>0 ? {reviewCardId:r.reviewCardId} : {}),
     cause:CAUSES.includes(r.cause)?r.cause:'',
     mastery:clamp(Math.round(num(r.mastery,0)),0,2),
     created:Math.max(0,num(r.created,0)),
@@ -42,6 +47,7 @@ export function bookSanitize(raw){
 
 export function addMistake(book,fields,now){
   const b=bookSanitize(book);
+  if(b.items.length>=500)return {book:b,ok:false};
   const s=mistakeSanitize({...fields,created:now,updated:now},b.nextId);
   if(!s)return {book:b,ok:false};
   s.id=b.nextId;
@@ -62,6 +68,32 @@ export function updateMistake(book,id,fields,now){
 
 export function setMastery(book,id,mastery,now){
   return updateMistake(book,id,{mastery},now);
+}
+
+export function recordQuizMistake(book, question, now) {
+  const existing = book.items.find(item => item.quizId === question.id);
+  if (existing) return setMastery(book, existing.id, 0, now);
+  const choices = question.options.map((option, i) => `${'ABCDEF'[i]}. ${option}`);
+  const answer = [question.options[question.answer], question.explain].filter(Boolean).join('\n');
+  return addMistake(book, {
+    quizId: question.id, subject: question.subject, title: question.q.slice(0, 40),
+    question: [question.q, ...choices].join('\n'), answer,
+  }, now);
+}
+
+export function unfiledQuizMistakes(book, wrong, bank) {
+  const filed = new Set(book.items.map(item => item.quizId));
+  return bank.filter(question => wrong[question.id] && !filed.has(question.id));
+}
+
+export function makeMistakeCard(book, deck, id, now) {
+  const item = book.items.find(entry => entry.id === id);
+  if (!item || !item.answer.trim()) return {ok:false, message:'请先补上正确答案。'};
+  if (deck.cards.some(card => card.id === item.reviewCardId)) return {ok:false, message:'这道题已有复习卡。'};
+  if (deck.cards.length >= 500) return {ok:false, message:'卡片已达 500 张。'};
+  const result = addCard(deck, item.question || item.title, item.answer, now);
+  if (!result.ok) return {ok:false, message:'请检查题目和答案。'};
+  return {ok:true, deck:result.deck, book:updateMistake(book, id, {reviewCardId:result.card.id}, now).book};
 }
 
 export function removeMistake(book,id){

@@ -578,13 +578,18 @@ export function initStarHome(env,api){
       const back=document.createElement('button');back.type='button';back.textContent='放回星空';
       back.onclick=()=>{prefs.starred=prefs.starred.filter(x=>x!==id);savePrefs();applyStarred();openHole();};
       const open=document.createElement('button');open.type='button';open.className='primary';open.textContent='打开';
-      open.onclick=()=>{closeHole();env.open(id);};
+      open.onclick=()=>{closeHole(false);env.open(id);};
       row.append(name,back,open);
       list.append(row);
     }
     sheet.hidden=false;
+    const close=$('starHoleClose');if(close)close.focus({preventScroll:true});
   }
-  function closeHole(){const sheet=$('starHoleSheet');if(sheet)sheet.hidden=true;}
+  function closeHole(requestFocus=true){
+    const sheet=$('starHoleSheet');if(!sheet||sheet.hidden)return;
+    sheet.hidden=true;
+    if(requestFocus){const btn=$('starHoleBtn');if(btn)btn.focus({preventScroll:true});}
+  }
 
   /* ---------- 晃动 ---------- */
   function bindMotion(){
@@ -810,7 +815,7 @@ export function initStarHome(env,api){
   function leave(){
     active=false;
     cancelAnimationFrame(raf);
-    closeHole();
+    closeHole(false);
   }
 
   /* ---------- 观测台：常驻控制台，12 参数实时渲染 ---------- */
@@ -929,7 +934,7 @@ export function initStarHome(env,api){
   /* ---------- 绑定 ---------- */
   const motionBtn=$('starMotionBtn');if(motionBtn)motionBtn.onclick=requestMotionPermission;
   const listBtn=$('starListBtn');if(listBtn)listBtn.onclick=()=>{env.showList();};
-  const holeClose=$('starHoleClose');if(holeClose)holeClose.onclick=closeHole;
+  const holeClose=$('starHoleClose');if(holeClose)holeClose.onclick=()=>closeHole();
   const holeBtn=$('starHoleBtn');if(holeBtn)holeBtn.onclick=openHole;
   bindObs();
 
@@ -937,19 +942,23 @@ export function initStarHome(env,api){
   api.leave=leave;
   api.available=()=>!!renderer;
   api.openHole=openHole;
+  api.closeHole=requestFocus=>closeHole(requestFocus!==false);
+  api.holeOpen=()=>{const sheet=$('starHoleSheet');return !!sheet&&!sheet.hidden;};
   api.debug=()=>({stars:stars.size,starred:prefs.starred.length,active});
 }
 
 /* 懒加载入口：app.js 通过动态 import 调用，three 只在首页星穹启用时才加载。
  * 旧 WebView 解析不了 three 时，首页保留卡片列表，功能不丢。 */
 export function init(env){
-  const api={enter:()=>false,leave:()=>{},available:()=>false,openHole:()=>{},debug:()=>({})};
+  const api={enter:()=>false,leave:()=>{},available:()=>false,openHole:()=>{},closeHole:()=>{},holeOpen:()=>false,debug:()=>({})};
   initStarHome(env,api);
   return {
     enter:()=>api.enter(),
     leave:()=>api.leave(),
     available:()=>api.available(),
     openHole:()=>api.openHole(),
+    closeHole:requestFocus=>api.closeHole(requestFocus),
+    holeOpen:()=>api.holeOpen(),
     debug:()=>api.debug()
   };
 }

@@ -1,2 +1,3 @@
 38ae11a94aebe8c1b762427df791e912229cf2acc794b84ed1eff76579037c87  WuziPing-Emberbound-0.7.1-debug.apk
 6d64a967aedf53a650434d8339bdf237fb413b40889fe620417e94756865d50a  WuziPing-Emberbound-0.7.1-parallel-debug.apk
+19328fbc01388c301f5d2a05c482a51a49c3a67aff80ef3fa2de0a8838b85910  星火远征-纪念版-1.0.apk

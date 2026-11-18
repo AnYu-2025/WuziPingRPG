@@ -2,7 +2,7 @@
 
 这里只说明怎么核对**已经提交的安装包**。这些命令不编译、不签名、不覆盖 `dist/`，也不改版本号。
 
-产品版本以 Gradle 为准：游戏 `app/build.gradle`，天工 `studio/build.gradle`。当前源码是游戏 0.7.1（versionCode 8）和天工 0.3.18（versionCode 58）。升版本号、打 tag、发 GitHub Release 都不属于这条检查。
+纪念版游戏的版本从 `app/build.gradle` 读取，天工的版本从 `studio/build.gradle` 读取。游戏脚本选取 `dist/星火远征-纪念版-<版本>.apk`，天工脚本选取 `dist/Ember-Studio-<版本>.apk`。
 
 ## 两条命令
 
@@ -27,10 +27,7 @@ python3 tools/verify-studio-release.py --strict
 python3 tools/verify-studio-release.py --sdk-root /home/box/opt/android-sdk --build-tools 36.1.0 --strict
 ```
 
-在当前已提交的 0.7.1 / 0.3.18 包上，严格模式应当失败，摘要里的 `FAIL=` 必须是 0。非零的 `FAIL=` 表示校验和、坏包或工具实际跑失败，不能当成「只有已知缺口」放过。`SKIP=` 在工具齐全时可以是 0，不能为了旧的 34.0.0 路径去要求它一定出现。等以后的包同时满足下面两件事，严格模式才会变成 `EXIT: PASS`：
-
-- 本机看得到 JDK，并且选定的 build-tools 里有 `zipalign`、`aapt`、`lib/apksigner.jar`
-- 游戏包含 `HistoryJourney` 和五张残灯渡图；天工包里的 `assets/studio/editor.page` 与 `index.html` 一致
+工具齐全时，两个当前包都应通过严格检查，摘要中 `FAIL`、`SKIP` 和 `KNOWN` 均为 0。纪念版检查包名、启动 Activity、包版本、签名、ZIP 完整性与对齐、源码资源、历史剧情及开放世界和学科试炼的 DEX 类。天工另核对首页源码、已构建页面和包内两份回退页。游戏摘要收在 `dist/SHA256SUMS.txt`，工作室摘要收在 `dist/STUDIO-SHA256SUMS.txt` 及根目录的同名文件。构建纪念版使用 `tools/build-memorial.sh`。
 
 逻辑回归是另一条命令，不计入上面的发行摘要：
 
@@ -51,16 +48,16 @@ python3 tools/verify-interface-fix.py --strict
 
 没有 `studio/web/node_modules` 时，接口脚本的 bundle 同步是 SKIP。开发模式写 `EXIT: INCOMPLETE`；`--strict` 失败。
 
-CI 工作流 `.github/workflows/verify-entrypoints.yml` 跑开发检查，并另外断言游戏和天工的 `--strict` 以非零退出。那一步变绿，只说明门槛还认得这些缺口，不说明发行包已经完整。
+CI 分别运行安装包严格校验和网页测试。即使版本或安装包检查失败，仍能看到网页回归结果。最终检查要求两项任务都成功。
 
 ## 兼容矩阵
 
 | 包 | 包名 | 和谁占同一个安装位 |
 | --- | --- | --- |
-| 游戏标准包 `WuziPing-Emberbound-<版本>-debug.apk` | `cn.wuziping.ember` | 天工标准包。后装的覆盖先装的。证书必须相同，否则系统拒绝覆盖。不要先卸载，否则 `journey-v1.bin` 和天工工作区会一起消失。 |
-| 游戏共存包 `WuziPing-Emberbound-<版本>-parallel-debug.apk` | `cn.wuziping.ember.preview07` | 天工共存包。两者也互相覆盖。 |
-| 天工标准包 `Ember-Studio-<版本>.apk` | `cn.wuziping.ember` | 游戏标准包。0.3.18 提交的是这一份。 |
-| 天工共存包 `Ember-Studio-<版本>-parallel.apk` | `cn.wuziping.ember.preview07` | 游戏共存包。0.3.18 没有提交这个文件。严格模式把它记为 NOTE，不因此失败。 |
+| 星火远征纪念版 | `cn.wuziping.ember.memorial` | 独立安装并保存游戏进度，可与天工同机运行。 |
+| 历史游戏标准包 `WuziPing-Emberbound-0.7.1-debug.apk` | `cn.wuziping.ember` | 天工标准包。覆盖安装需要证书相同且系统允许该版本升级。 |
+| 历史游戏共存包 `WuziPing-Emberbound-0.7.1-parallel-debug.apk` | `cn.wuziping.ember.preview07` | 历史天工共存包。 |
+| 天工标准包 `Ember-Studio-<版本>.apk` | `cn.wuziping.ember` | 历史游戏标准包。 |
 
 标准包和共存包使用同一张开发证书时才能各自覆盖自己的旧包。外部 0.6 是另一张证书，标准包盖不上去。
 
@@ -70,11 +67,10 @@ CI 工作流 `.github/workflows/verify-entrypoints.yml` 跑开发检查，并另
 
 x86 或 x86_64 模拟器若没有 ARM 翻译，扫描相关的原生库加载不了。Gradle 注释写了：要在 x86 模拟器上试扫描，得临时去掉那段排除再重新构建。这条核对不负责重新构建。WebView 里的其他页面是否能打开，以实际模拟器结果为准。
 
-## 已提交包里的已知缺口
+## 历史发行记录
 
-这些缺口是对照现有 APK 读出来的，不是把检查放宽之后的结论。
+以下记录对应指定的旧版 APK。
 
 - 游戏 `dist/WuziPing-Emberbound-0.7.1-debug.apk` 与共存包的 `classes.dex` 没有 `HistoryJourney`。源码和 `tools/tests/HistoryTests.java` 里有这个类。
 - 同一对游戏包没有这五张图：`history_bandit.png`、`history_commander.png`、`history_ford.png`、`history_road.png`、`history_soldier.png`。它们在 `app/src/main/assets/`。包内已有的资源与源码一致；缺口是源码多出来的文件。
-- 天工 `dist/Ember-Studio-0.3.18.apk` 的 `assets/studio/editor.page` 仍是旧页。`PackedAssets` 读取页面时先打开 `assets/studio/index.html`，那份与当前源码一致。回退页要等下一次打包才会更新。
-- 没有选定完整 build-tools 时，`build-tools` 单独记为 SKIP，不把 Java 写成缺失。工具齐全时这一行是 PASS，`--strict` 仍会因为上面的 KNOWN 失败。打包脚本 `tools/build-apk.sh` 和 `tools/build-studio.sh` 仍使用 Build-Tools 34.0.0 来产出新包；只读核验不下载 SDK，也不固定 34.0.0。
+- 天工 `dist/Ember-Studio-0.3.18.apk` 的 `assets/studio/editor.page` 是当时的旧页。`PackedAssets` 优先读取的 `assets/studio/index.html` 与该版源码一致。

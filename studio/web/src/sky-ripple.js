@@ -41,9 +41,9 @@
   img.src = 'meteor-sky.webp';
 
   function visible() {
-    return !document.hidden && !landing.hidden && !landing.classList.contains('landing-out');
+    return !document.hidden && !landing.hidden && landing.dataset.surface !== 'desk' && !landing.classList.contains('landing-out');
   }
-  function start() { if (running || !loaded) return; running = true; last = 0; raf = requestAnimationFrame(draw); }
+  function start() { if (running || !loaded || !visible()) return; running = true; last = 0; raf = requestAnimationFrame(draw); }
   function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = 0; }
 
   function meteorState(m, t) {
@@ -157,7 +157,7 @@
   window.addEventListener('resize', function () { last = 0; });
   if (window.MutationObserver) {
     new MutationObserver(function () { visible() ? start() : stop(); })
-      .observe(landing, { attributes: true, attributeFilter: ['hidden', 'class'] });
+      .observe(landing, { attributes: true, attributeFilter: ['hidden', 'class', 'data-surface'] });
   }
   start();
 }());

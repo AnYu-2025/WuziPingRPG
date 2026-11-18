@@ -5,6 +5,9 @@
 import {createCompiler} from '@live-codes/clang-wasm';
 import {createToolchain} from '@live-codes/clang-wasm/toolchain';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import {createDeskDraft,cppRunScope} from '../src/desk-code.js';
 
 const compiler=await createCompiler('cpp');
 
@@ -63,6 +66,37 @@ const fw=await compiler.run('#include <cstdio>\nint main(){FILE*f=fopen("out.txt
 assert.deepEqual(fw.errors,[]);
 assert.equal(fw.exitCode,0);
 console.log('✓ 程序写文件');
+
+/* Exercise the actual browser worker handler; reuse the local WASM compiler for its importScripts transport. */
+const messages=[];
+const context=vm.createContext({
+  self:{location:{href:'https://localhost/studio/cpp-worker.js'},clangWasmToolchain:{createToolchain:async()=>chain}},
+  URL,performance,TextDecoder,Uint8Array,Map,setTimeout,clearTimeout,
+  postMessage:message=>messages.push(message),
+  importScripts(name){
+    if(name==='worker-output.js') vm.runInContext(readFileSync(new URL('../src/'+name,import.meta.url),'utf8'),context);
+    else assert.equal(name,'clang/clang-wasm-toolchain.global.js');
+  }
+});
+vm.runInContext(readFileSync(new URL('../src/cpp-worker.js',import.meta.url),'utf8'),context);
+const flat=workspaceFiles.map(f=>({path:f.path,text:f.content}));
+const entry=createDeskDraft(flat,'cpp');
+entry.text='#include "helper.h"\n#include <cstdio>\nint main(){int n=0;FILE* f=fopen("input.txt","r");if(!f)return 1;fscanf(f,"%d",&n);fclose(f);printf("%d",twice(n));f=fopen("result.txt","w");if(!f)return 2;fputs("ready",f);fclose(f);}';
+const second=createDeskDraft([...flat,entry],'cpp');
+const all=[...flat,entry,second,{path:entry.deskProject+'/input.txt',text:'8'},
+  {path:entry.deskProject+'/helper.cpp',text:'int twice(int n){return 2*n;}'},
+  {path:entry.deskProject+'/helper.h',text:'int twice(int);'}];
+for(const [file,expected] of [[flat[0],'12'],[entry,'16'],[second,'你好，C++！']]){
+  messages.length=0;
+  const scope=cppRunScope(all,file.path);
+  await context.self.onmessage({data:{path:file.path,code:file.text,projectRoot:scope.root,files:scope.files}});
+  const output=messages.filter(m=>m.type==='stdout'||m.type==='stderr').map(m=>m.text).join('');
+  const done=messages.find(m=>m.type==='done');
+  assert.ok(done?.ok,output);
+  assert.ok(output.includes(expected),output);
+  if(file===entry)assert.ok(done.files.some(f=>f.path===entry.deskProject+'/result.txt'&&f.text==='ready'));
+}
+console.log('✓ 两个新建 C++ 项目与旧多文件项目独立运行，项目内相对读写正常');
 
 compiler.dispose();cCompiler.dispose();chain.dispose();
 console.log('全部通过');
