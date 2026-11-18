@@ -382,10 +382,10 @@ public final class Scene {
         p.rect(70,49,190,12,0xff142028);p.rect(71,50,188*g.hp/Math.max(1,g.maxHp),10,g.hp<g.maxHp*.34f?0xffe07a45:0xffc45c6a);p.rect(71,50,188*g.hp/Math.max(1,g.maxHp),2,0x66ffd5cc);center((int)g.hp+" / "+(int)g.maxHp,165,59,10,0xfffff0d4);
         label("经验 "+g.xp+" / "+g.requiredXp(),30,74,9,MUTED);
         p.rect(28,78,240,5,0xff142028);p.rect(28,78,240*(float)g.xp/g.requiredXp(),5,0xff7ec8b0);p.rect(28,78,240*(float)g.xp/g.requiredXp(),1,0x88e8fff0);
-        anchor(0,-1);panel(325,16,310,56);p.rect(340,66,280,2,0x55e8c27a);center(g.inOpen()?"开放世界 · 五校区两遗址":g.inTown()?"中山大学 · "+(g.body.enabled?"梦境据点":"灯火长明"):g.inHistory()?(g.history.stage==5?"两宋之交 · 逃难山道":g.history.stage==9?"两宋之交 · 雾中驿道":"两宋之交 · 残灯渡口"):g.inBody()?g.body.name()+" · 体内远征":"迷雾森林 · "+Game.WAVE_NAMES[g.wave-1],480,39,17,CREAM);center(g.inOpen()?"自由探索 · 清剿面具部落":g.inTown()?"安全区域  ·  可以交谈与补给":g.inHistory()?"守护归途 · 敌人 "+g.enemies.size():g.inBody()?BodyJourney.SUBTITLES[g.body.organ]+"  ·  "+time(g.elapsed):"第 "+g.wave+" / 5 波  ·  "+time(g.elapsed),480,59,11,MUTED);
+        anchor(0,-1);panel(325,16,310,56);p.rect(340,66,280,2,0x55e8c27a);center(g.inOpen()?"开放世界 · 校区与沉沦大明":g.inTown()?"中山大学 · "+(g.body.enabled?"梦境据点":"灯火长明"):g.inHistory()?(g.history.stage==5?"两宋之交 · 逃难山道":g.history.stage==9?"两宋之交 · 雾中驿道":"两宋之交 · 残灯渡口"):g.inBody()?g.body.name()+" · 体内远征":"迷雾森林 · "+Game.WAVE_NAMES[g.wave-1],480,39,17,CREAM);center(g.inOpen()?"自由探索 · 学科试炼 · 清剿敌营":g.inTown()?"安全区域  ·  可以交谈与补给":g.inHistory()?"守护归途 · 敌人 "+g.enemies.size():g.inBody()?BodyJourney.SUBTITLES[g.body.organ]+"  ·  "+time(g.elapsed):"第 "+g.wave+" / 5 波  ·  "+time(g.elapsed),480,59,11,MUTED);
         anchor(1,-1);icon(9,646,21,23);label(""+g.gold,674,40,16,GOLD);smallToggle("札记",716,19,58);
         smallToggle(g.autoAttack?"自动 开":"自动 关",780,19,76);smallToggle("菜单",862,19,78);
-        anchor(-1,-1);panel(18,107,286,83);p.rect(22,116,3,64,g.body.ending?0xff8ed0b7:GOLD);icon(11,32,118,24);label(g.inOpen()?"大陆探索 · 发现 "+Integer.bitCount(g.world.discovered)+" / 7":g.inHistory()?"历史 · 残灯渡":g.math.active?"数学星庭 · 发现 "+Integer.bitCount(g.math.solved)+" / 3":g.body.enabled?(g.body.ending?"终章完成 · 梦醒时分":"梦入体内 · 净化 "+g.body.clearedCount()+" / 8"):g.story.enabled?g.story.chapterName():"当前委托",64,136,12,GOLD);
+        anchor(-1,-1);panel(18,107,286,83);p.rect(22,116,3,64,g.body.ending?0xff8ed0b7:GOLD);icon(11,32,118,24);label(g.inOpen()?"大陆探索 · 发现 "+Integer.bitCount(g.world.discovered)+" / "+OpenWorld.REGIONS.length:g.inHistory()?"历史 · 残灯渡":g.math.active?"数学星庭 · 发现 "+Integer.bitCount(g.math.solved)+" / 3":g.body.enabled?(g.body.ending?"终章完成 · 梦醒时分":"梦入体内 · 净化 "+g.body.clearedCount()+" / 8"):g.story.enabled?g.story.chapterName():"当前委托",64,136,12,GOLD);
         wrapped(g.quest(),32,161,13,CREAM,254,18,2);label("点击查看任务与人物",32,182,10,MUTED);
         // Mini map deliberately omits any hidden off-screen collectible information.
         anchor(1,-1);panel(826,75,114,89);p.rect(834,83,98,73,g.inTown()?0xff3e5250:0xff203e31);
@@ -428,14 +428,12 @@ public final class Scene {
         center("移动",92,508,12,MUTED);
         if(g.inOpen()){
             anchor(1,1);String it=g.world.interaction(g);boolean ready=!it.isEmpty();
-            // 交谈键独占左下侧，避免与普攻/星火斩重叠。
-            p.oval(600,432,80,80,ready?0xffc4a572:0xff677c7d);p.oval(604,436,72,72,0xee233e46);icon(11,622,452,36);
-            center(ready?it:"交谈",640,528,12,ready?GOLD:MUTED);
-            roundButton(866,428,52,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61);
-            roundButton(764,449,41,1,"星火斩",g.skillCd,8,0xffc17b51);
-            roundButton(860,330,35,2,"闪避",g.dashCd,2.6f,0xff6d9b8d);
-            roundButton(748,345,30,3,"药剂 ×"+g.potions,g.potionCd,3,0xffa87063);
-            anchor(0,1);label("探索五校区 · 清剿面具部落 · 解锁剧情",300,508,11,MUTED);
+            OpenWorldRenderer.pixelButton(p,640,470,38,11,ready?it:"交谈",0,0,ready?0xffc4a572:0xff677c7d,ready);
+            OpenWorldRenderer.pixelButton(p,866,428,50,0,"普攻",g.attackCd,g.attackDelay,0xffb89a61,g.attackCd<=.1f);
+            OpenWorldRenderer.pixelButton(p,764,449,40,1,"星火斩",g.skillCd,8,0xffc17b51,g.skillCd<=.1f);
+            OpenWorldRenderer.pixelButton(p,860,330,34,2,"闪避",g.dashCd,2.6f,0xff6d9b8d,g.dashCd<=.1f);
+            OpenWorldRenderer.pixelButton(p,748,345,30,3,"药剂×"+g.potions,g.potionCd,3,0xffa87063,g.potionCd<=.1f&&g.potions>0);
+            anchor(0,1);label("探索五校区 · 沉沦大明 · 学科试炼 · 清剿敌营",300,508,11,MUTED);
             return;
         }
         if(g.inMath()){

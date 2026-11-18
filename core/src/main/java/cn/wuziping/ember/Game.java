@@ -25,6 +25,7 @@ public final class Game {
     public final ArrayDeque<String> sounds=new ArrayDeque<>();
     public Story story=new Story();
     public OpenWorld world=new OpenWorld();
+    public AcademyTrial trial=new AcademyTrial();
     public BodyJourney body=new BodyJourney();
     public TownGuest guest=new TownGuest();
     public Arsenal arsenal=new Arsenal();
@@ -323,7 +324,7 @@ public final class Game {
 
     /** Versioned binary snapshot: no framework dependencies, no Java object deserialization. */
     public void save(OutputStream stream)throws IOException{
-        DataOutputStream o=new DataOutputStream(stream);o.writeInt(0x575A5052);o.writeInt(12);
+        DataOutputStream o=new DataOutputStream(stream);o.writeInt(0x575A5052);o.writeInt(13);
         o.writeInt(totalRuns);o.writeInt(bestWave);o.writeInt(lifetimeKills);o.writeInt(bank);o.writeBoolean(sound);o.writeBoolean(autoAttack);o.writeBoolean(activeRun);
         if(!activeRun){story.write(o);body.write(o);guest.write(o);arsenal.write(o);math.write(o);physics.write(o);o.writeUTF(heroName);o.writeInt(effectsLevel);history.write(o);world.write(o);o.flush();return;}
         int[] ints={wave,level,xp,kills,gold,potions,waveSpawned,waveKilled,pendingUpgrades};for(int n:ints)o.writeInt(n);
@@ -334,7 +335,7 @@ public final class Game {
         o.writeInt(shots.size());for(Shot p:shots){o.writeFloat(p.x);o.writeFloat(p.y);o.writeFloat(p.vx);o.writeFloat(p.vy);o.writeFloat(p.life);o.writeInt(p.damage);}story.write(o);body.write(o);guest.write(o);arsenal.write(o);math.write(o);physics.write(o);o.writeUTF(heroName);o.writeInt(effectsLevel);history.write(o);world.write(o);o.flush();
     }
     public static Game load(InputStream stream)throws IOException{
-        DataInputStream i=new DataInputStream(stream);if(i.readInt()!=0x575A5052)throw new IOException("Unsupported save");int version=i.readInt();if(version<1||version>12)throw new IOException("Unsupported save version");Game g=new Game();
+        DataInputStream i=new DataInputStream(stream);if(i.readInt()!=0x575A5052)throw new IOException("Unsupported save");int version=i.readInt();if(version<1||version>13)throw new IOException("Unsupported save version");Game g=new Game();
         g.totalRuns=bounded(i.readInt(),0,1000000);g.bestWave=bounded(i.readInt(),0,8);g.lifetimeKills=bounded(i.readInt(),0,100000000);g.bank=bounded(i.readInt(),0,100000000);g.sound=i.readBoolean();g.autoAttack=i.readBoolean();g.activeRun=i.readBoolean();if(!g.activeRun){if(version>=2)g.story=Story.read(i);if(version>=3)g.body=BodyJourney.read(i,version>=5?8:5);if(version>=4)g.guest=TownGuest.read(i);if(version>=5)g.arsenal=Arsenal.read(i,version);if(version>=6)g.math=MathJourney.read(i);if(version>=7)g.physics=PhysicsJourney.read(i,version);else g.physics=new PhysicsJourney();g.physics.syncFinaleReward(g);if(version>=6)g.readProfileExtras(i,version);if(version>=9)g.history=HistoryJourney.read(i,version);if(version>=12)g.world=OpenWorld.read(i,version);return g;}
         g.wave=bounded(i.readInt(),1,8);g.level=bounded(i.readInt(),1,10000);g.xp=bounded(i.readInt(),0,1000000);g.kills=bounded(i.readInt(),0,100000);g.gold=bounded(i.readInt(),0,10000000);g.potions=bounded(i.readInt(),0,100);g.waveSpawned=bounded(i.readInt(),0,100);g.waveKilled=bounded(i.readInt(),0,100);g.pendingUpgrades=bounded(i.readInt(),0,100);
         float[] f=new float[16];for(int n=0;n<f.length;n++){f[n]=i.readFloat();if(Float.isNaN(f[n])||Float.isInfinite(f[n]))throw new IOException("Nonfinite save");}

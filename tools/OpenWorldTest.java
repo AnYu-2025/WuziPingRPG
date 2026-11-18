@@ -51,9 +51,19 @@ public class OpenWorldTest {
         check(g.mode==Game.DIALOGUE,"npc talk opens dialogue");
         g.story.dialogue.revealed=true;
         while(!g.story.dialogue.last()){g.story.advance(g);g.story.dialogue.revealed=true;}
-        g.story.choose(g,0); // accept
+        g.story.choose(g,0); // accept -> 触发学科试炼
         check(g.world.stage[OpenWorld.SOUTH]==1,"quest accepted");
-        // 凑够击杀再交付
+        check(g.trial.active,"academy trial starts on accept");
+        // 答完三问试炼
+        int guard=0;
+        while(g.trial.active&&guard++<20){
+            g.story.dialogue.revealed=true;
+            while(!g.story.dialogue.last()){g.story.advance(g);g.story.dialogue.revealed=true;}
+            g.story.choose(g,0); // 选答案（触发 answer）或 继续（触发 next）
+        }
+        check(g.trial.done,"academy trial completes");
+        // 回到 PLAY 再交付
+        g.mode=Game.PLAY;
         for(int i=0;i<6;i++)g.world.campProgress[0]++;
         g.world.talk(g,n0);
         g.story.dialogue.revealed=true;
