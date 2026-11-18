@@ -17,7 +17,7 @@ import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAf
 import {initTTS,ttsExtensions,ttsSerialize,ttsSanitize,ttsAfterRestore,ttsModeEnter,ttsModeLeave,ttsHideBar,ttsShowBar,ttsDocumentChanged,ttsStatusText,ttsReceive,ttsDebug} from './tts.js';
 import {initDraw,ensureDrawUI,enterDrawMode,exitDrawMode,isDrawMode,getDrawStrokes,loadDrawStrokes,getDrawView,loadDrawView} from './draw.js';
 import {initAI,aiSerialize,aiSanitize,aiRestore,aiModeEnter,aiModeLeave,aiHidePanel,aiEnterPanel,aiStatusText,aiReceive,aiDebug} from './ai.js';
-import {BACK,resolveBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS,HOME_ACTIONS as MODULES,moduleById,isNativeModule,moduleAvailability} from './back.js';
+import {BACK,resolveBack,resolveEscapeBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS,HOME_ACTIONS as MODULES,moduleById,isNativeModule,moduleAvailability} from './back.js';
 import {NOTE_TEMPLATES,templateById,templateFileName,sanitizeTemplateState,insertTemplate,noteTemplateAction,notepadTarget,isNotepadNotePath,shouldRememberCodePath} from './note-templates.js';
 import {createQuizRequester,quizAIAvailability,normalizeQuizCount,gradeQuiz,retryWrongQuiz,quizToMarkdown,quizFileName,QUIZ_TYPE_LABELS,QUIZ_NOTE_LIMIT} from './quiz.js';
 import {modelSanitize} from './model-data.js';
@@ -371,7 +371,7 @@ function saveOutputToFile(){
 }
 function setConsole(open){$('consolePanel').classList.toggle('folded',!open);$('foldConsole').setAttribute('aria-expanded',String(open));}
 function outputTab(input=false){$('output').hidden=input;$('stdin').hidden=!input;$('inputTab').classList.toggle('active',input);$('outputTab').classList.toggle('active',!input);setConsole(true);}
-function setRunning(running){$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode','menuTemplates','menuQuiz']){const el=$(id);if(el)el.disabled=running;}if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
+function setRunning(running){$('runButton').hidden=running;$('stopButton').hidden=!running;for(const id of ['newFile','openFile','openFolder','saveButton','exportButton','menuNew','menuOpen','menuFolder','menuSave','menuGame','menuMode','menuTemplates','menuQuiz']){const el=$(id);if(el)el.disabled=running;}const save=$('saveButton');if(save)save.title=running?'运行中无法写回原文件，请先停止运行':'保存';if(view)view.dispatch({effects:editConfig.reconfigure(EditorState.readOnly.of(running))});}
 /* kill=false 时保留 C++ 常驻线程（编译器留在内存，下次运行免加载）；
    停止按钮、超时、出错都走 kill=true，死循环程序必须能杀掉。 */
 function stop(reason='已停止运行',kill=true){runToken++;if(worker){if(kill||worker!==cppWorker){worker.terminate();if(worker===cppWorker)cppWorker=null;}}worker=null;clearTimeout(timeout);setRunning(false);$('runState').textContent=reason;}
@@ -940,7 +940,19 @@ for(const b of document.querySelectorAll('.quickkeys button')){
   view.focus();
  });
 }
-document.addEventListener('keydown',event=>{const mod=event.ctrlKey||event.metaKey;if(mod&&event.key.toLowerCase()==='s'){event.preventDefault();if(!worker)saveFile(event.shiftKey);}else if(event.key==='F5'||mod&&event.key==='Enter'){event.preventDefault();run();}else if(mod&&event.key.toLowerCase()==='o'){event.preventDefault();$('openFile').click();}else if(mod&&event.key.toLowerCase()==='n'){event.preventDefault();nameDialog();}else if(event.key==='Escape'&&document.body.classList.contains('drawer')){closeDrawer();}});
+function handleEscape(event){
+  const target=event&&event.target;
+  if(target&&target.closest&&target.closest('.cm-search'))return;
+  const {openDialog,ctx}=backContext();
+  const decision=resolveEscapeBack(ctx);
+  if(!decision.action)return;
+  if(decision.action===BACK.SEARCH){
+    const active=document.activeElement;
+    if(active&&active.closest&&active.closest('.cm-search'))return;
+  }
+  if(applyBackDecision(decision,{openDialog,escape:true}))event.preventDefault();
+}
+document.addEventListener('keydown',event=>{const mod=event.ctrlKey||event.metaKey;if(mod&&event.key.toLowerCase()==='s'){event.preventDefault();if(worker)notify('运行中无法写回原文件，请先停止运行');else saveFile(event.shiftKey);}else if(event.key==='F5'||mod&&event.key==='Enter'){event.preventDefault();run();}else if(mod&&event.key.toLowerCase()==='o'){event.preventDefault();$('openFile').click();}else if(mod&&event.key.toLowerCase()==='n'){event.preventDefault();nameDialog();}else if(event.key==='Escape'){handleEscape(event);}});
 window.addEventListener('pagehide',flush);document.addEventListener('visibilitychange',()=>{if(document.hidden)flush();});
 const onViewportChange=()=>{if((window.visualViewport?window.visualViewport.height:innerHeight)<520)setConsole(false);};
 window.addEventListener('resize',onViewportChange);if(window.visualViewport)window.visualViewport.addEventListener('resize',onViewportChange);
@@ -949,7 +961,7 @@ const landing=$('landing'),landingBack=$('landingBack'),landingStatus=$('landing
 const homeCards=[...document.querySelectorAll('.home-card')];
 const MODE_KEY='ember-studio-mode';
 const KNOWN_MODES=HOME_ACTIONS.map(item=>item.id);
-let landingOpen=true,landingTimer=0,selectedMode='',workspaceMode='python',lastCodePath='',lastTtsPath='',lastNotePath='',homeFromSession=false,lastOpened='';
+let landingOpen=true,landingTimer=0,selectedMode='',workspaceMode='python',lastCodePath='',lastTtsPath='',lastNotePath='',homeFromSession=false,lastOpened='',homeScrollTop=0,homeRestoring=false,homeRestoreTimer=0,homeRestoreToken=0;
 /* 原生侧在 ready 之后发 capabilities；浏览器预览里修图页可以直接打开，扫描需要相机。 */
 let moduleCaps={native,browserPhoto:!native,sdk:0};
 try{const savedMode=localStorage.getItem(MODE_KEY);if(KNOWN_MODES.includes(savedMode))selectedMode=savedMode;}catch(e){}
@@ -978,6 +990,34 @@ function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(land
   if(!starActive&&landingOpen&&!landing.hidden){document.body.classList.add('starhome');starActive=starApi.enter();if(starActive){setStarView(!(state.star&&state.star.view==='sky'));}else{document.body.classList.remove('starhome');}}
 }
 function hideLanding(){if(!landingOpen||!landing)return;if(starActive&&starApi)starApi.leave();if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model'&&modelApi)modelApi.enter();if(workspaceMode==='pelican'&&pelicanApi)pelicanApi.enter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&!['game','ai'].includes(workspaceMode))view.focus();},fxEnabled()?310:280);}
+function homeHoleOpen(){return !!landingOpen&&!!starApi&&typeof starApi.holeOpen==='function'&&starApi.holeOpen();}
+function homeListLayerOpen(){return !!landingOpen&&starActive&&document.body.classList.contains('listview');}
+function closeHomeHole(){
+  const sheet=$('starHoleSheet');if(!sheet||sheet.hidden)return false;
+  const btn=$('starHoleBtn');
+  const target=btn&&btn.getClientRects().length?btn:document.querySelector('.home-card:not([disabled])')||document.body;
+  if(starApi&&typeof starApi.closeHole==='function')starApi.closeHole(false);else sheet.hidden=true;
+  if(target&&typeof target.focus==='function')target.focus({preventScroll:true});
+  return true;
+}
+function endHomeRestore(sc,token,{deferSnap=false}={}){
+  if(token!==homeRestoreToken)return;
+  const prior=sc?sc.dataset.homeSnapPrior:undefined;
+  homeRestoring=false;clearTimeout(homeRestoreTimer);homeRestoreTimer=0;
+  if(!sc||typeof prior!=='string')return;
+  const restore=()=>{
+    if(token!==homeRestoreToken)return;
+    if(sc.dataset.homeSnapPrior!==prior)return;
+    sc.style.scrollSnapType=prior;delete sc.dataset.homeSnapPrior;
+  };
+  if(deferSnap)requestAnimationFrame(restore);else restore();
+}
+function cancelHomeRestore(event){
+  const sc=$('homeScroll');
+  const type=event&&event.type;
+  const token=++homeRestoreToken;
+  endHomeRestore(sc,token,{deferSnap:type==='pointerdown'||type==='touchstart'});
+}
 function openLanding(reopen=false){
   if(!landing)return;
   if(reopen&&workspaceMode==='tts')ttsHideBar();
@@ -996,7 +1036,40 @@ function openLanding(reopen=false){
   refreshHomeTitle();refreshResume();
   if(starActive&&starApi)starApi.enter();
   /* 回到首页：跃迁收束 + 卡片错峰浮现 */
-  if(reopen){homeIn();materialize('homeScroll','.home-group');}
+  if(reopen){
+    homeIn();materialize('homeScroll','.home-group');
+    const sc=$('homeScroll');
+    if(sc){
+      cancelHomeRestore();
+      const token=++homeRestoreToken;
+      const prior=sc.style.scrollSnapType;
+      sc.dataset.homeSnapPrior=prior;
+      sc.style.scrollSnapType='none';
+      sc.scrollTop=homeScrollTop;
+      homeRestoring=true;
+      homeRestoreTimer=setTimeout(()=>{
+        if(token!==homeRestoreToken)return;
+        const fail=error=>{console.warn('[Studio] home scroll restore failed',error);endHomeRestore(sc,token);};
+        try{
+          sc.scrollTop=homeScrollTop;
+          requestAnimationFrame(()=>{
+            if(token!==homeRestoreToken)return;
+            try{
+              sc.style.scrollSnapType=prior;
+              requestAnimationFrame(()=>{
+                if(token!==homeRestoreToken)return;
+                try{sc.scrollTop=homeScrollTop;}
+                catch(error){fail(error);return;}
+                endHomeRestore(sc,token);
+              });
+            }catch(error){fail(error);}
+          });
+        }catch(error){fail(error);}
+      },0);
+    }else{
+      homeRestoring=false;
+    }
+  }
   initHomePages();
 }
 /* 滚动多主页：右侧页指示点随滚动高亮当前组，点按跳到对应组，
@@ -1007,14 +1080,18 @@ function initHomePages(){
   const groups=[...sc.querySelectorAll('.home-group')];
   /* 只构建一次，避免重复绑定 scroll 监听导致高亮落在旧节点上。 */
   if(!homePagesBound){
-    const dots=groups.map((g,i)=>{const d=document.createElement('button');d.type='button';d.className='home-page-dot';d.title=(g.querySelector('h2')||{}).textContent||('第'+(i+1)+'页');d.setAttribute('aria-label',d.title);d.onclick=()=>g.scrollIntoView({behavior:'smooth',block:'start'});wrap.append(d);return d;});
+    const dots=groups.map((g,i)=>{const d=document.createElement('button');d.type='button';d.className='home-page-dot';d.title=(g.querySelector('h2')||{}).textContent||('第'+(i+1)+'页');d.setAttribute('aria-label',d.title);d.onclick=()=>{cancelHomeRestore();g.scrollIntoView({behavior:'smooth',block:'start'});};wrap.append(d);return d;});
     const setActive=()=>{
       const mid=sc.scrollTop+sc.clientHeight*.4;let idx=0;
       groups.forEach((g,i)=>{if(g.offsetTop<=mid)idx=i;});
       dots.forEach((d,i)=>d.classList.toggle('on',i===idx));
       wrap.hidden=document.body.classList.contains('starhome')&&!document.body.classList.contains('listview');
     };
-    sc.addEventListener('scroll',()=>requestAnimationFrame(setActive),{passive:true});
+    sc.addEventListener('scroll',()=>{if(landingOpen&&!landing.hidden&&!homeRestoring)homeScrollTop=sc.scrollTop;requestAnimationFrame(setActive);},{passive:true});
+    sc.addEventListener('pointerdown',cancelHomeRestore,{passive:true});
+    sc.addEventListener('touchstart',cancelHomeRestore,{passive:true});
+    sc.addEventListener('wheel',cancelHomeRestore,{passive:true});
+    sc.addEventListener('keydown',cancelHomeRestore,{passive:true});
     homePagesBound=true;
     setActive();
   }else{
@@ -1038,52 +1115,73 @@ const MODULE_LAYERS=[
 function moduleLayers(){return MODULE_LAYERS.filter(layer=>(!layer.mode||layer.mode===workspaceMode)&&layer.open()).map(layer=>layer.id);}
 function closeModuleLayer(id){const layer=MODULE_LAYERS.find(item=>item.id===id);if(layer)layer.close();}
 function setAISettings(open){const panel=$('aiPanel'),btn=$('aiSettingsToggle');if(!panel)return;panel.classList.toggle('settings-open',!!open);if(btn){btn.setAttribute('aria-expanded',open?'true':'false');btn.textContent=open?'收起设置':'设置';}}
-function handleSystemBack(){
+function backContext(){
   const openDialog=document.querySelector('dialog[open]');
-  try{
-    const decision=resolveBack({
+  return {
+    openDialog,
+    ctx:{
       dialogOpen:!!openDialog,
       drawerOpen:document.body.classList.contains('drawer'),
       drawing:isDrawMode()||document.body.classList.contains('drawing')||($('drawLayer')&&!$('drawLayer').hidden),
       searchOpen:!!(view&&view.dom&&view.dom.querySelector('.cm-search')),
       homeOpen:landingOpen,
+      homeLayerOpen:homeHoleOpen(),
+      /* WebGL unavailable: the list is the root, so it is not an in-app layer
+         and the HOME branch below falls through to the native exit prompt. */
+      homeListOpen:homeListLayerOpen(),
       loungeOpen:!!$('lounge')&&!$('lounge').hidden,
       layers:moduleLayers(),
       mode:workspaceMode,
-      lectureTab:document.body.dataset.lectureTab||'notes'    });
-    switch(decision.action){
-      case BACK.DIALOG:
-        if(openDialog)openDialog.close('cancel');
-        return true;
-      case BACK.DRAWER:
-        document.body.classList.remove('drawer');
-        return true;
-      case BACK.DRAW:
-        exitDrawMode();
-        setTimeout(()=>{if(view)view.focus();},0);
-        return true;
-      case BACK.SEARCH:
-        closeSearchPanel(view);
-        if(view)view.focus();
-        return true;
-      case BACK.LAYER:
-        closeModuleLayer(decision.layer);
-        return true;
-      case BACK.LECTURE_TAB:
-        setLectureTab('notes');
-        return true;
-      case BACK.EDITOR:
-        showCode();
-        return true;
-      case BACK.HOME:
-        flush();
-        openLanding(true);
-        return true;
-      case BACK.EXIT:
-        flush();
-        return false;
-      default:return false;
+      lectureTab:document.body.dataset.lectureTab||'notes'
     }
+  };
+}
+function applyBackDecision(decision,{openDialog=null,escape=false}={}){
+  switch(decision.action){
+    case BACK.DIALOG:
+      if(openDialog)openDialog.close('cancel');
+      return true;
+    case BACK.HOME_LAYER:
+      closeHomeHole();
+      return true;
+    case BACK.HOME_LIST:
+      setStarView(false,{persist:false});
+      return true;
+    case BACK.DRAWER:
+      document.body.classList.remove('drawer');
+      return true;
+    case BACK.DRAW:
+      exitDrawMode();
+      setTimeout(()=>{if(view)view.focus();},0);
+      return true;
+    case BACK.SEARCH:
+      closeSearchPanel(view);
+      if(view)view.focus();
+      return true;
+    case BACK.LAYER:
+      closeModuleLayer(decision.layer);
+      return true;
+    case BACK.LECTURE_TAB:
+      setLectureTab('notes');
+      return true;
+    case BACK.EDITOR:
+      showCode();
+      return true;
+    case BACK.HOME:
+      flush();
+      openLanding(true);
+      return true;
+    case BACK.EXIT:
+      if(escape)return false;
+      flush();
+      return false;
+    default:return false;
+  }
+}
+function handleSystemBack(){
+  try{
+    const {openDialog,ctx}=backContext();
+    return applyBackDecision(resolveBack(ctx),{openDialog});
   }catch(error){
     console.error('[Studio] back handling failed',error);
     return true;  }
@@ -1460,11 +1558,11 @@ const pelicanApi=initPelican({
 });
 /* 星穹首页：WebGL 可用时把功能做成恒星；不可用保留卡片列表。 */
 let starActive=false;
-function setStarView(list){
+function setStarView(list,{persist=true}={}){
   document.body.classList.toggle('listview',!!list);
   const sky=$('homeSkyBtn');if(sky)sky.hidden=!starActive||!list;
   /* 记住用户选的视图，下次打开首页照旧。 */
-  if(state.star){state.star.view=list?'list':'sky';scheduleSave();}
+  if(persist&&state.star){state.star.view=list?'list':'sky';scheduleSave();}
   initHomePages();
 }
 on('homeSkyBtn',()=>setStarView(false));

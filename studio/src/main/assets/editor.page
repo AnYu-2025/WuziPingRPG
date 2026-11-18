@@ -123,7 +123,7 @@
  <p class="home-foot">东西都会自动存好。想把改动写回手机上的原文件，打开文件点「保存」就行。</p>
 </div>
 <div class="home-pages" id="homePages" aria-hidden="true"></div>
-<div id="starHoleSheet" class="star-hole-sheet" hidden>
+<div id="starHoleSheet" class="star-hole-sheet" role="dialog" aria-modal="false" aria-label="黑洞收纳" hidden>
  <div class="star-hole-head"><strong>黑洞收纳</strong><button id="starHoleClose" type="button" aria-label="关闭">✕</button></div>
  <div id="starHoleList"></div>
  <p class="star-hole-note">收进来的星星只是隐藏，随时放回或打开，不影响任何草稿。</p>

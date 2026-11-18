@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BACK, HOME_ACTIONS, MODULES, GROUPS, modulesInGroup, moduleById, isNativeModule,
-  moduleAvailability, returnFromNative, resolveBack, stepBack, repeatBack,
+  moduleAvailability, returnFromNative, resolveBack, resolveEscapeBack, stepBack, repeatBack,
   unsavedOriginals, leaveWork, exitCopy, resumeCard, canLeaveMode
 } from '../src/back.js';
 
@@ -104,6 +104,24 @@ test('cold-start home never falls through into a mode',()=>{
   assert.equal(run.state.mode,'');
 });
 
+test('home list is an in-app layer before exit',()=>{
+  assert.equal(resolveBack({homeOpen:true,homeListOpen:true}).action,BACK.HOME_LIST);
+  assert.equal(resolveBack({homeOpen:true,homeLayerOpen:true,homeListOpen:true}).action,BACK.HOME_LAYER);
+  const run=repeatBack({homeOpen:true,homeListOpen:true},3);
+  assert.deepEqual(run.trace,[BACK.HOME_LIST,BACK.EXIT,BACK.EXIT]);
+  assert.equal(run.state.homeListOpen,false);
+});
+
+test('module return preserves the home list view',()=>{
+  assert.equal(resolveBack({homeOpen:false,homeListOpen:true,mode:'python'}).action,BACK.HOME);
+  const first=stepBack({homeOpen:false,homeListOpen:true,mode:'python'});
+  assert.equal(first.action,BACK.HOME);
+  assert.equal(first.state.homeListOpen,true);
+  const second=stepBack(first.state);
+  assert.equal(second.action,BACK.HOME_LIST);
+  assert.equal(second.state.homeListOpen,false);
+});
+
 test('stacked layers dismiss one at a time before home and exit',()=>{
   const run=repeatBack({
     homeOpen:false,
@@ -153,6 +171,34 @@ test('a blank resume is hidden and a saved mode can be continued',()=>{
 test('the 3D model panel is a layer that closes before leaving the mode',()=>{
   const run=repeatBack({homeOpen:false,mode:'model',layers:['modelPanel']},3);
   assert.deepEqual(run.trace,[BACK.LAYER,BACK.HOME,BACK.EXIT]);
+});
+
+test('home layer and list steps only clear their own layer',()=>{
+  const layer=stepBack({homeOpen:true,homeLayerOpen:true,homeListOpen:true});
+  assert.equal(layer.action,BACK.HOME_LAYER);
+  assert.equal(layer.state.homeLayerOpen,false);
+  assert.equal(layer.state.homeListOpen,true);
+  const list=stepBack(layer.state);
+  assert.equal(list.action,BACK.HOME_LIST);
+  assert.equal(list.state.homeListOpen,false);
+  assert.equal(list.state.homeOpen,true);
+});
+
+test('Escape closes overlays but never navigates or exits',()=>{
+  const cases=[
+    {dialogOpen:true},
+    {drawerOpen:true},
+    {drawing:true},
+    {searchOpen:true},
+    {layers:['aiSettings'],mode:'ai'},
+    {mode:'lecture',lectureTab:'timeline'},
+    {homeOpen:true,homeLayerOpen:true},
+    {homeOpen:true,homeListOpen:true}
+  ];
+  for(const ctx of cases)assert.equal(resolveEscapeBack(ctx).action,resolveBack(ctx).action);
+  assert.deepEqual(resolveEscapeBack({homeOpen:true}),{action:null,decision:{action:BACK.EXIT}});
+  assert.deepEqual(resolveEscapeBack({homeOpen:false,mode:'python'}),{action:null,decision:{action:BACK.HOME}});
+  assert.deepEqual(resolveEscapeBack({homeOpen:false,mode:'python',loungeOpen:true}),{action:null,decision:{action:BACK.EDITOR}});
 });
 
 test('mode changes protect a recording and a running program',()=>{

@@ -7,8 +7,9 @@
  *
  * 返回键一次只剥掉一层，顺序固定：
  *   对话框 → 抽屉 → 画画层 → 查找 → 模块自己的子层（上课的时间轴/PPT、
- *   编辑器里的游戏页、模块额外登记的 layers）→ 首页 → 询问是否退出。
- * 首页上再按返回不会掉回编辑器。草稿始终留在本机；只有「保存」写回原文件。
+ *   编辑器里的游戏页、模块额外登记的 layers）→ 首页内部层（黑洞/列表）
+ *   → 星穹根上询问是否退出。模块返回首页时保留进入时的首页视图。
+ * 草稿始终留在本机；只有「保存」写回原文件。
  */
 export const BACK={
   DIALOG:'dialog',
@@ -19,6 +20,8 @@ export const BACK={
   LECTURE_TAB:'lectureTab',
   EDITOR:'editor',
   HOME:'home',
+  HOME_LAYER:'homeLayer',
+  HOME_LIST:'homeList',
   EXIT:'exit'
 };
 
@@ -90,6 +93,8 @@ function normalize(ctx){
     drawing:flag(value.drawing),
     searchOpen:flag(value.searchOpen),
     homeOpen:flag(value.homeOpen)||flag(value.landingOpen),
+    homeLayerOpen:flag(value.homeLayerOpen),
+    homeListOpen:flag(value.homeListOpen),
     loungeOpen:flag(value.loungeOpen),
     layers,
     mode,
@@ -108,7 +113,11 @@ function normalize(ctx){
 export function resolveBack(ctx){
   const value=normalize(ctx);
   if(value.dialogOpen)return {action:BACK.DIALOG};
-  if(value.homeOpen)return {action:BACK.EXIT};
+  if(value.homeOpen){
+    if(value.homeLayerOpen)return {action:BACK.HOME_LAYER};
+    if(value.homeListOpen)return {action:BACK.HOME_LIST};
+    return {action:BACK.EXIT};
+  }
   if(value.drawerOpen)return {action:BACK.DRAWER};
   if(value.drawing)return {action:BACK.DRAW};
   if(value.searchOpen)return {action:BACK.SEARCH};
@@ -116,6 +125,12 @@ export function resolveBack(ctx){
   if(value.mode==='lecture'&&value.lectureTab!=='notes')return {action:BACK.LECTURE_TAB};
   if(value.loungeOpen&&value.mode!=='game')return {action:BACK.EDITOR};
   return {action:BACK.HOME};
+}
+
+/** Esc closes overlays only; it never leaves a module or closes the in-editor game lobby. */
+export function resolveEscapeBack(ctx){
+  const decision=resolveBack(ctx);
+  return decision.action===BACK.EXIT||decision.action===BACK.HOME||decision.action===BACK.EDITOR?{action:null,decision}:decision;
 }
 
 /** 一步返回。不丢文件内容。 */
@@ -131,6 +146,8 @@ export function stepBack(ctx){
     case BACK.LAYER:next.layers.shift();break;
     case BACK.LECTURE_TAB:next.lectureTab='notes';break;
     case BACK.EDITOR:next.loungeOpen=false;break;
+    case BACK.HOME_LAYER:next.homeLayerOpen=false;break;
+    case BACK.HOME_LIST:next.homeListOpen=false;break;
     case BACK.HOME:
       next.homeOpen=true;
       next.resumeMode=current.mode||current.resumeMode;

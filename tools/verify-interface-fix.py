@@ -24,6 +24,7 @@ INDEX = WEB / "src" / "index.html"
 BUILD_SCRIPT = WEB / "build.mjs"
 PHOTO_BUILD_SCRIPT = WEB / "build-photo.mjs"
 WORKSPACE_BUNDLE = ASSETS / "app.js"
+ORPHAN_CHUNK = re.compile(r"-[A-Z0-9]{8}\.js$")
 # npm run build is `node build.mjs && node build-photo.mjs`. The photo script
 # resolves ../../photo from studio/web, so a temp tree must contain both.
 STAGED_BUILD_FILES = ("build.mjs", "build-photo.mjs", "package.json", "package-lock.json")
@@ -186,6 +187,16 @@ def check_bundle_sync():
         return "PASS", f"{runner}; sha256={workspace_hash}"
 
 
+def check_orphan_chunks():
+    chunks = sorted(path.name for path in ASSETS.iterdir() if path.is_file() and ORPHAN_CHUNK.search(path.name))
+    if not chunks:
+        return "PASS", "no generated-looking chunk files"
+    refs = (WORKSPACE_BUNDLE.read_text(encoding="utf-8") + INDEX.read_text(encoding="utf-8"))
+    orphans = [name for name in chunks if name not in refs]
+    require(not orphans, "unreferenced generated chunks: " + ", ".join(orphans))
+    return "PASS", f"{len(chunks)} generated-looking chunks referenced"
+
+
 def check_apk_ai_css():
     apk = current_studio_apk()
     if not apk.is_file():
@@ -239,6 +250,7 @@ def main(argv: list[str] | None = None) -> int:
     record("fallback tts.css", check_stylesheet("tts.css", "ttsCss"))
     record("fallback ai.css inline list", check_stylesheet("ai.css", "aiCss"))
     record("generated bundle sync", check_bundle_sync)
+    record("orphan asset chunks", check_orphan_chunks)
     record("APK ai.css", check_apk_ai_css)
     record("APK app.js", check_apk_bundle)
 
