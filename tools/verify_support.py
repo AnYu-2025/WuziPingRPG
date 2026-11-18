@@ -24,10 +24,13 @@ DEVELOPMENT_SIGNER_SHA256 = "0dcafc3b079966a52c69d8292d86078717e42bdc2883485e335
 
 def verify_apk_signature(signature: str) -> str:
     """Check apksigner verify --verbose --print-certs output for our current releases."""
-    if "Verified using v2 scheme (APK Signature Scheme v2): true" not in signature.splitlines():
+    lines = signature.splitlines()
+    if "Verified using v2 scheme (APK Signature Scheme v2): true" not in lines:
         raise ValueError("APK Signature Scheme v2 was not verified")
-    signers = re.findall(r"^Signer #\d+ certificate SHA-256 digest: ([a-fA-F0-9]{64})\s*$", signature, re.MULTILINE)
-    if [digest.lower() for digest in signers] != [DEVELOPMENT_SIGNER_SHA256]:
+    # Build-Tools 34 numbers the signer; 37 labels it by its signing scheme.
+    certificate_line = re.compile(r"(?:Signer #\d+|V\d+(?:\.\d+)? Signer:) certificate SHA-256 digest: ([a-fA-F0-9]{64})")
+    digests = [match[1].lower() for line in lines if (match := certificate_line.fullmatch(line.strip()))]
+    if "Number of signers: 1" not in lines or digests != [DEVELOPMENT_SIGNER_SHA256]:
         raise ValueError("expected one signer with the original development certificate")
     return DEVELOPMENT_SIGNER_SHA256
 

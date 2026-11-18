@@ -81,10 +81,14 @@ class GradleAndTools(unittest.TestCase):
     def test_release_signature_requires_v2_and_exactly_the_expected_signer(self):
         v2 = "Verified using v2 scheme (APK Signature Scheme v2): true"
         digest = verify_support.DEVELOPMENT_SIGNER_SHA256
-        signer = f"Signer #1 certificate SHA-256 digest: {digest}"
-        self.assertEqual(verify_support.verify_apk_signature(f"{v2}\n{signer}"), digest)
-        for report in (signer, v2, f"{v2}\n{signer}\n{signer.replace('#1', '#2')}",
-                       f"{v2}\nSigner #1 certificate SHA-256 digest: {'0' * 64}"):
+        header = f"{v2}\nNumber of signers: 1"
+        for label in ("Signer #1", "V2 Signer:", "V3.0 Signer:"):
+            signer = f"{label} certificate SHA-256 digest: {digest}"
+            with self.subTest(label=label):
+                self.assertEqual(verify_support.verify_apk_signature(f"{header}\n{signer}"), digest)
+        for report in (signer, header, f"{header}\n{signer}\n{signer}", f"{v2}\nNumber of signers: 2\n{signer}",
+                       f"{header}\nV2 Signer: public key SHA-256 digest: {digest}",
+                       f"{header}\nV3.0 Signer: certificate SHA-256 digest: {'0' * 64}"):
             with self.subTest(report=report), self.assertRaises(ValueError):
                 verify_support.verify_apk_signature(report)
 

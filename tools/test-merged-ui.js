@@ -70,6 +70,14 @@ function staticCheck(root) {
   };
 }
 
+async function reloadSavedWorkspace(page) {
+  // The app updates this status when the host acknowledges its latest revision.
+  await page.waitForFunction(() => /草稿已保存|保存失败/.test(document.querySelector('#saveState').textContent));
+  assert.equal(await page.locator('#saveState').textContent(), '草稿已保存');
+  await page.reload({waitUntil: 'networkidle'});
+  await page.waitForSelector('#landing[data-ready="1"]');
+}
+
 async function checkWorkspaces(page) {
   const desk = page.locator('#workspaceDesk');
   const study = page.locator('#deskStudy');
@@ -79,8 +87,7 @@ async function checkWorkspaces(page) {
   assert.equal(await study.getAttribute('aria-selected'), 'true', 'new workspaces start in study');
   await code.click();
   assert.equal(await code.getAttribute('aria-selected'), 'true');
-  await page.reload({waitUntil: 'networkidle'});
-  await page.waitForSelector('#landing[data-ready="1"]');
+  await reloadSavedWorkspace(page);
   assert.equal(await code.getAttribute('aria-selected'), 'true', 'programming tab must survive reload');
 
   const oldFiles = await page.evaluate(() => window.Studio.getState().files.map(file => file.path));
@@ -102,8 +109,7 @@ async function checkWorkspaces(page) {
   assert.equal(await page.evaluate(() => window.Studio.back()), true);
   await desk.waitFor({state: 'visible'});
   assert.equal(await code.getAttribute('aria-selected'), 'true');
-  await page.reload({waitUntil: 'networkidle'});
-  await page.waitForSelector('#landing[data-ready="1"]');
+  await reloadSavedWorkspace(page);
   assert.equal(await page.evaluate(path => window.Studio.getState().files.find(f => f.path === path)?.text, draft), sample);
 
   await study.click();
@@ -217,6 +223,7 @@ async function browserCheck(root) {
       postMessage(raw) {
         const message = JSON.parse(raw);
         window.nativeCalls.push(message);
+        // Give snapshot IO a separate turn with a realistic acknowledgement delay.
         setTimeout(() => {
           if (message.type === 'ready') {
             window.StudioNative.receive({ type: 'capabilities', scan: true, photo: true, game: true, sdk: 34 });
@@ -226,7 +233,7 @@ async function browserCheck(root) {
             sessionStorage.setItem('test-workspace', JSON.stringify(message.data));
             window.StudioNative.receive({ type: 'snapshotSaved', id: message.id, ok: true });
           }
-        }, 0);
+        }, message.type === 'snapshot' ? 150 : 0);
       }
     };
   });
@@ -239,7 +246,7 @@ async function browserCheck(root) {
       throw new Error('rendered cards ' + JSON.stringify(cards) + ' != ' + JSON.stringify(expected));
     }
     const {draft, pythonOutput} = await checkWorkspaces(page);
-    const mistakeReview = await require('./tests/mistake-review.cjs')(page);
+    const mistakeReview = await require('./tests/mistake-review.cjs')(page, reloadSavedWorkspace);
     const navigation = await checkHomeNavigation(page);
     await checkFallbackCatalog(browser, url);
     if (errors.length) throw new Error(errors.join('\n'));

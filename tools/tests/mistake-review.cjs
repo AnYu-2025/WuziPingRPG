@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 
-module.exports = async function checkMistakeReview(page) {
+module.exports = async function checkMistakeReview(page, reloadSavedWorkspace) {
   const {QUIZ_BANK} = await import('../../studio/web/src/quiz-data.js');
   const desk = page.locator('#deskBody');
   // Start from the recommendation so the direct action is covered as well.
@@ -33,8 +33,10 @@ module.exports = async function checkMistakeReview(page) {
   assert.ok((await face.innerText()).includes(current.options[current.answer]));
   await page.locator('#cardsRate button[data-rate="2"]').click();
   await page.locator('#homeButton').click();
-  await page.reload({waitUntil:'networkidle'});
-  await page.waitForSelector('#landing[data-ready="1"]');
-  assert.match(await desk.getByRole('button', {name:/记忆卡片/}).innerText(), /0 张到期 · 今天已复习 1 张/);
+  const cards = desk.getByRole('button', {name:/记忆卡片/});
+  const completed = /0 张到期 · 今天已复习 1 张/;
+  assert.match(await cards.innerText(), completed, 'study desk should reflect the completed review');
+  await reloadSavedWorkspace(page);
+  assert.match(await cards.innerText(), completed, 'completed review should survive a saved workspace reload');
   return true;
 };
