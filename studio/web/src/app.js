@@ -1108,7 +1108,8 @@ function switchModuleDesk(){
   showDesk(workspaceMode==='python'?'study':'code');
 }
 const workspacePages = bindWorkspacePages($('workspacePages'), $('workspaceTabs'), updateWorkspacePage);
-bindWorkspaceWheel($('workspaceWheel'), $('deskWheel'), () => deskKind, destination => {
+const wheelPage = () => landing.dataset.surface === 'catalog' ? 'tools' : deskKind;
+bindWorkspaceWheel($('workspaceWheel'), $('deskWheel'), wheelPage, destination => {
   if (destination === 'tools') {
     workspacePages.open('catalog', {focus: true});
     catalogFromWheel = true;

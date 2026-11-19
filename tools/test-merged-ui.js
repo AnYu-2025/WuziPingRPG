@@ -139,6 +139,11 @@ async function checkHomeNavigation(page) {
   const viewport = page.viewportSize();
   for (const size of [{width:320,height:570}, {width:360,height:720}, {width:760,height:360}, viewport]) {
     await page.setViewportSize(size);
+    await page.waitForFunction(() => {
+      const pages = document.getElementById('workspacePages');
+      return document.getElementById('deskCatalog').getAttribute('aria-selected') === 'true' &&
+        Math.abs(pages.scrollLeft - 2 * pages.clientWidth) <= 2;
+    }, null, {timeout: 5000});
     const bounds = await page.locator('#workspaceDesk').boundingBox();
     const backBox = await returnButton.boundingBox();
     const titleBox = await page.getByRole('heading', {name:'全部工具'}).boundingBox();

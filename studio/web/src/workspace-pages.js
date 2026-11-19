@@ -4,6 +4,8 @@ export function bindWorkspacePages(viewport, tabList, onSelect) {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let current = 0;
   let touchActive = false;
+  let programmatic = false;
+  let alignedWidth = viewport.clientWidth;
   let settleTimer = 0;
 
   function select(index, focus = false) {
@@ -32,28 +34,43 @@ export function bindWorkspacePages(viewport, tabList, onSelect) {
     }
   }
 
-  function align() {
+  function scrollToSelected(behavior) {
     clearTimeout(settleTimer);
-    viewport.scrollTo({left: viewport.clientWidth * current, behavior: 'auto'});
+    alignedWidth = viewport.clientWidth;
+    if (!alignedWidth) return;
+    programmatic = true;
+    viewport.scrollTo({left: alignedWidth * current, behavior});
+    queueSettle();
+  }
+
+  function align() {
+    scrollToSelected('auto');
   }
 
   function open(page, {animate = true, focus = false} = {}) {
     const index = tabs.findIndex(tab => tab.dataset.page === page);
     if (index < 0) return;
-    clearTimeout(settleTimer);
     select(index, focus);
-    viewport.scrollTo({
-      left: viewport.clientWidth * index,
-      behavior: animate && !reducedMotion.matches ? 'smooth' : 'auto'
-    });
+    scrollToSelected(animate && !reducedMotion.matches ? 'smooth' : 'auto');
   }
 
   function settle() {
     clearTimeout(settleTimer);
-    if (touchActive || !viewport.clientWidth) return;
-    const index = Math.max(0, Math.min(tabs.length - 1, Math.round(viewport.scrollLeft / viewport.clientWidth)));
+    const width = viewport.clientWidth;
+    if (touchActive || !width) return;
+    // Resizing or interrupting a tab animation must land on the selected page.
+    if (width !== alignedWidth) {
+      align();
+      return;
+    }
+    if (programmatic) {
+      if (Math.abs(viewport.scrollLeft - width * current) > 2) align();
+      else programmatic = false;
+      return;
+    }
+    const index = Math.max(0, Math.min(tabs.length - 1, Math.round(viewport.scrollLeft / width)));
     select(index);
-    if (Math.abs(viewport.scrollLeft - index * viewport.clientWidth) > 2) align();
+    if (Math.abs(viewport.scrollLeft - index * width) > 2) align();
   }
 
   function queueSettle() {
@@ -63,7 +80,13 @@ export function bindWorkspacePages(viewport, tabList, onSelect) {
 
   viewport.addEventListener('scroll', queueSettle, {passive: true});
   viewport.addEventListener('scrollend', settle);
-  viewport.addEventListener('touchstart', () => { touchActive = true; }, {passive: true});
+  viewport.addEventListener('touchstart', () => {
+    touchActive = true;
+    programmatic = false;
+  }, {passive: true});
+  viewport.addEventListener('wheel', event => {
+    if (event.deltaX || event.shiftKey) programmatic = false;
+  }, {passive: true});
   for (const type of ['touchend', 'touchcancel']) {
     viewport.addEventListener(type, event => {
       touchActive = event.touches.length > 0;
