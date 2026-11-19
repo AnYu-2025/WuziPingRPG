@@ -248,10 +248,11 @@ async function browserCheck(root) {
     const {draft, pythonOutput} = await checkWorkspaces(page);
     const mistakeReview = await require('./tests/mistake-review.cjs')(page, reloadSavedWorkspace);
     const pythonLabs = await require('./tests/python-lab.cjs')(page, reloadSavedWorkspace);
+    const workspaceWheel = await require('./tests/workspace-wheel.cjs')(page, reloadSavedWorkspace);
     const navigation = await checkHomeNavigation(page);
     await checkFallbackCatalog(browser, url);
     if (errors.length) throw new Error(errors.join('\n'));
-    return { cards, browser: true, draft, pythonOutput, mistakeReview, pythonLabs, navigation, catalogWithoutWebGL: true, consoleErrors: errors, android_device_tested: false };
+    return { cards, browser: true, draft, pythonOutput, mistakeReview, pythonLabs, workspaceWheel, navigation, catalogWithoutWebGL: true, consoleErrors: errors, android_device_tested: false };
   } finally {
     await browser.close();
   }

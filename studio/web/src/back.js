@@ -84,7 +84,7 @@ export function moduleAvailability(id,caps={}){
 function flag(value){return value===true;}
 function normalize(ctx){
   const value=ctx&&typeof ctx==='object'?ctx:{};
-  const mode=WEB_IDS.has(value.mode)?value.mode:'';
+  const mode=value.mode==='game'||WEB_IDS.has(value.mode)?value.mode:'';
   const lectureTab=value.lectureTab==='timeline'||value.lectureTab==='slides'?value.lectureTab:'notes';
   const layers=Array.isArray(value.layers)?value.layers.filter(item=>typeof item==='string'&&item):[];
   return {

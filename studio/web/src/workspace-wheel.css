@@ -1,0 +1,213 @@
+#workspaceDesk .desk-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+#workspaceDesk #deskWheel {
+  min-height: 44px;
+  padding: 0 10px;
+  background: var(--soft);
+  color: var(--ink);
+  border-radius: 10px;
+  gap: 7px;
+}
+#workspaceDesk #deskWheel .wheel-icon {
+  width: 16px;
+  height: 16px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: linear-gradient(currentColor, currentColor) center / 8px 1px no-repeat,
+              linear-gradient(currentColor, currentColor) center / 1px 8px no-repeat;
+}
+
+#workspaceWheel {
+  --dial-size: min(306px, calc(100vw - 58px));
+  width: calc(100% - 24px);
+  max-width: 410px;
+  max-height: calc(100% - 24px);
+  margin: auto;
+  border: 1px solid #485874;
+  border-radius: 24px;
+  background: #111a2d;
+  color: #f7f5ff;
+  box-shadow: 0 26px 70px #020612a6, inset 0 1px 0 #b5c5ea29;
+  color-scheme: dark;
+}
+#workspaceWheel::backdrop {
+  background: #080e21bb;
+}
+.wheel-frame {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 20px 15px 18px;
+  background: linear-gradient(155deg, #0f172ce8, #1a2849ba 60%, #121b34f2),
+              url("meteor-sky.webp") center 54% / cover;
+}
+.wheel-copy {
+  justify-self: stretch;
+  padding: 0 46px 0 4px;
+}
+#wheelTitle {
+  margin: 0;
+  color: #f7f5ff;
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 720;
+}
+#wheelHint, #wheelDescription {
+  color: #c0cade;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 5px 0 0;
+}
+#wheelDescription {
+  color: #f1d7b7;
+  min-height: 1.45em;
+}
+#workspaceWheel button {
+  font-family: inherit;
+  cursor: pointer;
+}
+#workspaceWheel button:focus-visible {
+  outline: 2px solid #fff2d9;
+  outline-offset: 3px;
+}
+#wheelClose {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid #bacaf54d;
+  background: #242e46d9;
+  color: #edf1ff;
+  font-size: 22px;
+  line-height: 1;
+}
+.wheel-stage {
+  --wheel-turn: 0deg;
+  --highlight: #ffe0b9;
+  --snap: 270ms cubic-bezier(.2, .76, .27, 1);
+  position: relative;
+  width: 280px;
+  height: 280px;
+  width: var(--dial-size);
+  height: var(--dial-size);
+  touch-action: pan-y;
+  user-select: none;
+}
+.wheel-stage[data-destination="code"] { --highlight: #c7ceff; }
+.wheel-stage[data-destination="tools"] { --highlight: #afe5ee; }
+.wheel-stage[data-destination="game"] { --highlight: #f9bad5; }
+.wheel-rotor {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  border: 1px solid #92a8d282;
+  background: #263758b8;
+  background: radial-gradient(circle, #121d32 21%, #18264100 62%, #93afd833 100%),
+              conic-gradient(from -45deg, #9e776861 0 25%, #686ebe5f 25% 50%, #487c9766 50% 75%, #986d9c66 75% 100%),
+              #182842d9;
+  box-shadow: 0 14px 32px #0a102490, inset 0 0 0 5px #1b263a8f;
+  transform: rotate(var(--wheel-turn));
+  transition: transform var(--snap);
+}
+.wheel-rotor::before {
+  content: "";
+  position: absolute;
+  inset: 10%;
+  border-radius: 50%;
+  border: 1px solid #b4c2e044;
+  box-shadow: 0 0 0 7px #65799c1c;
+  pointer-events: none;
+}
+.wheel-index {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-style: solid;
+  border-width: 11px 6px 0;
+  border-color: var(--highlight) transparent transparent;
+  filter: drop-shadow(0 2px 2px #091125);
+  pointer-events: none;
+}
+.wheel-option {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 64px;
+  height: 54px;
+  padding: 0;
+  color: var(--option-ink);
+  border: 1px solid #d0d8ff3b;
+  border-radius: 13px;
+  background: #18243ee8;
+  box-shadow: 0 4px 12px #0a102b70;
+  font-size: 13px;
+  transform: translate(-50%, -50%) rotate(calc(0deg - var(--wheel-turn)));
+  transition: transform var(--snap), border-color 160ms, background-color 160ms;
+}
+.wheel-option span {
+  font: 18px/1.05 ui-monospace, monospace;
+}
+.wheel-option[data-destination="study"] { top: 16%; left: 50%; --option-ink: #ffe0b9; }
+.wheel-option[data-destination="code"] { top: 50%; left: 84%; --option-ink: #c7ceff; }
+.wheel-option[data-destination="tools"] { top: 84%; left: 50%; --option-ink: #afe5ee; }
+.wheel-option[data-destination="game"] { top: 50%; left: 16%; --option-ink: #f9bad5; }
+.wheel-option[aria-current="true"] {
+  border-color: var(--option-ink);
+  background-color: #273751;
+}
+#wheelEnter {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
+  width: 90px;
+  height: 90px;
+  padding: 0;
+  border: 1px solid var(--highlight);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 38% 20%, #435679 0, #25314b 62%, #152036 100%);
+  color: var(--highlight);
+  box-shadow: 0 0 0 5px #9face627, 0 9px 22px #071021a6, inset 0 1px 0 #ffffff2e;
+}
+#wheelEnter span { color: #d8dfee; font-size: 12px; }
+#wheelEnter strong { font-size: 22px; }
+.wheel-dragging .wheel-rotor, .wheel-dragging .wheel-option { transition: none; }
+
+@media (orientation: landscape) and (min-width: 530px) and (max-height: 530px) {
+  #workspaceWheel {
+    --dial-size: clamp(218px, calc(100vh - 62px), 290px);
+    max-width: 620px;
+  }
+  .wheel-frame {
+    grid-template-columns: minmax(130px, 1fr) auto;
+    align-items: center;
+    gap: 22px;
+    padding: 14px 56px 14px 22px;
+  }
+  .wheel-copy { padding: 0; }
+}
+@media (max-width: 350px), (max-height: 330px) {
+  .wheel-option { width: 57px; height: 48px; }
+  #wheelEnter { width: 78px; height: 78px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wheel-rotor, .wheel-option { transition: none; }
+}

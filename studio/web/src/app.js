@@ -1,6 +1,7 @@
 import {PYTHON_LABS,normalizeLabProgress} from './python-lab.js';
 import {renderPythonLabPanel} from './python-lab-panel.js';
 import {renderStudyDesk} from './desk-study.js';
+import {bindWorkspaceWheel} from './workspace-wheel.js';
 import {renderCodeDesk,createDeskDraft,cppRunScope} from './desk-code.js';
 import {EditorView,basicSetup} from 'codemirror';
 import {EditorState,Compartment} from '@codemirror/state';
@@ -1058,6 +1059,7 @@ function renderDesk(){
     tab.disabled=!ready;
   }
   $('deskCatalog').disabled=!ready;
+  $('deskWheel').disabled=!ready;
   const pane=$('deskBody');
   pane.setAttribute('aria-busy',String(!ready));
   pane.setAttribute('aria-labelledby',code?'deskCode':'deskStudy');
@@ -1113,6 +1115,11 @@ function switchModuleDesk(){
 on('deskStudy',()=>showDesk('study'));
 on('deskCode',()=>showDesk('code'));
 on('deskCatalog',openDeskCatalog);
+bindWorkspaceWheel($('workspaceWheel'), $('deskWheel'), () => deskKind, destination => {
+  if (destination === 'tools') openDeskCatalog();
+  else if (destination === 'game') enterHomeMode('game');
+  else showDesk(destination);
+});
 on('catalogHome',()=>showDesk(deskKind));
 on('deskSwitch',switchModuleDesk);
 on('aiDeskSwitch',switchModuleDesk);
@@ -1590,14 +1597,17 @@ function nativeReturned(id){
   refreshResume();
 }
 function enterHomeMode(mode){
-  if(!ready||!landingOpen||!KNOWN_MODES.includes(mode))return;
+  if(!ready||!landingOpen||(mode!=='game'&&!KNOWN_MODES.includes(mode)))return;
   if(landing.dataset.surface==='desk')deskPositions[deskKind]=$('deskScroll').scrollTop;
   rememberHomeScroll();
   if(isNativeModule(mode)){openNativeModule(mode);return;}
   /* Re-opening the mode already on screen is a cancel, not another applyMode. */
   if(homeFromSession&&mode===workspaceMode){hideLanding();return;}
   if(!applyMode(mode))return;
-  selectedMode=mode;lastOpened=mode;try{localStorage.setItem(MODE_KEY,mode);}catch(e){}hideLanding();
+  if(mode!=='game'){
+    selectedMode=mode;lastOpened=mode;try{localStorage.setItem(MODE_KEY,mode);}catch(e){}
+  }
+  hideLanding();
 }
 for(const card of homeCards)card.addEventListener('click',()=>enterHomeMode(card.dataset.mode));
 const resume=$('resumeCard');if(resume)resume.addEventListener('click',()=>enterHomeMode(rememberedMode()));

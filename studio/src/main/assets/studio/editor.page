@@ -1,9 +1,12 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"><meta name="theme-color" content="#ffffff"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 23V9h4v5.4L17.2 9h5.2l-5.8 6.1L23 23h-5.2l-3.7-5.4L12 19.4V23z' fill='white'/%3E%3C/svg%3E"><meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'"><title>天工</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lecture.css"><link rel="stylesheet" href="tts.css"><link rel="stylesheet" href="ai.css"><link rel="stylesheet" href="model.css"><link rel="stylesheet" href="star-home.css"><link rel="stylesheet" href="shell.css"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="cockpit.css"><link rel="stylesheet" href="workspace.css"><link rel="stylesheet" href="python-lab-panel.css"><script src="theme-boot.js"></script></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content"><meta name="theme-color" content="#ffffff"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 23V9h4v5.4L17.2 9h5.2l-5.8 6.1L23 23h-5.2l-3.7-5.4L12 19.4V23z' fill='white'/%3E%3C/svg%3E"><meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'"><title>天工</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="lecture.css"><link rel="stylesheet" href="tts.css"><link rel="stylesheet" href="ai.css"><link rel="stylesheet" href="model.css"><link rel="stylesheet" href="star-home.css"><link rel="stylesheet" href="shell.css"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="cockpit.css"><link rel="stylesheet" href="workspace.css"><link rel="stylesheet" href="workspace-wheel.css"><link rel="stylesheet" href="python-lab-panel.css"><script src="theme-boot.js"></script></head>
 <body>
 <section id="landing" class="home" aria-label="天工首页" data-ready="0" data-surface="desk">
 <section id="workspaceDesk" data-workspace="study" aria-label="我的工作区">
-  <header class="desk-bar"><strong>天工</strong><button id="deskCatalog" type="button">全部工具 <span aria-hidden="true">↗</span></button></header>
+  <header class="desk-bar"><strong>天工</strong><div class="desk-actions">
+    <button id="deskWheel" type="button" aria-haspopup="dialog" aria-controls="workspaceWheel" disabled><span class="wheel-icon" aria-hidden="true"></span>转盘</button>
+    <button id="deskCatalog" type="button">全部工具 <span aria-hidden="true">↗</span></button>
+  </div></header>
   <div class="desk-scroll" id="deskScroll">
     <div class="desk-heading"><h1>我的工作区</h1><time id="deskDate"></time></div>
     <div class="desk-tabs" role="tablist" aria-label="工作区">
@@ -17,7 +20,7 @@
 <canvas id="skyRipple" aria-hidden="true"></canvas>
 <div class="meteor-field" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <header class="home-top">
- <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.5.1</span></div>
+ <div class="home-brand" id="homeBrand"><div><strong>天工</strong><span class="brandsub">随身学习工作台</span></div><span class="brandver">0.5.2</span></div>
  <button id="landingBack" class="home-return" type="button" hidden>‹ 返回刚才的工作</button>
 </header>
 <div id="starStage" aria-label="星穹首页">
@@ -733,6 +736,34 @@
  <p id="searchMeta" class="hint"></p>
  <div id="searchResults" class="search-results" aria-label="搜索结果"></div>
  <div class="dialogactions template-actions"><button id="searchClose" type="button" class="primary">关闭</button></div>
+</dialog>
+<dialog id="workspaceWheel" aria-labelledby="wheelTitle" aria-describedby="wheelHint">
+ <div class="wheel-frame">
+  <button id="wheelClose" type="button" aria-label="关闭转盘">×</button>
+  <div class="wheel-copy">
+   <h2 id="wheelTitle">转盘导航</h2>
+   <p id="wheelHint">点按直达，左右滑动选区</p>
+   <p id="wheelDescription" aria-live="polite"></p>
+  </div>
+  <div id="wheelStage" class="wheel-stage">
+   <div class="wheel-rotor">
+    <button class="wheel-option" type="button" data-destination="study" data-description="接着复习、做实验或记笔记">
+     <span aria-hidden="true">◇</span><strong>学习</strong>
+    </button>
+    <button class="wheel-option" type="button" data-destination="code" data-description="打开草稿，编辑和运行代码">
+     <span aria-hidden="true">&lt;/&gt;</span><strong>编程</strong>
+    </button>
+    <button class="wheel-option" type="button" data-destination="tools" data-description="浏览星穹和全部工具">
+     <span aria-hidden="true">▦</span><strong>工具</strong>
+    </button>
+    <button class="wheel-option" type="button" data-destination="game" data-description="前往《星火远征》的游戏大厅">
+     <span aria-hidden="true">✦</span><strong>游戏</strong>
+    </button>
+   </div>
+   <span class="wheel-index" aria-hidden="true"></span>
+   <button id="wheelEnter" type="button" autofocus><span>进入</span><strong id="wheelDestination">学习</strong></button>
+  </div>
+ </div>
 </dialog>
 <dialog id="quizDialog" class="quiz-dialog" aria-labelledby="quizTitle">
  <header class="quiz-head"><div><span class="eyebrow">笔记</span><h2 id="quizTitle">生成练习题</h2></div><button id="quizClose" class="quiz-close" type="button" aria-label="关闭">✕</button></header>
