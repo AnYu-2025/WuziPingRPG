@@ -276,81 +276,38 @@ dialog.menu::before{content:"";display:block;width:38px;height:4px;border-radius
   dialog.menu{position:fixed;inset:56px 8px auto auto;margin:0;width:340px}
 }
 
-/* home hub: grouped modules, one tap in, back returns here */
-#landing{
-  position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;
-  background:radial-gradient(120% 60% at 0% 0%,#dff2ea 0%,rgba(223,242,234,0) 60%),linear-gradient(180deg,#f3f8f5 0%,#f6f7f4 50%,#eef2ef 100%);
-  color:var(--text);overflow:hidden;font-family:var(--ui-font);
-  transition:opacity .28s ease;
+/* The workspace and tools directory share a single full-screen layer. */
+#landing {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  overflow: hidden;
+  background: var(--bg);
+  transition: opacity .28s ease;
 }
-#landing.landing-out{opacity:0;pointer-events:none}
-.home-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;flex-wrap:wrap;padding:calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 6px calc(16px + env(safe-area-inset-left))}
-.home-brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto}
-.home-brand strong{display:block;font-size:18px;font-weight:700;letter-spacing:.08em;color:var(--text-strong);line-height:1.1}
-.brandsub{display:block;margin-top:2px;font-size:11px;letter-spacing:.12em;color:var(--muted)}
-.brandspark{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:12px;background:linear-gradient(145deg,#14967a,#0f766e);color:#fff;font-size:16px;box-shadow:0 8px 18px rgba(15,118,110,.22);flex:none}
-.brandver{flex:none;font-size:11px;letter-spacing:.04em;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:#fff}
-.home-return{flex:none;min-height:36px;height:36px;padding:0 12px;border-radius:999px;border:1px solid #b7d7cc;background:#fff;color:var(--accent-strong);font-size:12.5px;font-weight:650;box-shadow:0 4px 12px rgba(15,79,69,.08)}
-.home-scroll{flex:1;min-height:0;overflow:auto;padding:4px calc(16px + env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
-.home-hero{margin:0 0 14px}
-.home-status{display:inline-flex;align-items:center;gap:7px;margin:4px 0 10px;padding:4px 10px 4px 8px;border-radius:999px;background:rgba(255,255,255,.85);border:1px solid var(--line);font-size:12px;color:var(--muted)}
-.status-dot{width:7px;height:7px;border-radius:50%;background:#d97706}
-#landing[data-ready="1"] .status-dot{background:var(--accent)}
-#landing[data-ready="0"] .status-dot{animation:status-pulse 1.15s ease-in-out infinite}
-@keyframes status-pulse{0%,100%{opacity:1}50%{opacity:.35}}
-.home-scroll h1{margin:0;font-size:28px;line-height:1.22;font-weight:700;letter-spacing:0;color:var(--text-strong)}
-.home-lead{margin:8px 0 0;font-size:13.5px;line-height:1.7;color:var(--muted)}
-.home-resume{width:100%;min-height:72px;margin:0 0 18px;padding:12px 14px;border-radius:18px;display:flex;align-items:center;justify-content:flex-start;gap:12px;text-align:left;white-space:normal;background:linear-gradient(135deg,#14685c,#0f4f45);color:#f4fffb;box-shadow:0 12px 26px rgba(15,79,69,.2)}
-.home-resume:disabled{opacity:.55}
-.home-resume:not(:disabled):active{transform:translateY(1px);background:linear-gradient(135deg,#115a50,#0c443b)}
-.home-resume-icon{flex:none;width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.14);font-size:17px;font-weight:700}
-.home-resume-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-.home-kicker{font-size:11px;letter-spacing:.06em;opacity:.78}
-.home-resume strong{font-size:17px;font-weight:700;line-height:1.3}
-.home-resume small{font-size:12px;line-height:1.45;opacity:.86;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.home-resume-go{flex:none;font-size:26px;line-height:1;opacity:.7}
-.home-group{margin:0 0 22px}
-.home-ghead{display:flex;align-items:baseline;gap:8px;margin:0 2px 10px}
-.home-ghead h2{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--text-strong)}
-.home-ghead span{font-size:11.5px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.home-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.home-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.home-card{width:100%;min-width:0;min-height:112px;padding:14px;border-radius:var(--radius-lg);display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:10px;text-align:left;white-space:normal;background:var(--surface);border:1px solid var(--line);box-shadow:var(--elev-1);transition:background-color .16s ease,border-color .16s ease,transform .12s ease,box-shadow .16s ease}
-.home-card:disabled{opacity:.48}
-.home-card:not(:disabled):active{background:var(--accent-soft);border-color:#b7d7cc;transform:translateY(1px)}
-.home-card[data-unavailable="1"]{background:#fafbfa}
-.home-card[data-unavailable="1"] .home-icon{filter:grayscale(.6);opacity:.75}
-.home-cardtop{display:flex;align-items:center;justify-content:space-between;gap:6px}
-.home-tag{flex:none;font-size:10.5px;letter-spacing:.06em;padding:2px 7px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted)}
-.home-card[data-kind="native"] .home-tag::after{content:" ↗";color:var(--faint)}
-/* A lone third card spans the row so groups of three look deliberate. */
-.home-grid>.home-card:nth-child(3):last-child{grid-column:1/-1;min-height:72px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"icon copy tag";align-items:center;gap:12px}
-.home-grid>.home-card:nth-child(3):last-child .home-cardtop{display:contents}
-.home-grid>.home-card:nth-child(3):last-child .home-icon{grid-area:icon}
-.home-grid>.home-card:nth-child(3):last-child .home-tag{grid-area:tag;align-self:start}
-.home-grid>.home-card:nth-child(3):last-child .home-copy{grid-area:copy}
-.home-icon{flex:none;width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent-strong);font-weight:700;font-size:14px}
-.home-card[data-mode="notepad"] .home-icon{background:#e8f1ff;color:#1d4ed8;font-size:17px}
-.home-card[data-mode="ai"] .home-icon{background:#f3e8ff;color:#6d28d9;font-size:18px}
-.home-card[data-mode="lecture"] .home-icon{background:#ffe8ee;color:#be123c;font-size:17px}
-.home-card[data-mode="tts"] .home-icon{background:#e6fffb;color:#0f766e;font-size:12px}
-.home-card[data-mode="game"] .home-icon{background:#fff6e0;color:#b45309;font-size:18px}
-.home-card[data-mode="scan"] .home-icon{background:#e9eefb;color:#3446a8;font-size:19px}
-.home-card[data-mode="photo"] .home-icon{background:#fdeee3;color:#c2410c;font-size:19px}
-.home-copy{min-width:0;display:flex;flex-direction:column;gap:2px}
-.home-copy strong{font-size:15px;font-weight:600;line-height:1.3;color:var(--text-strong)}
-.home-copy small{font-size:12px;line-height:1.55;color:var(--muted);white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.home-foot{margin:4px 2px 8px;font-size:12px;line-height:1.65;color:var(--faint)}
-
-/* module app bars share one "‹ 首页" control at the top-left */
-.homeback{flex:none;height:36px;min-height:36px;padding:0 10px 0 6px;gap:2px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--accent-strong);font-size:12.5px;font-weight:650}
-.homeback-chev{font-size:20px;line-height:1;margin-top:-2px}
-.homeback:active{background:var(--accent-soft)}
-body.notepad .appbar .homeback{border-color:#e5ddd0;background:#fffaf0;color:#8b7355}
-@media(max-width:380px){
-  .homeback{padding:0 8px 0 6px}
-  .homeback-label{display:none}
+#landing.landing-out { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { #landing { transition: none; } }
+.homeback {
+  flex: none;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
 }
+.homeback-chev {
+  width: 11px;
+  height: 11px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateX(2px) rotate(45deg);
+}
+.homeback:active { background: var(--accent-soft); }
+.settings-version { margin: -10px 0 14px; font-size: 12px; color: var(--muted); }
 
 /* notepad: warm paper surface */
 #noteEmpty{display:none;position:absolute;z-index:3;left:18px;right:18px;top:22px;max-width:28rem;pointer-events:none;padding:14px 16px;border:1px dashed var(--line-strong);border-radius:16px;background:var(--surface-2);font:15px/1.7 var(--ui-font);color:var(--faint)}
@@ -414,109 +371,6 @@ body.notepad .mdtoggle[aria-pressed="true"]{background:#f0e6cf;border-color:#b08
 .md-preview blockquote{margin:.8em 0;padding:.4em 1em;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0;color:var(--muted)}
 .md-preview hr{border:0;border-top:1px solid var(--line);margin:1.2em 0}
 .md-preview a{color:var(--accent-strong)}
-
-@media(max-width:359px){
-  .brandsub{display:none}
-  .home-scroll h1{font-size:22px}
-  .home-card{padding:10px}
-  .home-resume{padding-left:10px;padding-right:10px}
-  .brandspark{width:28px;height:28px;border-radius:9px;font-size:14px}
-  .home-copy small{-webkit-line-clamp:3}
-}
-@media(max-height:640px){
-  .home-lead{display:none}
-  .home-scroll h1{font-size:21px;line-height:1.15}
-  .home-hero{margin-bottom:10px}
-  .home-status{margin-bottom:6px}
-  .home-resume{min-height:58px;margin-bottom:10px;padding:9px 12px}
-  .home-resume-icon{width:34px;height:34px}
-  .home-resume strong{font-size:15.5px}
-  .home-card{min-height:92px;padding:10px;gap:6px}
-  .home-icon{width:34px;height:34px}
-  .home-group{margin-bottom:10px}
-}
-@media(max-height:420px){
-  .home-top{padding-top:calc(6px + env(safe-area-inset-top));padding-bottom:4px}
-  .home-scroll h1{font-size:18px}
-  .home-grid,.home-list{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-  .home-grid>.home-card:nth-child(3):last-child{grid-column:auto;display:flex;flex-direction:column;align-items:stretch;min-height:0}
-  .home-grid>.home-card:nth-child(3):last-child .home-cardtop{display:flex;flex-direction:row}
-  .home-card{min-height:0;padding:8px 10px;gap:4px}
-  .home-copy small{display:none}
-  .home-icon{width:30px;height:30px;font-size:12px}
-  .home-foot{display:none}
-}
-@media(min-width:720px) and (min-height:421px){
-  .home-top,.home-scroll{width:min(100%,960px);margin:0 auto}
-  .home-grid,.home-list{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .home-grid>.home-card:nth-child(3):last-child{grid-column:auto;display:flex;flex-direction:column;align-items:stretch;min-height:112px}
-  .home-grid>.home-card:nth-child(3):last-child .home-cardtop{display:flex;flex-direction:row}
-  .home-scroll h1{font-size:32px}
-}
-@media(min-width:1100px) and (min-height:421px){
-  .home-scroll{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:16px;align-content:start}
-  .home-hero,.home-resume,.home-foot{grid-column:1/-1}
-  .home-grid,.home-list{grid-template-columns:1fr}
-}
-@media(prefers-reduced-motion:reduce){
-  #landing,#landing *{animation:none!important;transition:none!important}
-}
-
-/* Meteor glass home: the photo is bundled locally, and motion stays decorative. */
-#landing { isolation:isolate; background:#06121f; color:#edf8ff; }
-/* 天空底图不再常驻 filter:blur（弱机每帧重模糊整屏很贵）；
-   底图本身是柔焦夜空，去掉 3px 模糊观感几乎不变。漂移动画仅 transform。 */
-#landing::before { content:""; position:absolute; z-index:-2; inset:-18px; background:linear-gradient(180deg,rgba(3,12,27,.38),rgba(3,15,27,.62)),url("meteor-sky.webp") center center / cover no-repeat; animation:sky-drift 32s ease-in-out infinite alternate; pointer-events:none; will-change:transform; }
-#landing::after { content:""; position:absolute; z-index:-1; inset:0; background:radial-gradient(ellipse at 80% 15%,rgba(148,124,255,.16),transparent 45%),linear-gradient(180deg,transparent,rgba(4,14,27,.38)); pointer-events:none; }
-@keyframes sky-drift { from { transform:scale(1.04) translate3d(0,0,0); } to { transform:scale(1.1) translate3d(-1%,.5%,0); } }
-#landing .home-brand strong,#landing .home-scroll h1,#landing .home-ghead h2,#landing .home-copy strong { color:#f2fbff; text-shadow:0 1px 12px rgba(0,0,0,.38); }
-#landing .brandsub,#landing .home-lead,#landing .home-ghead span,#landing .home-copy small,#landing .home-foot { color:#c5d9e4; }
-#landing .brandver,#landing .home-status,#landing .home-return,#landing .home-tag { color:#cfe2f4; background:rgba(13,22,38,.62); border:1px solid rgba(148,190,233,.16); }
-/* 夜空首页卡片：低饱和深色面 + 细描边，无重投影，安静耐看。 */
-#landing .home-card { background:rgba(13,22,38,.74); border:1px solid rgba(148,190,233,.14); box-shadow:none; }
-#landing .home-card:not(:disabled):active { background:rgba(38,58,92,.85); border-color:rgba(148,190,233,.32); }
-#landing .home-card[data-unavailable="1"] { background:rgba(20,30,46,.55); }
-#landing .home-resume { border:1px solid rgba(148,190,233,.28); background:linear-gradient(120deg,rgba(30,58,92,.92),rgba(16,32,58,.94)); box-shadow:none; }
-#landing .home-icon { box-shadow:none; }
-@media(prefers-reduced-motion:reduce) { #landing::before { animation:none; } }
-/* 性能：星穹模式下黑洞画布自己就是背景，停掉流星场与天空底图模糊动画，
-   避免两套全屏动画叠加抢帧。 */
-body.starhome .meteor-field{display:none}
-body.starhome #landing::before{animation:none;filter:none}
-
-#landing .home-icon,#landing .home-card[data-mode] .home-icon { background:rgba(122,156,224,.16); color:#d7e4ff; }
-/* 夜空图标微色相：低饱和、可区分模块，不刺眼 */
-#landing .home-card[data-mode="notepad"] .home-icon{background:rgba(96,140,220,.16);color:#bcd3f7}
-#landing .home-card[data-mode="ai"] .home-icon{background:rgba(150,120,220,.15);color:#d6c8f5}
-#landing .home-card[data-mode="lecture"] .home-icon{background:rgba(220,110,140,.14);color:#f2c3cd}
-#landing .home-card[data-mode="tts"] .home-icon{background:rgba(90,190,170,.14);color:#bfe8de}
-#landing .home-card[data-mode="game"] .home-icon{background:rgba(220,160,80,.14);color:#f0d6ac}
-#landing .home-card[data-mode="scan"] .home-icon{background:rgba(110,130,220,.15);color:#c6d0f5}
-#landing .home-card[data-mode="photo"] .home-icon{background:rgba(220,130,80,.14);color:#f2cdb4}
-#landing .home-card[data-mode="cards"] .home-icon{background:rgba(99,217,164,.13);color:#bfe9d4}
-#landing .home-card[data-mode="medquiz"] .home-icon{background:rgba(96,165,250,.14);color:#c3d9f8}
-#landing .home-card[data-mode="focus"] .home-icon{background:rgba(248,113,113,.13);color:#f5c6c6}
-#landing .home-card[data-mode="habits"] .home-icon{background:rgba(74,222,128,.13);color:#c2ecca}
-#landing .home-card[data-mode="overview"] .home-icon{background:rgba(45,212,191,.13);color:#bfe8e2}
-#landing .home-card[data-mode="exams"] .home-icon{background:rgba(251,191,36,.13);color:#f2dcae}
-#landing .home-card[data-mode="medcalc"] .home-icon{background:rgba(56,189,248,.13);color:#bfe2f8}
-#landing .home-card[data-mode="mistakes"] .home-icon{background:rgba(251,146,60,.13);color:#f5d2b4}
-#landing .home-card[data-mode="schedule"] .home-icon{background:rgba(129,140,248,.14);color:#ccd2f8}
-#landing .home-card[data-mode="soundscape"] .home-icon{background:rgba(52,211,153,.13);color:#bfe9d4}
-#landing .home-card[data-mode="novel"] .home-icon{background:rgba(217,119,6,.14);color:#eed7ab}
-#landing .home-card[data-mode="model"] .home-icon{background:rgba(34,211,238,.13);color:#b9e9f8}
-#landing .home-card[data-mode="python"] .home-icon,#landing .home-card[data-mode="cpp"] .home-icon,#landing .home-card[data-mode="web"] .home-icon{background:rgba(148,163,184,.14);color:#d5dde8}
-#landing .status-dot,#landing[data-ready="1"] .status-dot { background:#bfacff; }
-
-.meteor-field { position:absolute; z-index:-1; inset:0; overflow:hidden; pointer-events:none; }
-.meteor-field i { position:absolute; top:-12%; width:150px; height:2px; opacity:0; border-radius:50%; transform:rotate(-35deg); background:linear-gradient(90deg,transparent,var(--meteor-color)); box-shadow:0 0 8px var(--meteor-color); animation:meteor-flight 7s linear infinite; }
-.meteor-field i:nth-child(1) { left:30%; --meteor-color:#ffd07a; animation-delay:0s; }
-.meteor-field i:nth-child(2) { left:80%; --meteor-color:#f49fff; animation-delay:1.8s; animation-duration:8s; }
-.meteor-field i:nth-child(3) { left:60%; --meteor-color:#9cbcff; animation-delay:4.2s; animation-duration:9s; }
-.meteor-field i:nth-child(4) { left:110%; --meteor-color:#ffadaf; animation-delay:2.7s; animation-duration:6.5s; }
-.meteor-field i:nth-child(5) { left:48%; --meteor-color:#f7f2ff; animation-delay:5.5s; animation-duration:8.5s; }
-@keyframes meteor-flight { 0%,8% { opacity:0; transform:translate3d(0,0,0) rotate(-35deg); } 10% { opacity:.8; } 24% { opacity:0; transform:translate3d(-42vw,34vh,0) rotate(-35deg); } 100% { opacity:0; transform:translate3d(-42vw,34vh,0) rotate(-35deg); } }
-@media(prefers-reduced-motion:reduce) { .meteor-field i { animation:none; } }
 
 /* 笔记模板与笔记出题：手机底部卡片，桌面居中对话框 */
 #templateDialog{width:min(480px,calc(100vw - 24px));padding:20px}
@@ -613,35 +467,6 @@ body.starhome #landing::before{animation:none;filter:none}
   .template-card{min-height:58px}
   .quiz-actions button{flex:1 1 100%}
 }
-
-/* Visible offline sky, with a safe opaque fallback and independent foreground layer. */
-#landing { background:#131634 url("meteor-sky.webp") center / cover no-repeat; isolation:isolate; }
-#landing::before { z-index:0; inset:-24px; background:linear-gradient(180deg,rgba(10,8,32,.14),rgba(10,8,32,.30)),url("meteor-sky.webp") center / cover no-repeat; filter:blur(3px); }
-#landing::after { z-index:0; background:linear-gradient(180deg,rgba(9,11,29,.08),rgba(9,11,29,.32)); }
-#landing .home-top,#landing .home-scroll { position:relative; z-index:2; }
-#landing .meteor-field { z-index:1; }
-#landing .meteor-field i { top:-5%; left:100%; width:clamp(120px,36vw,260px); height:3px; opacity:0; border-radius:50%; background:linear-gradient(90deg,var(--meteor-color),transparent 95%); box-shadow:0 0 8px 1px var(--meteor-color); transform:rotate(-37deg); animation:meteor-cross 5s linear infinite; }
-#landing .meteor-field i:nth-child(1) { left:30%; --meteor-color:#ffcf7a; animation-duration:4.5s; animation-delay:-2.2s; }
-#landing .meteor-field i:nth-child(2) { left:80%; --meteor-color:#f4a5ff; animation-duration:5.5s; animation-delay:-1s; }
-#landing .meteor-field i:nth-child(3) { left:120%; --meteor-color:#8fc0ff; animation-duration:4.2s; animation-delay:-3.1s; }
-#landing .meteor-field i:nth-child(4) { left:160%; --meteor-color:#ffadb9; animation-duration:6s; animation-delay:-4.3s; }
-#landing .meteor-field i:nth-child(5) { left:65%; --meteor-color:#f9edff; animation-duration:5s; animation-delay:-4s; }
-#landing .meteor-field i:nth-child(6) { left:140%; --meteor-color:#dbb1ff; animation-duration:4.8s; animation-delay:-2.7s; }
-#landing .meteor-field i:nth-child(7) { left:105%; --meteor-color:#ffd58f; animation-duration:5.7s; animation-delay:-.5s; }
-#landing .meteor-field i:nth-child(8) { left:180%; --meteor-color:#9bbaff; animation-duration:6.3s; animation-delay:-1.7s; }
-@keyframes meteor-cross { 0% { opacity:0; transform:translate3d(0,0,0) rotate(-37deg); } 5% { opacity:.9; } 70% { opacity:.8; } 80% { opacity:0; transform:translate3d(-130vw,105vh,0) rotate(-37deg); } 100% { opacity:0; transform:translate3d(-130vw,105vh,0) rotate(-37deg); } }
-@media(prefers-reduced-motion:reduce) { #landing .meteor-field i { animation:none; } }
-
-#skyRipple { position:absolute; inset:0; width:100%; height:100%; z-index:1; opacity:0; pointer-events:none; transition:opacity .4s; }
-#skyRipple.ready { opacity:1; }
-#landing .home-top,#landing .home-scroll { z-index:3; }
-/* 天空与流星统一由 #skyRipple 画布绘制（无缝周期，复位发生在不可见区间）。
-   画布就绪后关闭这里的 CSS 流星与重复天空层，避免两套动画叠加产生接缝。 */
-#landing:has(#skyRipple.ready) .meteor-field { display:none; }
-#landing:has(#skyRipple.ready)::before { animation:none; opacity:0; }
-/* 夜色与暗角已烘进画布，这里再叠一层只会让画面发灰、细节变糊。 */
-#landing:has(#skyRipple.ready)::after { opacity:0; }
-#landing:has(#skyRipple.ready) { background:#080b1e; }
 
 /* 专注番茄 */
 #focusPanel{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:var(--bg);overflow-y:auto}
@@ -785,18 +610,6 @@ body.habitsview .quickkeys,body.habitsview .statusbar #position{display:none}
 .pelican-pop{position:absolute;color:#0b3550;font-size:20px;font-weight:800;text-shadow:0 1px 0 rgba(255,255,255,.5);pointer-events:none;animation:pelican-pop .7s ease-out forwards}
 @keyframes pelican-pop{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-46px)}}
 body.pelicanview .quickkeys,body.pelicanview .statusbar{display:none}
-
-/* 今日条：首页直接告诉你下一节课 */
-.today-strip{display:flex;align-items:center;gap:12px;width:100%;margin-top:14px;padding:13px 14px;border-radius:var(--radius-lg);text-align:left;
-  background:rgba(13,22,38,.74);
-  border:1px solid rgba(148,190,233,.2);
-  box-shadow:none}
-.today-strip:active{transform:scale(.98)}
-.today-when{flex:none;font-size:11px;font-weight:700;color:#0b3550;background:rgba(214,232,255,.9);border-radius:999px;padding:5px 10px;letter-spacing:.02em}
-.today-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.today-copy strong{font-size:15px;color:#eaf4ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.today-copy small{font-size:12px;color:#a9c2dc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.today-go{flex:none;font-size:20px;color:#a9c2dc}
 
 /* 课程表 */
 #schedulePanel{flex:1;min-height:0;overflow-y:auto;background:var(--bg)}
@@ -1047,7 +860,7 @@ section[tabindex="-1"]:focus,section[tabindex="-1"]:focus-visible{outline:none}
 /* 减弱动效：全站装饰动画与过渡收敛（保留必要状态变化） */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
-  .meteor-field i,#landing::before,.pelican-pop{animation:none!important}
+  .pelican-pop{animation:none!important}
 }
 /* 小屏触控目标不小于 40px，滑杆拇指加大 */
 @media (pointer:coarse){
@@ -1081,10 +894,6 @@ section[tabindex="-1"]:focus,section[tabindex="-1"]:focus-visible{outline:none}
 @keyframes toast-out{from{opacity:1;transform:translateX(-50%) translateY(0)}to{opacity:0;transform:translateX(-50%) translateY(8px)}}
 #toast .toast-bar{position:absolute;left:0;bottom:0;height:3px;width:100%;background:#7fe0c3;transform-origin:left;animation:toast-bar linear forwards}
 @keyframes toast-bar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
-/* 首页卡片微交互 */
-.home-card{transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
-.home-card:not(:disabled):hover{transform:translateY(-1px);box-shadow:var(--elev-1)}
-.home-card:not(:disabled):active{transform:translateY(0) scale(.985)}
 /* 3D 视图开关按压态 */
 .model-chipbtn.active{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 /* 统一按压反馈（列表行/卡片） */
@@ -1093,7 +902,6 @@ section[tabindex="-1"]:focus,section[tabindex="-1"]:focus-visible{outline:none}
   .focus-ring .ring-fg,.mq-bar i,.novel-progress i{transition:none}
   #toast,#toast.toast-out{animation:none}
   #toast .toast-bar{animation:none;transform:scaleX(0)}
-  .home-card:not(:disabled):hover{transform:none}
   .empty-state .es-action:active{transform:none}
 }
 

@@ -66,6 +66,7 @@ module.exports = async function checkWorkspaceWheel(page, reloadSavedWorkspace) 
   await enter.click();
   await page.locator('#catalogHome').waitFor({state:'visible'});
   await page.locator('#catalogHome').click();
+  assert.equal(await focusedId(), 'deskWheel');
   await trigger.click();
   await option('game').click();
   await page.locator('#landing').waitFor({state:'hidden'});

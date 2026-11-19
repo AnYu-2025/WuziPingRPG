@@ -91,7 +91,7 @@ async function checkWorkspaces(page) {
   assert.equal(await code.getAttribute('aria-selected'), 'true', 'programming tab must survive reload');
 
   const oldFiles = await page.evaluate(() => window.Studio.getState().files.map(file => file.path));
-  await body.getByRole('button', {name: '新建 Python', exact: true}).click();
+  await desk.locator('#codeBody').getByRole('button', {name: '新建 Python', exact: true}).click();
   await page.locator('#landing').waitFor({state: 'hidden'});
   const draft = await page.evaluate(() => window.Studio.getState().active);
   assert(draft.endsWith('.py') && !oldFiles.includes(draft), 'create a new, independent Python file');
@@ -123,59 +123,63 @@ async function checkWorkspaces(page) {
 }
 
 async function checkHomeNavigation(page) {
-  const inList = () => page.evaluate(() => document.body.classList.contains('listview'));
   const back = () => page.evaluate(() => window.Studio.back());
   const focusedId = () => page.evaluate(() => document.activeElement.id);
   const home = page.locator('#landing');
-  const scroll = page.locator('#homeScroll');
-  await page.locator('#deskCatalog').click();
-  await page.locator('#catalogHome').waitFor({state: 'visible'});
-  assert(await page.evaluate(() => document.body.classList.contains('starhome')), 'WebGL star home must be available');
-  if (!await inList()) await page.locator('#starListBtn').click();
-  await scroll.evaluate(el => el.scrollTo(0, 0));
-  // The mobile scroll container used to snap past its own navigation button.
-  await page.locator('#homeSkyBtn').click({timeout: 5000});
-  assert.equal(await inList(), false);
+  const catalog = page.locator('#toolCatalog');
+  const opener = page.locator('#deskCatalog');
+  const returnButton = page.getByRole('button', {name: '返回工作区'});
+  const scroll = catalog;
 
-  const sheet = page.locator('#starHoleSheet');
-  for (const dismissal of ['close', 'escape', 'back']) {
-    await page.locator('#starHoleBtn').click();
-    await sheet.waitFor({state: 'visible'});
-    assert.equal(await focusedId(), 'starHoleClose');
-    if (dismissal === 'close') await page.locator('#starHoleClose').click();
-    if (dismissal === 'escape') await page.keyboard.press('Escape');
-    if (dismissal === 'back') assert.equal(await back(), true);
-    await sheet.waitFor({state: 'hidden'});
-    assert.equal(await focusedId(), 'starHoleBtn', 'restore focus on ' + dismissal);
+  await opener.click();
+  await returnButton.waitFor({state: 'visible'});
+  assert.equal(await focusedId(), 'deskCatalog');
+  assert.equal(await catalog.locator('.brandver, #starStage, #skyRipple, #resumeCard').count(), 0);
+
+  const viewport = page.viewportSize();
+  for (const size of [{width:320,height:570}, {width:360,height:720}, {width:760,height:360}, viewport]) {
+    await page.setViewportSize(size);
+    const bounds = await page.locator('#workspaceDesk').boundingBox();
+    const backBox = await returnButton.boundingBox();
+    const titleBox = await page.getByRole('heading', {name:'全部工具'}).boundingBox();
+    assert(backBox.x - bounds.x <= 16 && backBox.width >= 44 && backBox.height >= 44);
+    assert(backBox.x + backBox.width <= titleBox.x, 'the back button must not cover the title');
+    await returnButton.click({trial: true, timeout: 5000});
+    assert(await scroll.evaluate(el => el.scrollWidth <= el.clientWidth), 'the tools list must fit horizontally');
+    const tabBox = await opener.boundingBox();
+    assert(tabBox.y > size.height - 90 && tabBox.height >= 48, 'the tools tab must be reachable at the bottom');
+  }
+  await returnButton.click();
+  await returnButton.waitFor({state: 'hidden'});
+  assert.equal(await focusedId(), 'deskStudy');
+  for (const dismiss of [() => back(), () => page.keyboard.press('Escape')]) {
+    await opener.click();
+    await dismiss();
+    await returnButton.waitFor({state: 'hidden'});
   }
 
-  await page.locator('#starListBtn').click();
-  const moduleCard = page.locator('.home-card[data-mode="ai"]');
+  await opener.click();
+  const moduleCard = catalog.locator('.home-card[data-mode="ai"]');
   await moduleCard.scrollIntoViewIfNeeded();
-  // Playwright may finish scrolling the control into view as part of the click.
-  // Sample where the user actually entered the card, after that scroll.
   await moduleCard.evaluate(el => el.addEventListener('click', () => {
-    window.__scrollAtModuleEntry = document.querySelector('#homeScroll').scrollTop;
-  }, { capture: true, once: true }));
+    window.__scrollAtModuleEntry = document.querySelector('#toolCatalog').scrollTop;
+  }, {capture: true, once: true}));
   await moduleCard.click();
   const before = await page.evaluate(() => window.__scrollAtModuleEntry);
-  assert(before > 50, 'test must enter a module from below the first screen');
+  assert(before > 50, 'enter a tool from below the first screen');
   await home.waitFor({state: 'hidden'});
   await page.keyboard.press('Escape');
-  assert.equal(await home.isVisible(), false, 'Escape must leave the module open');
+  assert.equal(await home.isVisible(), false, 'Escape must leave the tool open');
   assert.equal(await back(), true);
-  await home.waitFor({state: 'visible'});
-  assert.equal(await inList(), true);
-  await page.waitForFunction(() => !document.querySelector('#homeScroll').classList.contains('fx-in'));
-  const position = await scroll.evaluate(el => ({top:el.scrollTop, max:el.scrollHeight-el.clientHeight}));
-  const after = position.top;
-  assert(Math.abs(Math.min(before, position.max) - after) <= 4, 'list position changed from ' + before + ' to ' + JSON.stringify(position));
-  assert.equal(await back(), true);
-  assert.equal(await inList(), false);
-  assert.equal(await back(), true, 'star-home root returns to workspaces');
-  await page.locator('#workspaceDesk').waitFor({state: 'visible'});
-  assert.equal(await back(), false, 'workspace root hands back to the native shell');
-  return {scrollBefore: before, scrollAfter: after};
+  await catalog.waitFor({state: 'visible'});
+  assert.equal(await page.evaluate(() => document.activeElement.dataset.mode), 'ai');
+  const after = await scroll.evaluate(el => el.scrollTop);
+  assert(Math.abs(before - after) <= 4, 'return should restore the directory scroll position');
+  assert.equal(await back(), true, 'the directory returns to the workspace');
+  await opener.waitFor({state: 'visible'});
+  assert.equal(await focusedId(), 'deskStudy');
+  assert.equal(await back(), false, 'the workspace returns control to Android');
+  return {scrollBefore: before, scrollAfter: after, screenSizes: 4};
 }
 
 async function checkFallbackCatalog(browser, url) {
@@ -191,7 +195,8 @@ async function checkFallbackCatalog(browser, url) {
     await page.waitForSelector('#landing[data-ready="1"]');
     await page.locator('#deskCatalog').click();
     await page.locator('.home-card[data-mode="python"]').waitFor({state: 'visible'});
-    assert.equal(await page.evaluate(() => document.body.classList.contains('starhome')), false);
+    assert.equal(await page.locator('#toolCatalog').isVisible(), true);
+    assert.equal(await page.locator('#toolCatalog canvas').count(), 0);
     await page.locator('#catalogHome').click();
     await page.locator('#workspaceDesk').waitFor({state: 'visible'});
     await page.locator('#deskCatalog').click();
@@ -212,8 +217,7 @@ async function browserCheck(root) {
   } catch (error) {
     throw new Error('Playwright is not installed; static check does not need it. ' + error.message);
   }
-  // Headless CI uses Chromium's software WebGL renderer for the star-home controls.
-  const browser = await playwright.chromium.launch({ args: ['--enable-unsafe-swiftshader'] });
+  const browser = await playwright.chromium.launch();
   const page = await browser.newPage({ viewport: { width: 412, height: 800 } });
   const errors = [];
   page.on('pageerror', (error) => errors.push(String(error)));
@@ -249,10 +253,11 @@ async function browserCheck(root) {
     const mistakeReview = await require('./tests/mistake-review.cjs')(page, reloadSavedWorkspace);
     const pythonLabs = await require('./tests/python-lab.cjs')(page, reloadSavedWorkspace);
     const workspaceWheel = await require('./tests/workspace-wheel.cjs')(page, reloadSavedWorkspace);
+    const mobilePages = await require('./tests/workspace-pages.cjs')(page);
     const navigation = await checkHomeNavigation(page);
     await checkFallbackCatalog(browser, url);
     if (errors.length) throw new Error(errors.join('\n'));
-    return { cards, browser: true, draft, pythonOutput, mistakeReview, pythonLabs, workspaceWheel, navigation, catalogWithoutWebGL: true, consoleErrors: errors, android_device_tested: false };
+    return { cards, browser: true, draft, pythonOutput, mistakeReview, pythonLabs, workspaceWheel, mobilePages, navigation, catalogWithoutWebGL: true, consoleErrors: errors, android_device_tested: false };
   } finally {
     await browser.close();
   }

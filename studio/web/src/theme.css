@@ -67,19 +67,6 @@ html[data-theme="dark"][data-accent="rose"]{
   --text:#f6e8ec;--text-strong:#fff7f8;--muted:#d2b4bc;--faint:#b08f98;--line:#3d3035;--line-strong:#544048;
 }
 
-/* 主题色跟着令牌走，不再锁死青绿 */
-html[data-theme] .brandspark{
-  background:linear-gradient(145deg,var(--accent),var(--accent-strong));
-  box-shadow:none;
-}
-html[data-theme="dark"] #landing .home-resume{
-  border:1px solid rgba(var(--accent-rgb),.3);
-  background:linear-gradient(120deg,rgba(var(--accent-rgb),.22),rgba(13,22,38,.9));
-}
-
-/* 首页是夜空：任何主题下都保留星空顶与流星，不做浅色纸面化。
-   工作区（编辑器/面板）仍跟随浅色/深色令牌。 */
-
 /* 深色工作区：把各模式写死的白纸收成同一套表面 */
 html[data-theme="dark"] body:not(.gameview) #workbench,
 html[data-theme="dark"] body:not(.gameview) .cm-gutters,
@@ -111,7 +98,6 @@ html[data-theme="dark"] body.notepad .appbar .doc small,
 html[data-theme="dark"] body.notepad .statusbar,
 html[data-theme="dark"] body.notepad #language{color:#e6d3b4}
 html[data-theme="dark"] body.notepad .statusbar{background:#1c1814;border-top-color:#3d3428}
-html[data-theme="dark"] body.notepad .appbar .homeback,
 html[data-theme="dark"] body.notepad .drawtoggle,
 html[data-theme="dark"] body.notepad .draw-tool,
 html[data-theme="dark"] body.notepad .draw-action{background:#2a241c;border-color:#4a3f30;color:#f0e2cc}
@@ -185,5 +171,5 @@ html[data-theme="dark"] .theme-choices button[data-value="ink"] .theme-swatch{ba
 html[data-theme="dark"] .theme-choices button[data-value="rose"] .theme-swatch{background:#e7a0ae}
 
 @media(prefers-reduced-motion:reduce){
-  button,.home-card,.theme-choices button{transition:none}
+  button,.theme-choices button{transition:none}
 }

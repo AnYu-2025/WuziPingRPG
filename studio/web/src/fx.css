@@ -131,8 +131,6 @@ html[data-fx="on"] .fx-stagger>*{animation:fx-rise .44s var(--fx-ease) both;anim
    旧版整屏 filter:blur 在弱机上是「点开功能卡一下」的主因，移除。 */
 html[data-fx="on"] #landing.landing-out{animation:fx-warp-out .32s cubic-bezier(.4,0,1,1) both}
 @keyframes fx-warp-out{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.07)}}
-html[data-fx="on"] #landing.fx-home-in{animation:fx-warp-in .46s var(--fx-ease) both}
-@keyframes fx-warp-in{0%{opacity:0;transform:scale(1.05)}100%{opacity:1;transform:scale(1)}}
 
 /* ---------- 常驻全息肌理 ---------- */
 /* 工作区坐标网格 */
@@ -276,16 +274,6 @@ html[data-theme="dark"][data-fx="on"] .focus-time,
 html[data-theme="dark"][data-fx="on"] .exam-days b,
 html[data-theme="dark"][data-fx="on"] .mq-score b{text-shadow:0 0 22px rgba(95,230,255,.35)}
 
-/* 卡片扫光：按下走一次 */
-html[data-fx="on"] .home-card{position:relative;overflow:hidden}
-html[data-fx="on"] .home-card::after{
-  content:"";position:absolute;top:0;bottom:0;width:40%;left:-48%;pointer-events:none;
-  background:linear-gradient(100deg,transparent,rgba(95,230,255,.22),rgba(255,255,255,.3),transparent);
-  transform:skewX(-14deg);opacity:0;
-}
-html[data-fx="on"] .home-card:not(:disabled):active::after{animation:fx-sweep .52s ease-out both}
-@keyframes fx-sweep{0%{left:-48%;opacity:0}18%{opacity:1}100%{left:118%;opacity:0}}
-
 /* 主操作呼吸边：只给真正的主动作，4.8s 一次 */
 html[data-fx="on"] #runButton:not(:disabled),
 html[data-fx="on"] #focusStart,
@@ -319,13 +307,10 @@ html[data-fx="on"] #fxBoot.fx-show{display:grid;animation:fx-boot-out .5s ease .
   html[data-fx="on"] .fx-in,
   html[data-fx="on"] .fx-stagger>*,
   html[data-fx="on"] #landing.landing-out,
-  html[data-fx="on"] #landing.fx-home-in,
   html[data-fx="on"] #runButton:not(:disabled),
   html[data-fx="on"] #focusStart,
   html[data-fx="on"] #mqStart,
-  html[data-fx="on"] #cardsStart,
-  html[data-fx="on"] .status-dot,
-  html[data-fx="on"] .home-card:not(:disabled):active::after{animation:none!important}
+  html[data-fx="on"] #cardsStart{animation:none!important}
   html[data-fx="on"] .fx-in{opacity:1;transform:none;clip-path:none}
   html[data-fx="on"] .fx-in::after{display:none}
   html[data-fx="on"] .fx-stagger>*{opacity:1;transform:none}

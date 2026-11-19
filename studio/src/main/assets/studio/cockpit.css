@@ -1,7 +1,7 @@
 /* 天工 · 星舰座舱设计系统（cockpit）
  * 统一「宇宙飞船」视觉：深空蓝底 + 青色全息光 + 细线刻度 + 等宽遥测。
  * 面板为 #xxxPanel（ID 优先级），故此处用 ID 选择器统一深空，杜绝浅深拼贴。
- * 首页 #landing 不在其列，保持自己的夜空语言。仅观感，不改功能。 */
+ * 首页 #landing 使用工作区自己的配色。 */
 :root{
   --cp-bg:#070b14;
   --cp-panel:#0c1322;
@@ -28,7 +28,8 @@
 }
 /* 顶栏：舰桥控制台（html 前缀压过 shell.css 的 body:not(.gameview)） */
 html body:not(.gameview) .appbar{background:rgba(12,19,34,.94);border:1px solid var(--cp-line)}
-html body:not(.gameview) .appbar .icon,html body:not(.gameview) .appbar .homeback{color:var(--cp-muted);background:transparent;border-color:var(--cp-line)}
+html body:not(.gameview) .appbar .icon{color:var(--cp-muted);background:transparent;border-color:var(--cp-line)}
+html body:not(.gameview) .appbar .homeback{color:var(--cp-text)}
 html body:not(.gameview) #activePath,html body:not(.gameview) .doc strong{color:var(--cp-text)}
 html body:not(.gameview) #saveButton,html body:not(.gameview) .appbar .saveicon{background:rgba(95,212,255,.08);border-color:var(--cp-line);color:var(--cp-text)}
 html body:not(.gameview) .statusbar{background:rgba(9,13,23,.94);border-top:1px solid var(--cp-line);color:var(--cp-muted)}

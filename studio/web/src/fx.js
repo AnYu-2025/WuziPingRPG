@@ -4,7 +4,7 @@
  * 界面行为与旧版一致。重复调用会取消上一次计时，不会叠加动画或泄漏定时器。 */
 
 const FX_KEY='ember-studio-fx-v1';
-let warpEl=null,bootEl=null,warpTimer=0,inTimer=0,bootTimer=0;
+let warpEl=null,bootEl=null,warpTimer=0,bootTimer=0;
 const inTargets=new Map();
 
 export function fxPreferred(){
@@ -99,18 +99,6 @@ export function hudMark(root){
   }
 }
 
-/* 首页进场 */
-export function homeIn(){
-  if(!fxEnabled())return;
-  const el=document.getElementById('landing');
-  if(!el)return;
-  clearTimeout(inTimer);
-  el.classList.remove('fx-home-in');
-  void el.offsetWidth;
-  el.classList.add('fx-home-in');
-  inTimer=setTimeout(()=>el.classList.remove('fx-home-in'),480);
-}
-
 /* 启动序列：短暂展示后自动移除，绝不阻塞交互（pointer-events:none）。 */
 export function bootSequence(){
   if(!fxEnabled())return;
@@ -135,10 +123,8 @@ export function bootSequence(){
 }
 
 export function clearFx(){
-  clearTimeout(warpTimer);clearTimeout(inTimer);clearTimeout(bootTimer);
+  clearTimeout(warpTimer);clearTimeout(bootTimer);
   if(warpEl)warpEl.classList.remove('fx-run');
-  const landing=document.getElementById('landing');
-  if(landing)landing.classList.remove('fx-home-in');
   for(const [el,t] of inTargets){clearTimeout(t);el.classList.remove('fx-in','fx-stagger');}
   inTargets.clear();
   if(bootEl){bootEl.classList.remove('fx-show');bootEl.remove();bootEl=null;}

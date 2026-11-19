@@ -100,7 +100,7 @@ module.exports = async function checkPythonLabs(page, reloadSavedWorkspace) {
   assert.match(await book.locator('summary').innerText(), /3\s*\/\s*3/);
 
   await page.locator('#deskCode').click();
-  await page.locator('#deskBody').getByRole('button', {name:new RegExp(collision.replace('.', '\\.'))}).click();
+  await page.locator('#codeBody').getByRole('button', {name:new RegExp(collision.replace('.', '\\.'))}).click();
   await page.locator('#landing').waitFor({state:'hidden'});
   assert.equal(await panel.isVisible(), false);
   assert.equal(await page.evaluate(() => window.Studio.view.state.doc.toString()), personalCode);

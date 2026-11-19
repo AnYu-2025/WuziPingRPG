@@ -27,8 +27,9 @@ REQUIRED = (
     "assets/studio/index.html",
     "assets/studio/app.js",
     "assets/studio/style.css",
+    "assets/studio/workspace.css",
+    "assets/studio/workspace-wheel.css",
     "assets/studio/meteor-sky.webp",
-    "assets/studio/sky-ripple.js",
     "assets/photo/index.html",
     "assets/studio/runtime/pyodide.js",
     "assets/audio/boss.wav",
@@ -71,8 +72,12 @@ def check_workspace_pages(version_name: str) -> None:
     kind = bytes_match(index, bundled)
     if kind is None:
         raise AssertionError("studio/web/src/index.html and assets/studio/index.html differ")
-    if f'class="brandver">{version_name}<'.encode() not in index:
-        raise AssertionError(f"index.html brand is not {version_name}")
+    if f'id="studioVersion">{version_name}<'.encode() not in index:
+        raise AssertionError(f"index.html settings version is not {version_name}")
+    if b'id="toolCatalog"' not in index or any(
+        token in index for token in (b'class="brandver"', b'id="starStage"', b'id="skyRipple"')
+    ):
+        raise AssertionError("index.html must use the tools directory without the old header and sky layers")
     copies = (
         ROOT / "studio/src/main/assets/studio/editor.page",
         ROOT / "studio/src/main/assets/editor.page",
@@ -171,8 +176,6 @@ def main(argv: list[str] | None = None) -> int:
             kind = bytes_match(html, source_html)
             if kind is None:
                 raise AssertionError("APK index.html differs from studio/web/src/index.html")
-            if version.version_name.encode() not in html or b"meteor-field" not in html or b"brandspark" in html:
-                raise AssertionError("APK index.html failed the version/marker check")
             for mode in MODES:
                 token = b'data-mode="' + mode + b'"'
                 if token not in html:

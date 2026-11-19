@@ -83,30 +83,28 @@ export function renderCodeDesk(container, {
   };
   const {personal, examples, recent} = codeDeskFiles(state, exampleFiles, lastCodePath);
   const candidate = recent || personal[0];
-  const feature = make('section', 'desk-feature');
+  const content = doc.createDocumentFragment();
   if (candidate) {
     const {file, language} = candidate;
-    feature.append(make('span', 'desk-kicker', recent ? '继续编程' : '工作区文件'),
+    const feature = make('section', 'desk-feature');
+    feature.append(make('span', 'desk-kicker', '继续编辑'),
       make('h2', 'desk-title', file.path),
       make('p', 'desk-detail', language + ' · ' + (examples.includes(candidate) ? '内置示例' : codeFileStatus(file))),
       button('desk-primary', '打开文件', () => openCodeFile(file.path)));
-  } else {
-    feature.append(make('span', 'desk-kicker', '编程工作区'), make('h2', 'desk-title', '写一个 Python 程序'),
-      make('p', 'desk-detail', '新文件保存在本机，可在编辑器中直接运行。'),
-      button('desk-primary', '新建 Python', () => newCodeFile('py')));
+    content.append(feature);
   }
 
   const actions = make('section', 'desk-section');
   actions.append(make('h3', 'desk-section-head', '文件操作'));
   const choices = make('div', 'desk-list');
   for (const extension of ['py', 'js', 'cpp']) {
-    if (!candidate && extension === 'py') continue;
     const name = languages.get(extension);
     choices.append(button('desk-row', '新建 ' + name, () => newCodeFile(extension)));
   }
   choices.append(button('desk-row', '从设备导入文件', importCodeFile),
     button('desk-row', '打开编辑器', openCode));
   actions.append(choices);
+  content.append(actions);
 
   const rows = (entries, sample) => {
     const list = make('div', 'desk-list');
@@ -122,12 +120,11 @@ export function renderCodeDesk(container, {
     }
     return list;
   };
-  const files = make('section', 'desk-section');
-  files.append(make('h3', 'desk-section-head', '我的代码文件'));
-  files.append(personal.length ? rows(personal, false) : make('p', 'desk-detail', '在这里查看新建和导入的代码文件。'));
-
-  const content = doc.createDocumentFragment();
-  content.append(feature, actions, files);
+  if (personal.length) {
+    const files = make('section', 'desk-section');
+    files.append(make('h3', 'desk-section-head', '代码文件'), rows(personal, false));
+    content.append(files);
+  }
   if (examples.length) {
     const samples = make('details', 'desk-section');
     samples.append(make('summary', 'desk-section-head', '内置示例 · ' + examples.length), rows(examples, true));

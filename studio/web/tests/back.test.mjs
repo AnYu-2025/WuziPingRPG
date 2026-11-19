@@ -104,22 +104,19 @@ test('cold-start home never falls through into a mode',()=>{
   assert.equal(run.state.mode,'');
 });
 
-test('home list is an in-app layer before exit',()=>{
-  assert.equal(resolveBack({homeOpen:true,homeListOpen:true}).action,BACK.HOME_LIST);
-  assert.equal(resolveBack({homeOpen:true,homeLayerOpen:true,homeListOpen:true}).action,BACK.HOME_LAYER);
-  const run=repeatBack({homeOpen:true,homeListOpen:true},3);
-  assert.deepEqual(run.trace,[BACK.HOME_LIST,BACK.EXIT,BACK.EXIT]);
-  assert.equal(run.state.homeListOpen,false);
+test('the tools directory returns to the workspace before exit',()=>{
+  const run=repeatBack({homeOpen:true,catalogOpen:true},3);
+  assert.deepEqual(run.trace,[BACK.CATALOG,BACK.EXIT,BACK.EXIT]);
+  assert.equal(run.state.catalogOpen,false);
 });
 
-test('module return preserves the home list view',()=>{
-  assert.equal(resolveBack({homeOpen:false,homeListOpen:true,mode:'python'}).action,BACK.HOME);
-  const first=stepBack({homeOpen:false,homeListOpen:true,mode:'python'});
+test('a tool first returns to the directory that opened it',()=>{
+  const first=stepBack({homeOpen:false,catalogOpen:true,mode:'python'});
   assert.equal(first.action,BACK.HOME);
-  assert.equal(first.state.homeListOpen,true);
+  assert.equal(first.state.catalogOpen,true);
   const second=stepBack(first.state);
-  assert.equal(second.action,BACK.HOME_LIST);
-  assert.equal(second.state.homeListOpen,false);
+  assert.equal(second.action,BACK.CATALOG);
+  assert.equal(second.state.catalogOpen,false);
 });
 
 test('stacked layers dismiss one at a time before home and exit',()=>{
@@ -173,15 +170,15 @@ test('the 3D model panel is a layer that closes before leaving the mode',()=>{
   assert.deepEqual(run.trace,[BACK.LAYER,BACK.HOME,BACK.EXIT]);
 });
 
-test('home layer and list steps only clear their own layer',()=>{
-  const layer=stepBack({homeOpen:true,homeLayerOpen:true,homeListOpen:true});
-  assert.equal(layer.action,BACK.HOME_LAYER);
-  assert.equal(layer.state.homeLayerOpen,false);
-  assert.equal(layer.state.homeListOpen,true);
-  const list=stepBack(layer.state);
-  assert.equal(list.action,BACK.HOME_LIST);
-  assert.equal(list.state.homeListOpen,false);
-  assert.equal(list.state.homeOpen,true);
+test('a dialog on top of the directory closes before the directory',()=>{
+  const dialog=stepBack({dialogOpen:true,homeOpen:true,catalogOpen:true});
+  assert.equal(dialog.action,BACK.DIALOG);
+  assert.equal(dialog.state.dialogOpen,false);
+  assert.equal(dialog.state.catalogOpen,true);
+  const catalog=stepBack(dialog.state);
+  assert.equal(catalog.action,BACK.CATALOG);
+  assert.equal(catalog.state.catalogOpen,false);
+  assert.equal(catalog.state.homeOpen,true);
 });
 
 test('Escape closes overlays but never navigates or exits',()=>{
@@ -192,8 +189,7 @@ test('Escape closes overlays but never navigates or exits',()=>{
     {searchOpen:true},
     {layers:['aiSettings'],mode:'ai'},
     {mode:'lecture',lectureTab:'timeline'},
-    {homeOpen:true,homeLayerOpen:true},
-    {homeOpen:true,homeListOpen:true}
+    {homeOpen:true,catalogOpen:true}
   ];
   for(const ctx of cases)assert.equal(resolveEscapeBack(ctx).action,resolveBack(ctx).action);
   assert.deepEqual(resolveEscapeBack({homeOpen:true}),{action:null,decision:{action:BACK.EXIT}});

@@ -2,6 +2,7 @@ import {PYTHON_LABS,normalizeLabProgress} from './python-lab.js';
 import {renderPythonLabPanel} from './python-lab-panel.js';
 import {renderStudyDesk} from './desk-study.js';
 import {bindWorkspaceWheel} from './workspace-wheel.js';
+import {bindWorkspacePages} from './workspace-pages.js';
 import {renderCodeDesk,createDeskDraft,cppRunScope} from './desk-code.js';
 import {EditorView,basicSetup} from 'codemirror';
 import {EditorState,Compartment} from '@codemirror/state';
@@ -22,14 +23,13 @@ import {initLecture,lectureExtensions,lectureSerialize,lectureSanitize,lectureAf
 import {initTTS,ttsExtensions,ttsSerialize,ttsSanitize,ttsAfterRestore,ttsModeEnter,ttsModeLeave,ttsHideBar,ttsShowBar,ttsDocumentChanged,ttsStatusText,ttsReceive,ttsDebug} from './tts.js';
 import {initDraw,ensureDrawUI,enterDrawMode,exitDrawMode,isDrawMode,getDrawStrokes,loadDrawStrokes,getDrawView,loadDrawView} from './draw.js';
 import {initAI,aiSerialize,aiSanitize,aiRestore,aiModeEnter,aiModeLeave,aiHidePanel,aiEnterPanel,aiStatusText,aiReceive,aiDebug} from './ai.js';
-import {BACK,resolveBack,resolveEscapeBack,canLeaveMode,resumeCard,exitCopy,unsavedOriginals,HOME_ACTIONS,HOME_ACTIONS as MODULES,moduleById,isNativeModule,moduleAvailability} from './back.js';
+import {BACK,resolveBack,resolveEscapeBack,canLeaveMode,exitCopy,HOME_ACTIONS,HOME_ACTIONS as MODULES,moduleById,isNativeModule,moduleAvailability} from './back.js';
 import {NOTE_TEMPLATES,templateById,templateFileName,sanitizeTemplateState,insertTemplate,noteTemplateAction,notepadTarget,isNotepadNotePath,shouldRememberCodePath} from './note-templates.js';
 import {createQuizRequester,quizAIAvailability,normalizeQuizCount,gradeQuiz,retryWrongQuiz,quizToMarkdown,quizFileName,QUIZ_TYPE_LABELS,QUIZ_NOTE_LIMIT} from './quiz.js';
 import {modelSanitize} from './model-data.js';
 import {init as initModel} from './model3d.js';
 import {readStoredTheme,sanitizeTheme,writeStoredTheme,themeFromSettings,applyTheme,themeColor} from './theme.js';
 import {starSanitize} from './star-data.js';
-import {init as initStar} from './star-home.js';
 import {splitLocations} from './error-loc.js';
 import {snippetsFor,snippetById} from './snippets.js';
 import {searchProject} from './project-search.js';
@@ -39,7 +39,7 @@ import {deckSanitize,addCard,removeCard,reviewCard,previewInterval,dueCards,deck
 import {importCards,importMistakes,exportCards,exportMistakes,updateCard,importSummary} from './transfer.js';
 import {SUBJECTS,MASTERY,CAUSES,bookSanitize,addMistake,updateMistake,setMastery,removeMistake,filterMistakes,bookStats,causeStats,recordQuizMistake,unfiledQuizMistakes,makeMistakeCard} from './mistakes.js';
 import {habitsSanitize,addHabit,removeHabit,isChecked,toggleCheck,currentStreak,bestStreak,totalChecks,lastNDaysChecks,habitsStats} from './habits.js';
-import {DAYS,PERIODS,COURSE_COLORS,scheduleSanitize,addCourse,updateCourse,removeCourse,coursesOnDay,nowInfo,currentStatus,fmtMin,weeksText} from './schedule.js';
+import {DAYS,PERIODS,COURSE_COLORS,scheduleSanitize,addCourse,updateCourse,removeCourse,coursesOnDay,nowInfo,currentStatus,fmtMin} from './schedule.js';
 import {splitChapters,shelfSanitize,novelSettingsSanitize,progressText} from './novel.js';
 import {QUIZ_SUBJECTS,bankCount,quizById,getBank,parseBankText,DIFF_LABELS} from './quiz-data.js';
 import {quizStatsSanitize,buildQuiz as mqBuild,answerQuiz as mqAnswerFn,nextQuiz as mqNextFn,prevQuiz as mqPrevFn,skipQuiz as mqSkipFn,gradeQuiz as mqGrade,accuracy as mqAccuracy,sessionSummary as mqSummary,displayOptions,chosenDisplay,toggleStar as mqToggleStar,sanitizeSession as mqSanitizeSession,sessionWrongList as mqWrongList} from './medquiz.js';
@@ -50,7 +50,7 @@ import {createSoundscapeAudio} from './soundscape-audio.js';
 import {createSoundscapeVisual} from './soundscape-visual.js';
 import {buildBackup,parseBackup,backupSummary} from './backup.js';
 import {studyLogSanitize,logStudy,dayCounts} from './study-log.js';
-import {fxBoot,setFx,fxEnabled,fxStored,fxPreferred,warp,materialize,hudMark,homeIn} from './fx.js';
+import {fxBoot,setFx,fxEnabled,fxStored,fxPreferred,warp,materialize,hudMark} from './fx.js';
 import {buildOverview} from './overview.js';
 import {radarPoints,radarPolygon} from './study-radar.js';
 import {init as initPelican} from './pelican3d.js';
@@ -981,11 +981,12 @@ window.addEventListener('pagehide',flush);document.addEventListener('visibilityc
 const onViewportChange=()=>{if((window.visualViewport?window.visualViewport.height:innerHeight)<520)setConsole(false);};
 window.addEventListener('resize',onViewportChange);if(window.visualViewport)window.visualViewport.addEventListener('resize',onViewportChange);
 /* Home is the root screen. A mode sits on top of it; back returns here. */
-const landing=$('landing'),landingBack=$('landingBack'),landingStatus=$('landingStatus');
-const homeCards=[...document.querySelectorAll('.home-card')];
+const landing = $('landing');
+const catalogScroll = $('toolCatalog');
+const homeCards = [...$('toolCatalog').querySelectorAll('.home-card')];
+let catalogFromWheel = false, catalogFocus = null, catalogScrollTop = 0;
 const MODE_KEY='ember-studio-mode';
 let deskKind='study';
-const deskPositions={study:0,code:0};
 const deskExamples=defaults().files;
 let labPanelView = null;
 
@@ -1049,23 +1050,14 @@ function updateDeskShortcut(){
     button.setAttribute('aria-label','切换到'+next);
   }
 }
-function renderDesk(){
-  const code=deskKind==='code';
-  $('workspaceDesk').dataset.workspace=deskKind;
-  for(const [id,selected] of [['deskStudy',!code],['deskCode',code]]){
-    const tab=$(id);
-    tab.setAttribute('aria-selected',String(selected));
-    tab.tabIndex=selected?0:-1;
-    tab.disabled=!ready;
-  }
-  $('deskCatalog').disabled=!ready;
-  $('deskWheel').disabled=!ready;
-  const pane=$('deskBody');
-  pane.setAttribute('aria-busy',String(!ready));
-  pane.setAttribute('aria-labelledby',code?'deskCode':'deskStudy');
-  $('deskDate').textContent=new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',weekday:'short'}).format(new Date());
-  if(!ready)return;
-  if(code)renderCodeDesk(pane,{state,exampleFiles:deskExamples,lastCodePath,
+function renderWorkspaces() {
+  if (!ready) return;
+  const study = $('studyDesk'), code = $('codeDesk');
+  const studyTop = study.scrollTop, codeTop = code.scrollTop;
+  const studyBody = $('deskBody'), codeBody = $('codeBody');
+  studyBody.setAttribute('aria-busy', 'false');
+  codeBody.setAttribute('aria-busy', 'false');
+  renderCodeDesk(codeBody,{state,exampleFiles:deskExamples,lastCodePath,
     openCode:()=>enterHomeMode('python'),
     openCodeFile:path=>{if(enterCodeDeskEditor())switchFile(path);},
     newCodeFile:ext=>{
@@ -1077,33 +1069,36 @@ function renderDesk(){
     },
     importCodeFile:()=>{if(enterCodeDeskEditor())$('openFile').click();}
   });
-  else renderStudyDesk(pane,{state,openMode:enterHomeMode,runStudyAction:runPlanAction,
+  renderStudyDesk(studyBody,{state,openMode:enterHomeMode,runStudyAction:runPlanAction,
     labProgress:state.pythonLabs,openLab:openPythonLab});
-  $('deskScroll').scrollTop=deskPositions[deskKind];
+  study.scrollTop = studyTop;
+  code.scrollTop = codeTop;
 }
 function enterCodeDeskEditor(){
   if(worker){notify('请先停止正在运行的程序。');return false;}
   enterHomeMode('python');
   return !landingOpen&&workspaceMode==='python';
 }
-function showDesk(kind){
-  const fromCatalog=landing.dataset.surface==='catalog';
-  if(!fromCatalog&&landingOpen)deskPositions[deskKind]=$('deskScroll').scrollTop;
-  if(starActive){starApi.leave();starActive=false;}
-  document.body.classList.remove('starhome','listview');
-  landing.dataset.surface='desk';
-  deskKind=kind==='code'?'code':'study';
-  if(!landingOpen)openLanding(true);
-  else renderDesk();
-  if(ready)flush();
-  $(deskKind==='code'?'deskCode':'deskStudy').focus({preventScroll:true});
+function updateWorkspacePage(page) {
+  const inCatalog = page === 'catalog';
+  landing.dataset.surface = inCatalog ? 'catalog' : 'desk';
+  $('workspaceTitle').textContent = {study: '学习', code: '编程', catalog: '全部工具'}[page];
+  $('catalogHome').hidden = !inCatalog;
+  catalogFromWheel = false;
+  if (!inCatalog && deskKind !== page) {
+    deskKind = page;
+    if (ready) flush();
+  }
 }
-function openDeskCatalog(){
-  if(!ready)return;
-  deskPositions[deskKind]=$('deskScroll').scrollTop;
-  landing.dataset.surface='catalog';
-  markLandingReady();
-  $('catalogHome').focus({preventScroll:true});
+function showDesk(kind) {
+  const fromModule = !landingOpen;
+  if (fromModule) openLanding(true);
+  workspacePages.open(kind, {animate: !fromModule, focus: true});
+}
+function closeDeskCatalog() {
+  const restoreWheelFocus = catalogFromWheel;
+  showDesk(deskKind);
+  if (restoreWheelFocus) $('deskWheel').focus({preventScroll:true});
 }
 function switchModuleDesk(){
   if(worker||lectureBusy()){
@@ -1112,72 +1107,38 @@ function switchModuleDesk(){
   }
   showDesk(workspaceMode==='python'?'study':'code');
 }
-on('deskStudy',()=>showDesk('study'));
-on('deskCode',()=>showDesk('code'));
-on('deskCatalog',openDeskCatalog);
+const workspacePages = bindWorkspacePages($('workspacePages'), $('workspaceTabs'), updateWorkspacePage);
 bindWorkspaceWheel($('workspaceWheel'), $('deskWheel'), () => deskKind, destination => {
-  if (destination === 'tools') openDeskCatalog();
-  else if (destination === 'game') enterHomeMode('game');
-  else showDesk(destination);
+  if (destination === 'tools') {
+    workspacePages.open('catalog', {focus: true});
+    catalogFromWheel = true;
+  } else if (destination === 'game') {
+    enterHomeMode('game');
+  } else {
+    showDesk(destination);
+  }
 });
-on('catalogHome',()=>showDesk(deskKind));
+on('catalogHome',closeDeskCatalog);
+on('deskSettings',()=>{applySettings();$('settingsDialog').showModal();});
 on('deskSwitch',switchModuleDesk);
 on('aiDeskSwitch',switchModuleDesk);
-$('workspaceDesk').querySelector('[role="tablist"]').addEventListener('keydown',event=>{
-  if(!ready||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
-  event.preventDefault();
-  const next=event.key==='Home'?'study':event.key==='End'?'code':deskKind==='code'?'study':'code';
-  showDesk(next);
-});
 const KNOWN_MODES=HOME_ACTIONS.map(item=>item.id);
-let landingOpen=true,landingTimer=0,selectedMode='',workspaceMode='python',lastCodePath='',lastTtsPath='',lastNotePath='',homeFromSession=false,lastOpened='',homeScrollTop=0;
+let landingOpen=true,landingTimer=0,selectedMode='',workspaceMode='python',lastCodePath='',lastTtsPath='',lastNotePath='',homeFromSession=false,lastOpened='';
 updateDeskShortcut();
 /* 原生侧在 ready 之后发 capabilities；浏览器预览里修图页可以直接打开，扫描需要相机。 */
 let moduleCaps={native,browserPhoto:!native,sdk:0};
 try{const savedMode=localStorage.getItem(MODE_KEY);if(KNOWN_MODES.includes(savedMode))selectedMode=savedMode;}catch(e){}
 function rememberedMode(){if(KNOWN_MODES.includes(lastOpened))return lastOpened;return homeFromSession&&KNOWN_MODES.includes(workspaceMode)?workspaceMode:selectedMode;}
-function refreshResume(){
-  const card=$('resumeCard'),title=$('resumeTitle'),detail=$('resumeDetail');
-  if(!card)return;
-  const mode=rememberedMode();
-  const known=KNOWN_MODES.includes(mode);
-  const info=resumeCard({mode:known?mode:'',activePath:state&&state.active,dirty:unsavedOriginals(state&&state.files).length,fromSession:homeFromSession});
-  card.hidden=!info.visible;
-  card.disabled=!ready;
-  if(title)title.textContent=info.title;
-  if(detail)detail.textContent=info.detail;
-  const icon=$('resumeIcon'),meta=moduleById(info.mode);if(icon&&meta)icon.textContent=meta.icon;
-  card.dataset.mode=info.mode||'';
-}
-function greet(){const h=new Date().getHours();return h<5?'夜深了，':h<11?'早上好，':h<13?'中午好，':h<18?'下午好，':'晚上好，';}
-function refreshHomeTitle(){const t=$('homeTitle');if(t)t.textContent=greet()+'今天做点什么';}
 function refreshAvailability(){for(const card of homeCards){const a=moduleAvailability(card.dataset.mode,moduleCaps);card.dataset.unavailable=a.ok?'0':'1';if(!a.ok)card.title=a.message;else card.removeAttribute('title');}}
-function setHomeEnabled(on){for(const card of homeCards)card.disabled=!on;const resume=$('resumeCard');if(resume)resume.disabled=!on;}
-function markLandingReady(){if(!landing)return;landing.dataset.ready='1';if(landingStatus)landingStatus.textContent='草稿已就绪';setHomeEnabled(true);refreshAvailability();refreshHomeTitle();refreshResume();
-  /* 星穹在首页可见时启动；WebGL 不可用则保持卡片。 */
-  /* 必须先让 #starStage 参与布局再 enter：否则量到 0 尺寸，
-     WebGL 画布被建成 1×1 再拉伸满屏，整页糊成一片浅色。 */
-  if(landing.dataset.surface==='desk'){renderDesk();return;}
-  if(!starActive&&landingOpen&&!landing.hidden){document.body.classList.add('starhome');starActive=starApi.enter();if(starActive){setStarView(!(state.star&&state.star.view==='sky'));}else{document.body.classList.remove('starhome');}}
+function markLandingReady() {
+  landing.dataset.ready = '1';
+  for (const card of homeCards) card.disabled = false;
+  for (const id of ['deskStudy', 'deskCode', 'deskCatalog', 'deskWheel', 'deskSettings']) $(id).disabled = false;
+  refreshAvailability();
+  renderWorkspaces();
+  workspacePages.open(landing.dataset.surface === 'catalog' ? 'catalog' : deskKind, {animate: false});
 }
-function hideLanding(){if(!landingOpen||!landing)return;if(starActive&&starApi)starApi.leave();if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model'&&modelApi)modelApi.enter();if(workspaceMode==='pelican'&&pelicanApi)pelicanApi.enter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&['python','notepad','lecture','tts'].includes(workspaceMode))view.focus();},fxEnabled()?310:280);}
-function homeHoleOpen(){return !!landingOpen&&!!starApi&&typeof starApi.holeOpen==='function'&&starApi.holeOpen();}
-function homeListLayerOpen(){return !!landingOpen&&starActive&&document.body.classList.contains('listview');}
-function closeHomeHole(){
-  const sheet=$('starHoleSheet');if(!sheet||sheet.hidden)return false;
-  const btn=$('starHoleBtn');
-  const target=btn&&btn.getClientRects().length?btn:document.querySelector('.home-card:not([disabled])')||document.body;
-  if(starApi&&typeof starApi.closeHole==='function')starApi.closeHole(false);else sheet.hidden=true;
-  if(target&&typeof target.focus==='function')target.focus({preventScroll:true});
-  return true;
-}
-function rememberHomeScroll(){
-  const scroll=$('homeScroll');
-  if(scroll&&scroll.clientHeight)homeScrollTop=scroll.scrollTop;
-}
-function resumeHomeSnap(){
-  $('homeScroll').classList.remove('restored-position');
-}
+function hideLanding(){if(!landingOpen||!landing)return;if(workspaceMode==='ai')aiEnterPanel();if(workspaceMode==='tts')ttsShowBar();if(workspaceMode==='model'&&modelApi)modelApi.enter();if(workspaceMode==='pelican'&&pelicanApi)pelicanApi.enter();landingOpen=false;landing.classList.add('landing-out');landing.setAttribute('aria-hidden','true');clearTimeout(landingTimer);landingTimer=setTimeout(()=>{if(landingOpen)return;landing.hidden=true;landing.classList.remove('landing-out');if(view&&['python','notepad','lecture','tts'].includes(workspaceMode))view.focus();},fxEnabled()?310:280);}
 function openLanding(reopen=false){
   if(!landing)return;
   if(reopen&&workspaceMode==='tts')ttsHideBar();
@@ -1189,51 +1150,12 @@ function openLanding(reopen=false){
   clearTimeout(landingTimer);
   landing.hidden=false;landing.classList.remove('landing-out');landing.removeAttribute('aria-hidden');
   landingOpen=true;homeFromSession=!!reopen;
-  if(landingBack){landingBack.hidden=!reopen;const meta=moduleById(workspaceMode);landingBack.textContent='‹ 回到'+(meta?meta.title:'刚才的工作');}
-  if(landingStatus)landingStatus.textContent=ready?'草稿已就绪':'正在读取草稿';
-  try{renderTodayStrip(currentStatus(state.schedule,schedInfo()));}catch(e){}
   if(reopen&&KNOWN_MODES.includes(workspaceMode)){selectedMode=workspaceMode;lastOpened=workspaceMode;}
-  refreshHomeTitle();refreshResume();
-  if(landing.dataset.surface==='desk'){renderDesk();return;}
-  if(starActive&&starApi)starApi.enter();
-  /* 回到首页：跃迁收束 + 卡片错峰浮现 */
-  if(reopen){
-    homeIn();materialize('homeScroll','.home-group');
-    const sc=$('homeScroll');
-    if(sc&&sc.clientHeight){
-      // Showing the resume card can move snap targets. Keep the saved position
-      // until the user scrolls again, including throughout the entrance animation.
-      sc.classList.add('restored-position');
-      sc.scrollTop=homeScrollTop;
-    }
-  }
-  initHomePages();
-}
-/* 滚动多主页：右侧页指示点随滚动高亮当前组，点按跳到对应组，
-   用上下滚动代替电脑式点击切换，更符合手机习惯。 */
-let homePagesBound=false;
-function initHomePages(){
-  const wrap=$('homePages'),sc=$('homeScroll');if(!wrap||!sc)return;
-  const groups=[...sc.querySelectorAll('.home-group')];
-  /* 只构建一次，避免重复绑定 scroll 监听导致高亮落在旧节点上。 */
-  if(!homePagesBound){
-    const dots=groups.map((g,i)=>{const d=document.createElement('button');d.type='button';d.className='home-page-dot';d.title=(g.querySelector('h2')||{}).textContent||('第'+(i+1)+'页');d.setAttribute('aria-label',d.title);d.onclick=()=>{resumeHomeSnap();g.scrollIntoView({behavior:'smooth',block:'start'});};wrap.append(d);return d;});
-    const setActive=()=>{
-      const mid=sc.scrollTop+sc.clientHeight*.4;let idx=0;
-      groups.forEach((g,i)=>{if(g.offsetTop<=mid)idx=i;});
-      dots.forEach((d,i)=>d.classList.toggle('on',i===idx));
-      wrap.hidden=document.body.classList.contains('starhome')&&!document.body.classList.contains('listview');
-    };
-    sc.addEventListener('scroll',()=>requestAnimationFrame(setActive),{passive:true});
-    sc.addEventListener('wheel',resumeHomeSnap,{passive:true});
-    sc.addEventListener('touchmove',resumeHomeSnap,{passive:true});
-    sc.addEventListener('keydown',event=>{
-      if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(event.key))resumeHomeSnap();
-    });
-    homePagesBound=true;
-    setActive();
-  }else{
-    wrap.hidden=document.body.classList.contains('starhome')&&!document.body.classList.contains('listview');
+  renderWorkspaces();
+  workspacePages.align();
+  if (landing.dataset.surface === 'catalog') {
+    catalogScroll.scrollTop = catalogScrollTop;
+    (catalogFocus || $('catalogHome')).focus({preventScroll:true});
   }
 }
 function setLectureTab(name){
@@ -1263,10 +1185,7 @@ function backContext(){
       drawing:isDrawMode()||document.body.classList.contains('drawing')||($('drawLayer')&&!$('drawLayer').hidden),
       searchOpen:!!(view&&view.dom&&view.dom.querySelector('.cm-search')),
       homeOpen:landingOpen,
-      homeLayerOpen:homeHoleOpen(),
-      /* WebGL unavailable: the list is the root, so it is not an in-app layer
-         and the HOME branch below falls through to the native exit prompt. */
-      homeListOpen:homeListLayerOpen(),
+      catalogOpen:landing.dataset.surface==='catalog',
       loungeOpen:!!$('lounge')&&!$('lounge').hidden,
       layers:moduleLayers(),
       mode:workspaceMode,
@@ -1279,11 +1198,8 @@ function applyBackDecision(decision,{openDialog=null,escape=false}={}){
     case BACK.DIALOG:
       if(openDialog)openDialog.close('cancel');
       return true;
-    case BACK.HOME_LAYER:
-      closeHomeHole();
-      return true;
-    case BACK.HOME_LIST:
-      setStarView(false,{persist:false});
+    case BACK.CATALOG:
+      closeDeskCatalog();
       return true;
     case BACK.DRAWER:
       document.body.classList.remove('drawer');
@@ -1310,7 +1226,6 @@ function applyBackDecision(decision,{openDialog=null,escape=false}={}){
       openLanding(true);
       return true;
     case BACK.EXIT:
-      if(landingOpen && landing.dataset.surface==='catalog'){showDesk(deskKind);return true;}
       if(escape)return false;
       flush();
       return false;
@@ -1584,7 +1499,6 @@ function openNativeModule(id){
   if(!a.ok){notify(a.message);return false;}
   flush();
   selectedMode=id;lastOpened=id;try{localStorage.setItem(MODE_KEY,id);}catch(e){}
-  refreshResume();
   if(native)send('openModule',{id});
   else if(id==='photo')location.href='../photo/index.html?from=studio';
   return true;
@@ -1593,13 +1507,11 @@ function nativeReturned(id){
   if(!isNativeModule(id))return;
   if(!landingOpen)openLanding(homeFromSession);
   lastOpened=id;selectedMode=id;
-  if(landingStatus)landingStatus.textContent='已从「'+moduleById(id).title+'」回到首页';
-  refreshResume();
+  catalogFocus?.focus({preventScroll:true});
 }
 function enterHomeMode(mode){
   if(!ready||!landingOpen||(mode!=='game'&&!KNOWN_MODES.includes(mode)))return;
-  if(landing.dataset.surface==='desk')deskPositions[deskKind]=$('deskScroll').scrollTop;
-  rememberHomeScroll();
+  if (landing.dataset.surface === 'catalog') catalogScrollTop = catalogScroll.scrollTop;
   if(isNativeModule(mode)){openNativeModule(mode);return;}
   /* Re-opening the mode already on screen is a cancel, not another applyMode. */
   if(homeFromSession&&mode===workspaceMode){hideLanding();return;}
@@ -1609,9 +1521,10 @@ function enterHomeMode(mode){
   }
   hideLanding();
 }
-for(const card of homeCards)card.addEventListener('click',()=>enterHomeMode(card.dataset.mode));
-const resume=$('resumeCard');if(resume)resume.addEventListener('click',()=>enterHomeMode(rememberedMode()));
-if(landingBack)landingBack.addEventListener('click',()=>{rememberHomeScroll();hideLanding();});
+for (const card of homeCards) card.addEventListener('click', () => {
+  catalogFocus = card;
+  enterHomeMode(card.dataset.mode);
+});
 on('homeButton',()=>{flush();openLanding(true);});
 on('aiHome',()=>{flush();openLanding(true);});
 on('aiSettingsToggle',()=>{const panel=$('aiPanel');setAISettings(!(panel&&panel.classList.contains('settings-open')));});
@@ -1668,7 +1581,7 @@ initTTS({
   activePath:()=>state.active
 });
 function bytesToBase64(bytes){let binary='';const chunk=0x8000;for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk));return btoa(binary);}
-/* 3D 与星穹渲染层静态初始化（IIFE 单文件打包，原生壳内联普通 script）。
+/* 3D 渲染层静态初始化（IIFE 单文件打包，原生壳内联普通 script）。
  * 设备 WebView 为现代 Chrome，three 可正常解析；初始化不依赖 WebGL，
  * 仅 enter() 时才创建渲染器，WebGL 不可用则降级。 */
 const modelApi=initModel({
@@ -1683,31 +1596,12 @@ const modelApi=initModel({
     else{const blob=new Blob([bytes],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('已导出 '+name);}
   }
 });
-const starApi=initStar({
-  notify,
-  modules:()=>MODULES,
-  open:id=>enterHomeMode(id),
-  getPrefs:()=>state.star||{starred:[],motion:true},
-  setPrefs:p=>{state.star=starSanitize(p,MODULES.map(m=>m.id));scheduleSave();},
-  showList:()=>setStarView(true)
-});
 const pelicanApi=initPelican({
   notify,
   getBest:()=>(state.pelican&&state.pelican.best)||0,
   setBest:b=>{state.pelican={best:b};scheduleSave();},
   onOver:(score,best)=>{notify('鹈鹕撞上了！得分 '+score+'，最佳 '+best+'。');}
 });
-/* 星穹首页：WebGL 可用时把功能做成恒星；不可用保留卡片列表。 */
-let starActive=false;
-function setStarView(list,{persist=true}={}){
-  document.body.classList.toggle('listview',!!list);
-  const sky=$('homeSkyBtn');if(sky)sky.hidden=!starActive||!list;
-  /* 记住用户选的视图，下次打开首页照旧。 */
-  if(persist&&state.star){state.star.view=list?'list':'sky';scheduleSave();}
-  initHomePages();
-}
-on('homeSkyBtn',()=>setStarView(false));
-
 /* ---------------- 专注番茄 ---------------- */
 function todayStr(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
 function renderFocus(){
@@ -2236,7 +2130,6 @@ function renderSchedule(){
       nowBox.textContent='这周还没排课，点「＋ 加课」开始。';
     }
   }
-  renderTodayStrip(st);
   /* 周网格 */
   const grid=$('schedGrid');if(!grid)return;
   grid.replaceChildren();
@@ -2268,21 +2161,6 @@ function renderSchedule(){
   }
   hudMark(document.querySelector('#schedulePanel'));
 }
-function renderTodayStrip(st){
-  const strip=$('todayStrip');if(!strip)return;
-  if(!st||(!st.now&&!st.next)){strip.hidden=true;return;}
-  strip.hidden=false;
-  const when=$('todayWhen'),name=$('todayName'),meta=$('todayMeta');
-  if(st.now){
-    when.textContent='正在上';name.textContent=st.now.name;
-    meta.textContent=(st.now.place||'')+(st.now.teacher?' · '+st.now.teacher:'')+' · '+weeksText(st.now);
-  }else{
-    const c=st.next.course;
-    when.textContent=st.next.deltaMin!=null?(st.next.deltaMin+'分钟后'):DAYS[st.next.day-1];
-    name.textContent=c.name;
-    meta.textContent=(c.place||'')+' · 第'+c.start+'节 · '+weeksText(c);
-  }
-}
 on('schedAddBtn',()=>schedOpenForm(null));
 on('schedCancel',()=>schedCloseForm());
 on('schedSave',()=>{
@@ -2300,8 +2178,7 @@ on('schedDelete',()=>{
   if(schedEditId){state.schedule=removeCourse(state.schedule,schedEditId);schedCloseForm();renderSchedule();scheduleSave();}
 });
 {const ts=$('schedTermStart');if(ts)ts.addEventListener('change',()=>{state.schedule={...scheduleSanitize(state.schedule),termStart:ts.value};renderSchedule();scheduleSave();});}
-{const strip=$('todayStrip');if(strip)strip.onclick=()=>applyMode('schedule');}
-setInterval(()=>{if(workspaceMode==='schedule')renderSchedule();else if(document.body.classList.contains('starhome')||document.body.classList.contains('listview'))renderTodayStrip(currentStatus(state.schedule,schedInfo()));},30000);
+setInterval(()=>{if(workspaceMode==='schedule')renderSchedule();},30000);
 
 /* 小说阅读器：书架 + 导入TXT + 分章 + 进度记忆 + 主题字号。正文存独立 localStorage 键。 */
 let novelChapters=[],novelBookId=null;

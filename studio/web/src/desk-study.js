@@ -16,7 +16,8 @@ export function renderStudyDesk(container, {state, openMode, runStudyAction, lab
     const icon = element('span', 'desk-mark', '›');
     icon.setAttribute('aria-hidden', 'true');
     const copy = element('span', 'desk-row-copy');
-    copy.append(element('strong', 'desk-row-title', title), element('small', 'desk-row-meta', detail));
+    copy.append(element('strong', 'desk-row-title', title));
+    if (detail) copy.append(element('small', 'desk-row-meta', detail));
     button.append(copy, icon);
     button.addEventListener('click', onClick);
     return button;
@@ -32,18 +33,9 @@ export function renderStudyDesk(container, {state, openMode, runStudyAction, lab
 
   const [primary, ...upNext] = summary.plan;
   const feature = element('section', 'desk-feature');
-  feature.append(element('p', 'desk-kicker', '今日学习'));
-  let title = '今天没有待办';
-  let detail = '可以查看学习记录，或从下方选择要继续的内容。';
-  if (primary) {
-    title = primary.title;
-    detail = primary.reason;
-    if (primary.id === 'seed') {
-      title = '开始一轮练习';
-      detail = '打开题库，答完可以查看解析并重练错题。';
-    }
-  }
-  feature.append(element('h2', 'desk-title', title), element('p', 'desk-detail', detail));
+  const title = primary?.id === 'seed' ? '今日练习' : (primary?.title || '今天没有待办');
+  feature.append(element('h2', 'desk-title', title));
+  if (primary && primary.id !== 'seed') feature.append(element('p', 'desk-detail', primary.reason));
   const start = element('button', 'desk-primary', primary ? primary.cta : '查看学习记录');
   start.type = 'button';
   start.addEventListener('click', () => primary ? runStudyAction(primary) : openMode('overview'));
@@ -52,15 +44,15 @@ export function renderStudyDesk(container, {state, openMode, runStudyAction, lab
   const today = summary.todayStudy;
   const progress = [
     row('记忆卡片', summary.cards.total
-      ? `${summary.cards.due} 张到期 · 今天已复习 ${today.cards} 张` : '添加第一张卡片', () => openMode('cards')),
+      ? `${summary.cards.due} 张到期 · 今天已复习 ${today.cards} 张` : '0 张', () => openMode('cards')),
     row('错题本', summary.mistakes.total
-      ? `${summary.tasks.mistakesOpen} 道待巩固 · 已掌握 ${summary.mistakes.mastered} 道` : '记下第一道错题', () => openMode('mistakes')),
+      ? `${summary.tasks.mistakesOpen} 道待巩固 · 已掌握 ${summary.mistakes.mastered} 道` : '0 道', () => openMode('mistakes')),
     row('学习记录', `今天答了 ${today.quiz} 题 · 完成 ${today.focus} 段专注`, () => openMode('overview')),
   ];
   const modules = [
-    row('课堂笔记', '记录课程与讲义', () => openMode('lecture')),
-    row('医学刷题', '按学科练习或重做错题', () => openMode('medquiz')),
-    row('专注计时', '安排一段学习时间', () => openMode('focus')),
+    row('课堂笔记', '录音、笔记和 PPT', () => openMode('lecture')),
+    row('医学刷题', '基础医学 8 科', () => openMode('medquiz')),
+    row('专注计时', '', () => openMode('focus')),
   ];
   const sections = [feature];
   if (openLab) {
@@ -73,7 +65,7 @@ export function renderStudyDesk(container, {state, openMode, runStudyAction, lab
     const list = element('div', 'desk-list');
     for (const lab of PYTHON_LABS) {
       const entry = labs[lab.id];
-      const status = entry?.hasRun ? '已运行 · 再试一次' : entry ? '继续' : '新学';
+      const status = entry?.hasRun ? '已运行' : entry ? '进行中' : '未开始';
       const button = row(lab.title, status, () => openLab(lab.id));
       button.dataset.labId = lab.id;
       list.append(button);
@@ -81,11 +73,11 @@ export function renderStudyDesk(container, {state, openMode, runStudyAction, lab
     book.append(heading, list);
     sections.push(book);
   }
-  sections.push(section('我的学习进度', progress));
+  sections.push(section('学习进度', progress));
   if (upNext.length) {
     sections.push(section('接下来', upNext.map(action =>
       row(action.title, action.reason, () => runStudyAction(action)))));
   }
-  sections.push(section('常用学习工具', modules));
+  sections.push(section('常用', modules));
   container.replaceChildren(...sections);
 }

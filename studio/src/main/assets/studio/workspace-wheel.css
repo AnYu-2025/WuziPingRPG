@@ -1,25 +1,3 @@
-#workspaceDesk .desk-actions {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-#workspaceDesk #deskWheel {
-  min-height: 44px;
-  padding: 0 10px;
-  background: var(--soft);
-  color: var(--ink);
-  border-radius: 10px;
-  gap: 7px;
-}
-#workspaceDesk #deskWheel .wheel-icon {
-  width: 16px;
-  height: 16px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  background: linear-gradient(currentColor, currentColor) center / 8px 1px no-repeat,
-              linear-gradient(currentColor, currentColor) center / 1px 8px no-repeat;
-}
-
 #workspaceWheel {
   --dial-size: min(306px, calc(100vw - 58px));
   width: calc(100% - 24px);

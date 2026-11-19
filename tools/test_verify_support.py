@@ -143,7 +143,7 @@ class Entrypoints(unittest.TestCase):
             f"当前整合版本为 {studio.version_name}（versionCode {studio.version_code}）",
             studio_readme,
         )
-        self.assertIn(f'class="brandver">{studio.version_name}<', index)
+        self.assertIn(f'id="studioVersion">{studio.version_name}<', index)
 
     def test_staged_web_tree_includes_photo_build(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -368,7 +368,7 @@ class PublishedPackages(unittest.TestCase):
 class StudioShell(unittest.TestCase):
     def test_packed_pages_scripts_and_styles(self):
         files = dict.fromkeys(PAGES, b"home\n")
-        files.update({"studio/app.js": b"start();\n", "studio/star-home.css": b".home{}\n"})
+        files.update({"studio/app.js": b"start();\n", "studio/workspace.css": b".home{}\n"})
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "studio").mkdir()
@@ -380,7 +380,7 @@ class StudioShell(unittest.TestCase):
                 ("stale fallback", {"studio/editor.page": b"stale"}),
                 ("stale root fallback", {"editor.page": b"stale"}),
                 ("stale bundle", {"studio/app.js": b"stale"}),
-                ("stale stylesheet", {"studio/star-home.css": b"stale"}),
+                ("stale stylesheet", {"studio/workspace.css": b"stale"}),
                 ("obsolete chunk", {"studio/chunk-00000000.js": b"unused"}),
                 ("missing bundle", {"studio/app.js": None}),
             ]
