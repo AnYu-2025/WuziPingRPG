@@ -4,7 +4,7 @@ export function bindWorkspacePages(viewport, tabList, onSelect) {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let current = 0;
   let touchActive = false;
-  let programmatic = false;
+  let userScroll = false;
   let alignedWidth = viewport.clientWidth;
   let settleTimer = 0;
 
@@ -38,7 +38,7 @@ export function bindWorkspacePages(viewport, tabList, onSelect) {
     clearTimeout(settleTimer);
     alignedWidth = viewport.clientWidth;
     if (!alignedWidth) return;
-    programmatic = true;
+    userScroll = false;
     viewport.scrollTo({left: alignedWidth * current, behavior});
     queueSettle();
   }
@@ -63,14 +63,13 @@ export function bindWorkspacePages(viewport, tabList, onSelect) {
       align();
       return;
     }
-    if (programmatic) {
-      if (Math.abs(viewport.scrollLeft - width * current) > 2) align();
-      else programmatic = false;
-      return;
+    // A layout snap or a focus change can also cause scrolling. Only a user gesture can select another page.
+    if (userScroll) {
+      userScroll = false;
+      const index = Math.max(0, Math.min(tabs.length - 1, Math.round(viewport.scrollLeft / width)));
+      select(index);
     }
-    const index = Math.max(0, Math.min(tabs.length - 1, Math.round(viewport.scrollLeft / width)));
-    select(index);
-    if (Math.abs(viewport.scrollLeft - index * width) > 2) align();
+    if (Math.abs(viewport.scrollLeft - current * width) > 2) align();
   }
 
   function queueSettle() {
@@ -82,10 +81,13 @@ export function bindWorkspacePages(viewport, tabList, onSelect) {
   viewport.addEventListener('scrollend', settle);
   viewport.addEventListener('touchstart', () => {
     touchActive = true;
-    programmatic = false;
+    userScroll = true;
   }, {passive: true});
   viewport.addEventListener('wheel', event => {
-    if (event.deltaX || event.shiftKey) programmatic = false;
+    if (event.deltaX || event.shiftKey) {
+      userScroll = true;
+      queueSettle();
+    }
   }, {passive: true});
   for (const type of ['touchend', 'touchcancel']) {
     viewport.addEventListener(type, event => {

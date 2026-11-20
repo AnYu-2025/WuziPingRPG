@@ -7,13 +7,25 @@ module.exports = async function checkWorkspacePages(page) {
   const pages = page.locator('#workspacePages');
   const study = page.locator('#studyDesk');
   const scrollTop = () => study.evaluate(el => el.scrollTop);
-  const waitForPage = index => page.waitForFunction(i => {
-    const viewport = document.getElementById('workspacePages');
-    const tabs = document.querySelectorAll('#workspaceTabs [role="tab"]');
-    return tabs[i].getAttribute('aria-selected') === 'true' &&
-      Math.abs(viewport.scrollLeft - viewport.clientWidth * i) <= 2;
-  }, index);
+  async function waitForPage(index) {
+    try {
+      await page.waitForFunction(i => {
+        const viewport = document.getElementById('workspacePages');
+        const tabs = document.querySelectorAll('#workspaceTabs [role="tab"]');
+        return tabs[i].getAttribute('aria-selected') === 'true' &&
+          Math.abs(viewport.scrollLeft - viewport.clientWidth * i) <= 2;
+      }, index, {timeout: 8000});
+    } catch (cause) {
+      const actual = await pages.evaluate(el => ({
+        tab: document.querySelector('#workspaceTabs [aria-selected="true"]')?.id,
+        left: el.scrollLeft,
+        width: el.clientWidth
+      }));
+      throw new Error('Workspace page ' + index + ' did not settle: ' + JSON.stringify(actual), {cause});
+    }
+  }
   await waitForPage(0);
+  await study.evaluate(el => { el.scrollTop = 0; });
 
   const touch = await page.context().newCDPSession(page);
   await touch.send('Emulation.setTouchEmulationEnabled', {enabled:true, maxTouchPoints:1});
@@ -21,16 +33,24 @@ module.exports = async function checkWorkspacePages(page) {
     const send = (type, touchPoints) => touch.send('Input.dispatchTouchEvent', {type, touchPoints});
     await send('touchStart', [from]);
     for (let i = 1; i <= 6; i++) {
+      // Give Chromium a frame per point so CDP doesn't coalesce a swipe into one move.
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve())));
       await send('touchMove', [{x:from.x + (to.x - from.x) * i / 6, y:from.y + (to.y - from.y) * i / 6}]);
     }
     await send('touchEnd', []);
   }
   try {
     const {x, y, width, height} = await pages.boundingBox();
-    const left = {x:x + 28, y:y + height/2};
-    const right = {x:x + width - 28, y:left.y};
+    const left = {x:x + 44, y:y + height/2};
+    const right = {x:x + width - 44, y:left.y};
+    await study.evaluate(el => {
+      window.__lastStudyScroll = performance.now();
+      el.addEventListener('scroll', () => { window.__lastStudyScroll = performance.now(); });
+    });
     await swipe({x:x + width/2, y:y + height - 40}, {x:x + width/2, y:y + 40});
-    await page.waitForFunction(() => document.getElementById('studyDesk').scrollTop > 35);
+    // Start the horizontal gesture after the vertical momentum has settled.
+    await page.waitForFunction(() => document.getElementById('studyDesk').scrollTop > 35 &&
+      performance.now() - window.__lastStudyScroll > 180, null, {timeout: 8000});
     await waitForPage(0);
     await swipe(right, left);
     await waitForPage(1);
